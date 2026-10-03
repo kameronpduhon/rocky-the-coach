@@ -37,6 +37,11 @@ export function Layout({ children }: { children: React.ReactNode }) {
         {children}
         <ScrollRestoration />
         <Scripts />
+        <script
+          dangerouslySetInnerHTML={{
+            __html: `if ("serviceWorker" in navigator) navigator.serviceWorker.register("/sw.js");`,
+          }}
+        />
       </body>
     </html>
   );

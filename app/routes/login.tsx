@@ -28,7 +28,7 @@ export default function Login({ actionData }: Route.ComponentProps) {
     <main className="mx-auto flex min-h-dvh max-w-sm flex-col justify-center px-6">
       <h1 className="text-[34px] font-bold">Rocky</h1>
       <p className="mt-1 text-label-2">Your plan, every day.</p>
-      <Form method="post" className="mt-8 flex flex-col gap-3">
+      <Form method="post" reloadDocument className="mt-8 flex flex-col gap-3">
         <label htmlFor="password" className="text-[13px] font-semibold text-label-2">
           Password
         </label>

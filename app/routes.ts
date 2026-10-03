@@ -11,5 +11,6 @@ export default [
     route("library", "routes/library.tsx"),
     route("settings", "routes/settings.tsx"),
     route("meal/:slug", "routes/meal.tsx"),
+    route("workout", "routes/workout.tsx"),
   ]),
 ] satisfies RouteConfig;

@@ -1,4 +1,4 @@
-import type { ReactNode } from "react";
+import type { ComponentProps, ReactNode } from "react";
 import { Link } from "react-router";
 
 export function Screen({ children }: { children: ReactNode }) {
@@ -17,8 +17,12 @@ export function LargeTitle({ eyebrow, title, right }: { eyebrow?: string; title:
   );
 }
 
-export function Card({ children, className = "" }: { children: ReactNode; className?: string }) {
-  return <section className={`rounded-[26px] bg-card ${className}`}>{children}</section>;
+export function Card({ children, className = "", ...rest }: ComponentProps<"section">) {
+  return (
+    <section {...rest} className={`rounded-[26px] bg-card ${className}`}>
+      {children}
+    </section>
+  );
 }
 
 export function SectionTitle({ children, right }: { children: ReactNode; right?: ReactNode }) {

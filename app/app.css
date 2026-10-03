@@ -15,6 +15,9 @@
   --color-calories: var(--calories);
   --color-protein: var(--protein);
   --color-steps: var(--steps);
+  --color-steps-text: var(--steps-text);
+  --color-label-on-fill: var(--label-on-fill);
+  --color-label-on-glass: var(--label-on-glass);
   --color-warn: var(--warn);
 }
 
@@ -28,4 +31,16 @@ body {
 
 .tabular {
   font-variant-numeric: tabular-nums;
+}
+
+@keyframes frame-swap {
+  0%, 45% { opacity: 0; }
+  50%, 95% { opacity: 1; }
+  100% { opacity: 0; }
+}
+.frame-b {
+  animation: frame-swap 3s infinite;
+}
+@media (prefers-reduced-motion: reduce) {
+  .frame-b { animation: none; }
 }

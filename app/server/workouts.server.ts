@@ -107,6 +107,7 @@ export interface ExerciseView {
   position: number;
   id: string;
   name: string;
+  equipment: string;
   images: [string, string];
   repMin: number;
   repMax: number;
@@ -115,7 +116,7 @@ export interface ExerciseView {
   swapped: boolean;
   last: LoggedSet[] | null;
   suggestion: Suggestion;
-  logged: { id: number; setNumber: number; weight: number; reps: number }[];
+  logged: { id: number; setNumber: number; weight: number; reps: number; loggedAt: string }[];
   done: boolean;
   /** Set once today's sets are done and every one hit the top of the range. */
   nextTime: number | null;
@@ -149,13 +150,14 @@ export async function workoutView(db: Db, date: ISODate, templateId: string): Pr
       const rule = { repMax: s.repMax, increment: s.exercise.increment, deload };
       const logged = todays
         .filter((l) => l.position === s.position && l.exerciseId === s.exercise.id)
-        .map((l) => ({ id: l.id, setNumber: l.setNumber, weight: l.weightLb, reps: l.reps }));
+        .map((l) => ({ id: l.id, setNumber: l.setNumber, weight: l.weightLb, reps: l.reps, loggedAt: l.loggedAt }));
       const done = logged.length >= sets;
       const after = done ? nextSuggestion(logged, rule) : null;
       return {
         position: s.position,
         id: s.exercise.id,
         name: s.exercise.name,
+        equipment: s.exercise.equipment,
         images: [exerciseImage(s.exercise, 0), exerciseImage(s.exercise, 1)],
         repMin: s.repMin,
         repMax: s.repMax,

@@ -58,6 +58,11 @@ describe("loadDay", () => {
     expect(day.nextSlot).toBe("lunch");
   });
 
+  it("does not count training days before the phase starts as missed", async () => {
+    const day = await loadDay(db(), "2026-10-06", chicago("2026-10-06", "10:00"));
+    expect(day.missedTwice).toBe(false);
+  });
+
   it("flags two missed training days in a row until a session happens", async () => {
     // Fri Oct 23 and Mon Oct 26 have no sets; Tue Oct 27 is today
     let day = await loadDay(db(), "2026-10-27", chicago("2026-10-27", "10:00"));

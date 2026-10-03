@@ -4,9 +4,9 @@ import type { Db } from "~/db/client";
 import { mealState, workoutSessions } from "~/db/schema";
 import { isOnPlan, streak as streakFrom } from "~/domain/adherence";
 import { dayMode, isRelaxedDay, isTrainingDay, optionalTemplateFor, setsFor, templateFor, weekNumber, weekType } from "~/domain/calendar";
-import { addDays, formatTime, localMinutes, parseTime } from "~/domain/dates";
+import { addDays, formatClock, localMinutes, parseTime } from "~/domain/dates";
 import type { DayMode, ISODate, Slot, WeekType } from "~/domain/types";
-import { stepsFor, weighInFor } from "./body.server";
+import { stepsFor, weighInEntry } from "./body.server";
 import { datesWithSets, dayResults } from "./history.server";
 import { plannedForDate } from "./meal-plan.server";
 import { logsForDate, type MealLog } from "./meals.server";
@@ -41,6 +41,7 @@ export interface DaySummary {
   totals: { kcal: number; proteinG: number };
   steps: number;
   weighIn: number | null;
+  weighInTime: string | null;
   slots: SlotView[];
   offPlan: MealLog[];
   offPlanDessert: boolean;
@@ -55,12 +56,12 @@ export interface DaySummary {
 }
 
 export async function loadDay(db: Db, date: ISODate, now: Date): Promise<DaySummary> {
-  const [targets, slots, logs, steps, weighIn, photos] = await Promise.all([
+  const [targets, slots, logs, steps, weighInRow, photos] = await Promise.all([
     targetsFor(db, date),
     plannedForDate(db, date),
     logsForDate(db, date),
     stepsFor(db, date),
-    weighInFor(db, date),
+    weighInEntry(db, date),
     db.select().from(mealState).all(),
   ]);
   const photoBySlug = new Map(photos.map((p) => [p.slug, p.photoKey]));
@@ -68,7 +69,7 @@ export async function loadDay(db: Db, date: ISODate, now: Date): Promise<DaySumm
   const slotViews: SlotView[] = slots.map((s) => {
     const minutes = parseTime(plan.slotTimes[s.slot]);
     const log = logs.find((l) => l.slot === s.slot && l.category === "planned");
-    return { slot: s.slot, time: formatTime(minutes), minutes, meal: s.meal, swapped: s.swapped, logId: log?.id ?? null, photoKey: photoBySlug.get(s.meal.slug) ?? null };
+    return { slot: s.slot, time: formatClock(minutes), minutes, meal: s.meal, swapped: s.swapped, logId: log?.id ?? null, photoKey: photoBySlug.get(s.meal.slug) ?? null };
   });
 
   const offPlan = logs.filter((l) => l.category !== "planned");
@@ -102,7 +103,8 @@ export async function loadDay(db: Db, date: ISODate, now: Date): Promise<DaySumm
     targets,
     totals,
     steps,
-    weighIn,
+    weighIn: weighInRow?.weightLb ?? null,
+    weighInTime: weighInRow ? formatClock(localMinutes(new Date(weighInRow.loggedAt))) : null,
     slots: slotViews,
     offPlan,
     offPlanDessert,
@@ -120,7 +122,7 @@ export async function loadDay(db: Db, date: ISODate, now: Date): Promise<DaySumm
 /** The last two training days before today both had no sets, and nothing was logged since the first of them. */
 function missedTwoInARow(today: ISODate, setDates: Set<ISODate>): boolean {
   const missed: ISODate[] = [];
-  for (let d = addDays(today, -1); missed.length < 2 && d >= addDays(today, -14); d = addDays(d, -1)) {
+  for (let d = addDays(today, -1); missed.length < 2 && d >= addDays(today, -14) && d >= plan.phaseStart; d = addDays(d, -1)) {
     if (!isTrainingDay(plan, d)) continue;
     if (setDates.has(d)) return false;
     missed.push(d);

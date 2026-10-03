@@ -64,6 +64,13 @@ export function formatTime(minutes: number): string {
   return m === 0 ? `${h}${suffix}` : `${h}:${String(m).padStart(2, '0')}${suffix}`;
 }
 
+/** Clock time that always shows minutes ("2:00pm"), for scheduled times shown in lists. */
+export function formatClock(minutes: number): string {
+  const h24 = Math.floor(minutes / 60);
+  const h = h24 % 12 === 0 ? 12 : h24 % 12;
+  return `${h}:${String(minutes % 60).padStart(2, '0')}${h24 >= 12 ? 'pm' : 'am'}`;
+}
+
 export function parseTime(hhmm: string): number {
   const [h, m] = hhmm.split(':').map(Number);
   return h * 60 + m;

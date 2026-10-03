@@ -7,7 +7,7 @@ import { env } from "cloudflare:workers";
  */
 export function serverNow(): Date {
   if (import.meta.env.DEV && import.meta.env.MODE === "development") {
-    const pinned = (env as { DEV_NOW?: string }).DEV_NOW;
+    const pinned = env.DEV_NOW;
     if (pinned) {
       const d = new Date(pinned);
       if (!Number.isNaN(d.getTime())) return d;

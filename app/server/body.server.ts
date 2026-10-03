@@ -14,6 +14,11 @@ export async function weighInFor(db: Db, date: ISODate): Promise<number | null> 
   return (await db.select().from(weighIns).where(eq(weighIns.date, date)).get())?.weightLb ?? null;
 }
 
+export async function weighInEntry(db: Db, date: ISODate): Promise<{ weightLb: number; loggedAt: string } | null> {
+  const row = await db.select().from(weighIns).where(eq(weighIns.date, date)).get();
+  return row ? { weightLb: row.weightLb, loggedAt: row.loggedAt } : null;
+}
+
 export async function latestWeighIn(db: Db): Promise<{ date: ISODate; weightLb: number } | null> {
   const row = await db.select().from(weighIns).orderBy(desc(weighIns.date)).get();
   return row ? { date: row.date, weightLb: row.weightLb } : null;

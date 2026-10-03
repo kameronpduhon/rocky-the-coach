@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { addDays, daysBetween, localDate, localMinutes, mealDate, weekStart, weekday } from '~/domain/dates';
+import { addDays, daysBetween, formatClock, localDate, localMinutes, mealDate, weekStart, weekday } from '~/domain/dates';
 
 describe('dates', () => {
   it('gives the Chicago calendar date, not the UTC one', () => {
@@ -37,5 +37,12 @@ describe('dates', () => {
     // 2026-10-04 06:30 UTC is 01:30 Chicago on Oct 4
     expect(mealDate(new Date('2026-10-04T06:30:00Z'))).toBe('2026-10-03');
     expect(mealDate(new Date('2026-10-04T13:00:00Z'))).toBe('2026-10-04');
+  });
+
+  it('formats clock times with minutes', () => {
+    expect(formatClock(14 * 60)).toBe('2:00pm');
+    expect(formatClock(7 * 60 + 12)).toBe('7:12am');
+    expect(formatClock(0)).toBe('12:00am');
+    expect(formatClock(12 * 60 + 5)).toBe('12:05pm');
   });
 });

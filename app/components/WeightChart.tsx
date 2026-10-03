@@ -9,6 +9,24 @@ const PLOT_H = 136;
 
 const label = (d: string) => new Date(`${d}T12:00:00Z`).toLocaleDateString("en-US", { month: "short", day: "numeric", timeZone: "UTC" });
 
+/**
+ * Whole-pound gridlines at the top and bottom of the plot, so every dot and the average line sit between
+ * labelled lines. The step doubles until there are at most 4 bands.
+ */
+export function yScale(min: number, max: number) {
+  let step = 1;
+  let lo = Math.floor(min - 0.1);
+  let hi = Math.ceil(max + 0.1);
+  while ((hi - lo) / step > 4) {
+    step *= 2;
+    lo = Math.floor(lo / step) * step;
+    hi = Math.ceil(hi / step) * step;
+  }
+  const ticks: number[] = [];
+  for (let t = hi; t >= lo; t -= step) ticks.push(t);
+  return { lo, hi, ticks };
+}
+
 export function WeightChart({ series }: { series: Point[] }) {
   // Draw in real pixels so labels keep their 11 px size on wide screens instead of scaling with the viewBox.
   const ref = useRef<HTMLDivElement>(null);
@@ -22,13 +40,9 @@ export function WeightChart({ series }: { series: Point[] }) {
   }, []);
   const values = series.flatMap((p) => [p.weight, p.avg]).filter((v): v is number => v !== null);
   if (values.length < 2) return <p className="py-8 text-center text-[15px] text-label-2">Weigh in a few days to see your trend.</p>;
-  const lo = Math.min(...values) - 0.3;
-  const hi = Math.max(...values) + 0.3;
+  const { lo, hi, ticks } = yScale(Math.min(...values), Math.max(...values));
   const x = (i: number) => LEFT + 5 + (i * (W - LEFT - 16)) / Math.max(1, series.length - 1);
   const y = (v: number) => TOP + ((hi - v) / (hi - lo)) * PLOT_H;
-  const step = Math.max(1, Math.ceil((Math.floor(hi) - Math.ceil(lo)) / 3));
-  const ticks: number[] = [];
-  for (let t = Math.floor(hi); t >= Math.ceil(lo); t -= step) ticks.push(t);
   const avgPoints = series
     .map((p, i) => (p.avg !== null ? `${x(i).toFixed(1)},${y(p.avg).toFixed(1)}` : null))
     .filter(Boolean)

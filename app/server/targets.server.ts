@@ -18,16 +18,31 @@ export function allTargets(db: Db): Promise<TargetRow[]> {
 }
 
 /** rows must be sorted by effectiveFrom ascending. */
-export function resolveTargets(rows: TargetRow[], date: ISODate): Targets {
+export function resolveBaseTargets(rows: TargetRow[], date: ISODate): Targets {
   let base: Targets = { ...plan.startingTargets };
   for (const r of rows) {
     if (r.effectiveFrom > date) break;
     base = { kcal: r.kcal, proteinG: r.proteinG, stepGoal: r.stepGoal };
   }
-  const kcal = weekType(plan, date) === "maintenance" ? plan.maintenanceKcal : base.kcal;
-  return { ...base, kcal };
+  return base;
+}
+
+export function resolveTargets(rows: TargetRow[], date: ISODate): Targets {
+  const base = resolveBaseTargets(rows, date);
+  return weekType(plan, date) === "maintenance" ? { ...base, kcal: plan.maintenanceKcal } : base;
 }
 
 export async function targetsFor(db: Db, date: ISODate): Promise<Targets> {
   return resolveTargets(await allTargets(db), date);
+}
+
+export async function baseTargetsFor(db: Db, date: ISODate): Promise<Targets> {
+  return resolveBaseTargets(await allTargets(db), date);
+}
+
+export async function setTargetsFrom(db: Db, effectiveFrom: ISODate, t: Targets): Promise<void> {
+  await db
+    .insert(targets)
+    .values({ effectiveFrom, kcal: t.kcal, proteinG: t.proteinG, stepGoal: t.stepGoal })
+    .onConflictDoUpdate({ target: targets.effectiveFrom, set: { kcal: t.kcal, proteinG: t.proteinG, stepGoal: t.stepGoal } });
 }

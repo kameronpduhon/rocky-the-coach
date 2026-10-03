@@ -20,4 +20,9 @@ describe("targetsFor", () => {
   it("eats at maintenance in the maintenance week", async () => {
     expect((await targetsFor(db(), "2026-12-22")).kcal).toBe(2800);
   });
+
+  it("reports base targets without the maintenance bump", async () => {
+    const { baseTargetsFor } = await import("~/server/targets.server");
+    expect((await baseTargetsFor(db(), "2026-12-22")).kcal).toBe(2250);
+  });
 });

@@ -380,7 +380,7 @@ function SetCard({ ex, sets, pending, onLog }: { ex: ExerciseView; sets: number;
                 className="tabular h-[50px] w-full rounded-[14px] bg-fill px-3.5 text-[19px] font-semibold text-label outline-none placeholder:text-label-on-fill focus:ring-2 focus:ring-label"
               />
             </label>
-            <button type="submit" aria-label={`Log set ${r.setNumber}`} className="glass flex size-[50px] items-center justify-center rounded-full text-label">
+            <button type="submit" aria-label={`Log set ${r.setNumber}`} className="btn-secondary flex size-[50px] items-center justify-center rounded-full">
               <Icon name="check" strokeWidth={3} />
             </button>
           </form>
@@ -395,7 +395,7 @@ function SetCard({ ex, sets, pending, onLog }: { ex: ExerciseView; sets: number;
               <span className="sr-only"> pounds planned</span>
             </div>
             <div className="flex h-[50px] items-center rounded-[14px] bg-fill px-3.5 text-[19px] font-semibold text-label-on-fill">reps</div>
-            <button type="button" disabled aria-label={`Log set ${r.setNumber}, after set ${r.setNumber - 1}`} className="glass flex size-[50px] items-center justify-center rounded-full text-label-2">
+            <button type="button" disabled aria-label={`Log set ${r.setNumber}, after set ${r.setNumber - 1}`} className="btn-secondary flex size-[50px] items-center justify-center rounded-full text-label-on-fill">
               <Icon name="check" strokeWidth={3} />
             </button>
           </div>

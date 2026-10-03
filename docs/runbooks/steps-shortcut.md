@@ -5,7 +5,7 @@ Sends today's step total to Rocky several times a day. Health data is encrypted 
 ## Build the Shortcut (Shortcuts app on the iPhone)
 
 1. New Shortcut, name it **Send steps to Rocky**.
-2. **Find Health Samples**: Type **Steps**, filter **Start Date is today**, **Group By Day**, Fill Missing off.
+2. **Find Health Samples**: Type **Steps**, filter **Start Date is today**, **Group By Day**, Fill Missing off. Do not filter by Source: the total should combine iPhone and Watch, and Group By Day is what merges them without double counting.
 3. **Get Item from List**: First Item.
 4. **Get Details of Health Sample**: **Value**.
 5. **Round Number** (Normal).

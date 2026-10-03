@@ -74,11 +74,11 @@ export default function Settings({ loaderData }: Route.ComponentProps) {
 
       <section aria-label="Steps from Apple Watch" className="flex flex-col gap-2">
         <SectionTitle>Steps from Apple Watch</SectionTitle>
-        <p className="px-1 text-[14px] leading-[1.4] text-label-2">A Shortcut sends your step total from the Health app four times a day. Set it up once in the Shortcuts app on your iPhone.</p>
+        <p className="px-1 text-[14px] leading-[1.4] text-label-2">A Shortcut sends today's combined iPhone and Watch step total four times a day. Set it up once in the Shortcuts app on your iPhone.</p>
         <Card className="p-[18px]">
           <ol className="flex flex-col gap-4 text-[15px] leading-[1.45] text-label-2">
             <Step n={1}>
-              New Shortcut named <span className="font-semibold text-label">Send steps to Rocky</span>. Add Find Health Samples: Steps, Start Date is today, Group By Day. Then Get Item from List (First Item), Get Details of Health Sample (Value), and Round Number.
+              New Shortcut named <span className="font-semibold text-label">Send steps to Rocky</span>. Add Find Health Samples: Steps, Start Date is today, Group By Day. Leave Source unfiltered; Group By Day merges iPhone and Watch without double counting. Then Get Item from List (First Item), Get Details of Health Sample (Value), and Round Number.
             </Step>
             <Step n={2}>Add Date (Current Date), then Format Date with the custom format yyyy-MM-dd.</Step>
             <Step n={3}>

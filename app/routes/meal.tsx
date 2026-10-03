@@ -142,10 +142,10 @@ export default function MealScreen({ loaderData }: Route.ComponentProps) {
           )}
           <h1 className="mt-0.5 text-[30px] font-bold leading-tight">{meal.name}</h1>
           <div className="tabular mt-3 flex gap-2">
-            <span className="flex h-[30px] items-center rounded-full px-3 text-[14px] font-semibold text-calories" style={{ background: "color-mix(in srgb, var(--calories) 16%, transparent)" }}>
+            <span className="flex h-[30px] items-center rounded-full px-3 text-[14px] font-semibold text-[var(--calories-chip-fg)] bg-[var(--calories-chip-bg)]">
               {meal.kcal} cal
             </span>
-            <span className="flex h-[30px] items-center rounded-full px-3 text-[14px] font-semibold text-protein" style={{ background: "color-mix(in srgb, var(--protein) 16%, transparent)" }}>
+            <span className="flex h-[30px] items-center rounded-full px-3 text-[14px] font-semibold text-[var(--protein-chip-fg)] bg-[var(--protein-chip-bg)]">
               {meal.protein} g protein
             </span>
             <span className="flex h-[30px] items-center rounded-full bg-card px-3 text-[14px] font-semibold text-label-2">per portion</span>

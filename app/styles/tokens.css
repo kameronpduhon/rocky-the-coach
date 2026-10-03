@@ -11,6 +11,11 @@
   --protein: #0071a4;
   --steps: #248a3d;
   --warn: #b25000;
+  /* Chip text sits on its own tint, so light mode needs deeper shades than the ring colors to clear 4.5:1. */
+  --calories-chip-fg: #a80b36;
+  --calories-chip-bg: color-mix(in srgb, var(--calories) 10%, var(--bg));
+  --protein-chip-fg: #005a85;
+  --protein-chip-bg: color-mix(in srgb, var(--protein) 10%, var(--bg));
   --glass-fill: rgba(255, 255, 255, 0.6);
   --glass-fill-strong: rgba(250, 250, 252, 0.72);
   --glass-border: rgba(0, 0, 0, 0.08);
@@ -39,6 +44,10 @@
     --protein: #64d2ff;
     --steps: #30d158;
     --warn: #ff9f0a;
+    --calories-chip-fg: var(--calories);
+    --calories-chip-bg: color-mix(in srgb, var(--calories) 16%, transparent);
+    --protein-chip-fg: var(--protein);
+    --protein-chip-bg: color-mix(in srgb, var(--protein) 16%, transparent);
     --glass-fill: rgba(255, 255, 255, 0.1);
     --glass-fill-strong: rgba(40, 40, 44, 0.55);
     --glass-border: rgba(255, 255, 255, 0.22);

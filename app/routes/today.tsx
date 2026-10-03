@@ -134,6 +134,7 @@ export default function Today({ loaderData }: Route.ComponentProps) {
                 <div className="text-[15px] text-label-2">
                   {day.training.exerciseCount} exercises · {day.training.setCount} sets{day.weekType === "deload" ? " · deload week" : ""}
                 </div>
+                {day.training.goUps[0] && <div className="text-[15px] font-semibold text-steps-text">{day.training.goUps[0]}</div>}
                 <div className="mt-3 flex gap-2.5">
                   <Link to="/workout" className="btn-prominent flex h-[50px] flex-1 items-center justify-center rounded-full text-[17px] font-semibold">
                     {day.loggedSetToday ? "Continue workout" : "Start workout"}

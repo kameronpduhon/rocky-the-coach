@@ -11,6 +11,7 @@ import { datesWithSets, dayResults } from "./history.server";
 import { plannedForDate } from "./meal-plan.server";
 import { logsForDate, type MealLog } from "./meals.server";
 import { targetsFor, type Targets } from "./targets.server";
+import { goUps } from "./workouts.server";
 
 export interface SlotView {
   slot: Slot;
@@ -28,6 +29,7 @@ export interface TrainingView {
   exerciseCount: number;
   setCount: number;
   heroImage: string;
+  goUps: string[];
 }
 
 export interface DaySummary {
@@ -78,13 +80,19 @@ export async function loadDay(db: Db, date: ISODate, now: Date): Promise<DaySumm
   const relaxed = isRelaxedDay(plan, date);
 
   const templateId = templateFor(plan, date);
-  const training: TrainingView | null = templateId
-    ? (() => {
-        const t = plan.templates[templateId]!;
-        const first = exercises.get(t.exercises[0].exercise)!;
-        return { templateId, name: t.name, exerciseCount: t.exercises.length, setCount: t.exercises.length * setsFor(plan, date), heroImage: exerciseImage(first, 0) };
-      })()
-    : null;
+  let training: TrainingView | null = null;
+  if (templateId) {
+    const t = plan.templates[templateId]!;
+    const first = exercises.get(t.exercises[0].exercise)!;
+    training = {
+      templateId,
+      name: t.name,
+      exerciseCount: t.exercises.length,
+      setCount: t.exercises.length * setsFor(plan, date),
+      heroImage: exerciseImage(first, 0),
+      goUps: await goUps(db, date, templateId),
+    };
+  }
   const optionalId = optionalTemplateFor(plan, date);
 
   const sessions = await db.select().from(workoutSessions).where(eq(workoutSessions.date, date)).all();

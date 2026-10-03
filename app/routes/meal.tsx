@@ -1,6 +1,6 @@
 import { env } from "cloudflare:workers";
 import { useState } from "react";
-import { redirect, useFetcher } from "react-router";
+import { redirect, useFetcher, useNavigate } from "react-router";
 import type { Route } from "./+types/meal";
 import { MealPhoto } from "~/components/MealPhoto";
 import { Segmented } from "~/components/Segmented";
@@ -18,6 +18,7 @@ import { loadDay } from "~/server/day.server";
 import { restedSlugs, swapPlanned } from "~/server/meal-plan.server";
 import { createBatch, logPlannedMeal, mainProtein, openBatch } from "~/server/meals.server";
 import { saveMealPhoto } from "~/server/photos.server";
+import { send } from "~/lib/offline-queue";
 import { serverNow } from "~/server/clock.server";
 
 export const handle = { hideTabBar: true };
@@ -76,7 +77,7 @@ export async function action({ request, params }: Route.ActionArgs) {
     case "ate": {
       const slot = String(form.get("slot")) as Slot;
       if (!SLOTS.includes(slot)) return { error: "Pick a slot" };
-      await logPlannedMeal(db, date, slot, meal, now);
+      await logPlannedMeal(db, date, slot, meal, now, form.get("clientId") ? String(form.get("clientId")) : undefined);
       return redirect("/");
     }
     case "batch": {
@@ -114,7 +115,8 @@ export default function MealScreen({ loaderData }: Route.ComponentProps) {
   const { meal, slot, slotTime, logged, ingredients, mainProtein, batch, photoKey, swapOptions } = loaderData;
   const [portions, setPortions] = useState(1);
   const [swapOpen, setSwapOpen] = useState(false);
-  const ate = useFetcher<typeof action>();
+  const [saving, setSaving] = useState<"idle" | "sending" | "queued">("idle");
+  const navigate = useNavigate();
   const batchFetcher = useFetcher<typeof action>();
 
   return (
@@ -228,13 +230,20 @@ export default function MealScreen({ loaderData }: Route.ComponentProps) {
 
       {slot && (
         <div className="glass-bar fixed inset-x-4 bottom-[max(28px,env(safe-area-inset-bottom))] z-20 mx-auto flex max-w-[728px] gap-2.5 rounded-[34px] p-1.5">
-          <ate.Form method="post" className="flex-1">
-            <input type="hidden" name="intent" value="ate" />
-            <input type="hidden" name="slot" value={slot} />
-            <button type="submit" disabled={logged} className="btn-prominent h-[54px] w-full rounded-full text-[17px] font-semibold disabled:opacity-60">
-              {logged ? "Eaten" : ate.state !== "idle" ? "Saving..." : "Ate it"}
-            </button>
-          </ate.Form>
+          <button
+            type="button"
+            disabled={logged || saving !== "idle"}
+            onClick={async () => {
+              setSaving("sending");
+              const sent = await send(`/meal/${meal.slug}`, { intent: "ate", slot, clientId: crypto.randomUUID() });
+              // Offline, the queue holds the check-off and the Saving pill shows; Today would not load anyway.
+              if (sent) navigate("/");
+              else setSaving("queued");
+            }}
+            className="btn-prominent h-[54px] flex-1 rounded-full text-[17px] font-semibold disabled:opacity-60"
+          >
+            {logged ? "Eaten" : saving === "sending" ? "Saving..." : saving === "queued" ? "Saved offline" : "Ate it"}
+          </button>
         </div>
       )}
 

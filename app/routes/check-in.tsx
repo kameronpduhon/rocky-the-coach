@@ -7,7 +7,7 @@ import { MealPhoto } from "~/components/MealPhoto";
 import { Segmented } from "~/components/Segmented";
 import { Sheet } from "~/components/Sheet";
 import { Toggle } from "~/components/Toggle";
-import { BackButton, Card, Icon, Screen, SectionTitle, Tile } from "~/components/ui";
+import { BackButton, Card, FloatingBar, Icon, Screen, SectionTitle, Tile } from "~/components/ui";
 import { meals } from "~/content";
 import { getDb } from "~/db/client";
 import { mealState, plannedMeals } from "~/db/schema";
@@ -304,11 +304,11 @@ export default function CheckIn({ loaderData }: Route.ComponentProps) {
           </Link>
         </section>
 
-        <div className="glass-bar fixed inset-x-4 bottom-[max(28px,env(safe-area-inset-bottom))] z-20 mx-auto max-w-[728px] rounded-[34px] p-1.5">
+        <FloatingBar>
           <button type="submit" disabled={!open && !d.done} className="btn-prominent h-[54px] w-full rounded-full text-[17px] font-semibold disabled:opacity-60">
             {d.done ? "Update check-in" : open ? "Finish check-in" : "Opens Sunday at 5pm"}
           </button>
-        </div>
+        </FloatingBar>
       </Form>
 
       <DaySheet

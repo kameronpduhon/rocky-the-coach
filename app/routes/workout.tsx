@@ -4,7 +4,7 @@ import { Form, redirect, useRevalidator } from "react-router";
 import type { Route } from "./+types/workout";
 import { Segmented } from "~/components/Segmented";
 import { Sheet } from "~/components/Sheet";
-import { BackButton, Card, Icon } from "~/components/ui";
+import { BackButton, BarSpacer, Card, FloatingBar, Icon } from "~/components/ui";
 import { exercises, plan } from "~/content";
 import { getDb } from "~/db/client";
 import { optionalTemplateFor, templateFor } from "~/domain/calendar";
@@ -141,7 +141,7 @@ export default function Workout({ loaderData }: Route.ComponentProps) {
   }
 
   return (
-    <div className="relative mx-auto min-h-dvh max-w-[760px] pb-36">
+    <div className="relative mx-auto min-h-dvh max-w-[760px] pb-12">
       <div className="relative h-[300px] overflow-hidden bg-fill">
         <img key={`${ex.id}-0`} src={ex.images[0]} alt={`${ex.name}, start and end position`} className="absolute inset-0 h-full w-full object-cover" />
         <img key={`${ex.id}-1`} src={ex.images[1]} alt="" className="frame-b absolute inset-0 h-full w-full object-cover" />
@@ -255,8 +255,10 @@ export default function Workout({ loaderData }: Route.ComponentProps) {
         </Form>
       </main>
 
+      {/* Always reserved so the page does not jump when the rest bar comes and goes. */}
+      <BarSpacer />
       {restLeft > 0 && (
-        <div className="glass-bar fixed inset-x-4 bottom-[max(28px,env(safe-area-inset-bottom))] z-20 mx-auto flex max-w-[728px] items-center gap-2.5 rounded-[34px] p-1.5">
+        <FloatingBar spacer={false} className="flex items-center gap-2.5">
           <div role="timer" className="tabular flex h-[54px] flex-1 items-center justify-center gap-2 rounded-full bg-[var(--glass-selected)] text-[17px] font-semibold">
             <span className="font-medium text-label-on-glass">Rest</span>
             {mmss(restLeft)}
@@ -264,7 +266,7 @@ export default function Workout({ loaderData }: Route.ComponentProps) {
           <button type="button" onClick={() => setRestUntil(null)} className="btn-prominent h-[54px] rounded-full px-[22px] text-[17px] font-semibold">
             Skip rest
           </button>
-        </div>
+        </FloatingBar>
       )}
 
       <Sheet open={swapOpen} onClose={() => setSwapOpen(false)} title="Swap exercise">

@@ -2,7 +2,25 @@ import type { ComponentProps, ReactNode } from "react";
 import { Link } from "react-router";
 
 export function Screen({ children }: { children: ReactNode }) {
-  return <main className="mx-auto flex w-full max-w-[760px] flex-col gap-[18px] px-4 pb-32 pt-[54px] min-[900px]:pb-12">{children}</main>;
+  return <main className="mx-auto flex w-full max-w-[760px] flex-col gap-[18px] px-4 pb-12 pt-[54px]">{children}</main>;
+}
+
+/**
+ * Floating bottom bars are fixed, so they cover whatever scrolls under them. Each one puts this spacer in the
+ * page flow, the same height as the bar plus its inset, so the last row always scrolls fully clear at any width.
+ */
+export function BarSpacer({ className = "" }: { className?: string }) {
+  return <div aria-hidden="true" className={`h-[calc(66px+max(28px,env(safe-area-inset-bottom)))] flex-none ${className}`} />;
+}
+
+/** The floating glass action bar at the bottom of a pushed screen, with its spacer unless the caller places one. */
+export function FloatingBar({ children, className = "", spacer = true }: { children: ReactNode; className?: string; spacer?: boolean }) {
+  return (
+    <>
+      {spacer && <BarSpacer />}
+      <div className={`glass-bar fixed inset-x-4 bottom-[max(28px,env(safe-area-inset-bottom))] z-20 mx-auto max-w-[728px] rounded-[34px] p-1.5 ${className}`}>{children}</div>
+    </>
+  );
 }
 
 export function LargeTitle({ eyebrow, title, right }: { eyebrow?: string; title: string; right?: ReactNode }) {

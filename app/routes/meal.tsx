@@ -5,7 +5,7 @@ import type { Route } from "./+types/meal";
 import { MealPhoto } from "~/components/MealPhoto";
 import { Segmented } from "~/components/Segmented";
 import { Sheet } from "~/components/Sheet";
-import { BackButton, Card, Icon } from "~/components/ui";
+import { BackButton, Card, FloatingBar, Icon } from "~/components/ui";
 import { foods, meals, plan } from "~/content";
 import { getDb } from "~/db/client";
 import { dayMode } from "~/domain/calendar";
@@ -122,7 +122,7 @@ export default function MealScreen({ loaderData }: Route.ComponentProps) {
   const batchFetcher = useFetcher<typeof action>();
 
   return (
-    <div className="relative mx-auto min-h-dvh max-w-[760px] pb-36">
+    <div className="relative mx-auto min-h-dvh max-w-[760px] pb-12">
       <div className="relative h-[320px]">
         <MealPhoto photoKey={photoKey} alt={meal.name} className="h-full w-full" hero />
         <div className="absolute left-4 top-[max(54px,env(safe-area-inset-top))]">
@@ -231,7 +231,7 @@ export default function MealScreen({ loaderData }: Route.ComponentProps) {
       </main>
 
       {slot && (
-        <div className="glass-bar fixed inset-x-4 bottom-[max(28px,env(safe-area-inset-bottom))] z-20 mx-auto flex max-w-[728px] gap-2.5 rounded-[34px] p-1.5">
+        <FloatingBar className="flex gap-2.5">
           <button
             type="button"
             disabled={logged || saving !== "idle"}
@@ -246,7 +246,7 @@ export default function MealScreen({ loaderData }: Route.ComponentProps) {
           >
             {logged ? "Eaten" : saving === "sending" ? "Saving..." : saving === "queued" ? "Saved offline" : "Ate it"}
           </button>
-        </div>
+        </FloatingBar>
       )}
 
       {slot && <SwapSheet open={swapOpen} onClose={() => setSwapOpen(false)} slot={slot} options={swapOptions} />}

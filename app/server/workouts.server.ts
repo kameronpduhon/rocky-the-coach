@@ -1,5 +1,6 @@
 import { and, asc, desc, eq, lt } from "drizzle-orm";
-import { exerciseImage, exercises, plan, type Exercise } from "~/content";
+import { exerciseImage, exercises, plan } from "~/content";
+import type { Exercise } from "~/content/schema";
 import type { Db } from "~/db/client";
 import { exerciseOverrides, exerciseSwaps, setLogs, workoutSessions } from "~/db/schema";
 import { setsFor, weekType } from "~/domain/calendar";

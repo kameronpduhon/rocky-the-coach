@@ -1,8 +1,9 @@
 // Usage: npx tsx scripts/import-exercise-images.ts --local   (dev)
 //        npx tsx scripts/import-exercise-images.ts --remote  (production)
 import { execFileSync } from "node:child_process";
-import { existsSync, mkdirSync, writeFileSync } from "node:fs";
-import exercises from "../content/exercises.json" with { type: "json" };
+import { existsSync, mkdirSync, readFileSync, writeFileSync } from "node:fs";
+
+const exercises: { dbId: string }[] = JSON.parse(readFileSync("content/exercises.json", "utf8"));
 
 const target = process.argv.includes("--remote") ? "--remote" : "--local";
 const BASE = "https://raw.githubusercontent.com/yuhonas/free-exercise-db/main/exercises";

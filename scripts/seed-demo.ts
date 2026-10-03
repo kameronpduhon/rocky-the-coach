@@ -4,7 +4,7 @@
 // Pair it with DEV_NOW="2026-10-12T11:00:00-05:00" in .dev.vars.
 //
 // With --workout it also starts today's session the way the Workout mockup shows it at 11:00: started at
-// 10:41:18 (18:42 elapsed), incline press done at 60 x 10 twice, pec deck set 1 logged at 145 x 11 six seconds
+// 10:41:18 (18:42 elapsed), incline press done at 60 x 10 twice, pec deck set 1 logged at 140 x 11 six seconds
 // ago (1:24 of rest left). Today then reads "Continue workout", so leave the flag off for the Today mockup.
 //
 // Usage: npm run seed:demo
@@ -187,7 +187,8 @@ if (WORKOUT) {
   const today: [string, number, number, number, number, string][] = [
     ["incline-dumbbell-press", 0, 1, 60, 10, "10:47:05"],
     ["incline-dumbbell-press", 0, 2, 60, 10, "10:51:40"],
-    ["pec-deck", 1, 1, 145, 11, "10:59:54"],
+    // 140, not the mockup's 145: last time was 140 x 12, 140 x 11, so progression holds the weight.
+    ["pec-deck", 1, 1, 140, 11, "10:59:54"],
   ];
   for (const [exerciseId, position, setNumber, weight, reps, time] of today) {
     insert("set_logs", { session_id: id, exercise_id: exerciseId, position, set_number: setNumber, weight_lb: weight, reps, logged_at: atSec(time), client_id: `demo-${exerciseId}-${setNumber}` });

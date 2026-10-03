@@ -1,5 +1,5 @@
 import { env } from "cloudflare:workers";
-import { useEffect, useState } from "react";
+import { useEffect, useState, type ReactNode } from "react";
 import { Form, useFetcher } from "react-router";
 import type { Route } from "./+types/settings";
 import { Toggle } from "~/components/Toggle";
@@ -74,29 +74,43 @@ export default function Settings({ loaderData }: Route.ComponentProps) {
 
       <section aria-label="Steps from Apple Watch" className="flex flex-col gap-2">
         <SectionTitle>Steps from Apple Watch</SectionTitle>
-        <Card className="flex flex-col gap-4 p-[18px]">
-          <p className="text-[15px] leading-[1.45] text-label-2">
-            The "Send steps to Rocky" Shortcut posts today's step total to this address at noon, 3, 6, and 9pm. Paste both values into the Shortcut's Get Contents of URL action.
-          </p>
-          <div>
-            <div className="text-[13px] font-semibold text-label-2">URL</div>
-            <code className="mt-1 block break-all font-mono text-[14px]">{ingestUrl}</code>
-            <div className="mt-3 flex gap-2">
-              <CopyButton text={ingestUrl} label="Copy URL" />
-            </div>
-          </div>
-          <div>
-            <div className="text-[13px] font-semibold text-label-2">Authorization header</div>
-            <code className="mt-1 block break-all font-mono text-[14px]" aria-label={shown ? undefined : "Bearer token, hidden"}>
-              Bearer {shown ? ingestToken : "••••••••••••••••"}
-            </code>
-          </div>
-          <div className="flex gap-2">
-            <button type="button" onClick={() => setShown(!shown)} className="btn-secondary h-11 rounded-full px-[18px] text-[15px] font-semibold">
-              {shown ? "Hide" : "Show"}
-            </button>
-            <CopyButton text={`Bearer ${ingestToken}`} label="Copy header" />
-          </div>
+        <p className="px-1 text-[14px] leading-[1.4] text-label-2">A Shortcut sends your step total from the Health app four times a day. Set it up once in the Shortcuts app on your iPhone.</p>
+        <Card className="p-[18px]">
+          <ol className="flex flex-col gap-4 text-[15px] leading-[1.45] text-label-2">
+            <Step n={1}>
+              New Shortcut named <span className="font-semibold text-label">Send steps to Rocky</span>. Add Find Health Samples: Steps, Start Date is today, Group By Day. Then Get Item from List (First Item), Get Details of Health Sample (Value), and Round Number.
+            </Step>
+            <Step n={2}>Add Date (Current Date), then Format Date with the custom format yyyy-MM-dd.</Step>
+            <Step n={3}>
+              Add Get Contents of URL. Method POST, this URL, a header named Authorization with the value below, and a JSON request body with <span className="font-mono text-[14px] text-label">date</span> set to the formatted date and{" "}
+              <span className="font-mono text-[14px] text-label">steps</span> set to the rounded number.
+              <div className="mt-3 flex flex-col gap-4">
+                <div>
+                  <div className="text-[13px] font-semibold">URL</div>
+                  <code className="mt-1 block break-all font-mono text-[14px] text-label">{ingestUrl}</code>
+                  <div className="mt-3 flex gap-2">
+                    <CopyButton text={ingestUrl} label="Copy URL" />
+                  </div>
+                </div>
+                <div>
+                  <div className="text-[13px] font-semibold">Authorization header</div>
+                  <code className="mt-1 block break-all font-mono text-[14px] text-label" aria-label={shown ? undefined : "Bearer token, hidden"}>
+                    Bearer {shown ? ingestToken : "••••••••••••••••"}
+                  </code>
+                  <div className="mt-3 flex gap-2">
+                    <button type="button" onClick={() => setShown(!shown)} className="btn-secondary h-11 rounded-full px-[18px] text-[15px] font-semibold">
+                      {shown ? "Hide" : "Show"}
+                    </button>
+                    <CopyButton text={`Bearer ${ingestToken}`} label="Copy header" />
+                  </div>
+                </div>
+              </div>
+            </Step>
+            <Step n={4}>Run it once by hand. The steps ring on Today should match the Health app.</Step>
+            <Step n={5}>
+              In Automation, add a daily Time of Day automation at noon that runs Send steps to Rocky with Run Immediately on. Repeat for 3, 6, and 9 PM.
+            </Step>
+          </ol>
         </Card>
       </section>
 
@@ -111,6 +125,17 @@ export default function Settings({ loaderData }: Route.ComponentProps) {
         </Form>
       </Card>
     </Screen>
+  );
+}
+
+function Step({ n, children }: { n: number; children: ReactNode }) {
+  return (
+    <li className="flex gap-3">
+      <span aria-hidden="true" className="tabular w-4 flex-none font-semibold text-label">
+        {n}
+      </span>
+      <div className="min-w-0 flex-1">{children}</div>
+    </li>
   );
 }
 

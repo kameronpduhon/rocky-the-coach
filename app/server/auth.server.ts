@@ -14,15 +14,18 @@ export async function requireSignedIn(request: Request): Promise<void> {
   if (!session.get("signedIn")) throw redirect("/login");
 }
 
+// The DOM lib's SubtleCrypto typing shadows the Workers one, which is where timingSafeEqual lives.
+const subtle = crypto.subtle as unknown as { timingSafeEqual(a: ArrayBufferView, b: ArrayBufferView): boolean };
+
 export async function passwordMatches(candidate: string): Promise<boolean> {
   const enc = new TextEncoder();
   const a = enc.encode(candidate);
   const b = enc.encode(env.APP_PASSWORD);
   if (a.byteLength !== b.byteLength) {
-    crypto.subtle.timingSafeEqual(b, b);
+    subtle.timingSafeEqual(b, b);
     return false;
   }
-  return crypto.subtle.timingSafeEqual(a, b);
+  return subtle.timingSafeEqual(a, b);
 }
 
 const WINDOW_MS = 15 * 60 * 1000;

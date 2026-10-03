@@ -19,7 +19,8 @@
     ],
     "types": [
       "vite/client",
-      "@cloudflare/vitest-plugin/types"
+      "@cloudflare/vitest-plugin/types",
+      "node"
     ],
     "target": "ES2022",
     "module": "ES2022",

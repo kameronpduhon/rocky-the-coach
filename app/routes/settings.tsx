@@ -55,7 +55,6 @@ export async function action({ request }: Route.ActionArgs) {
 export default function Settings({ loaderData }: Route.ComponentProps) {
   const { reminders, ingestUrl, ingestToken, vapidPublicKey } = loaderData;
   const [shown, setShown] = useState(false);
-  const [copied, setCopied] = useState(false);
   return (
     <Screen>
       <BackButton to="/" label="Back to Today" />
@@ -82,6 +81,9 @@ export default function Settings({ loaderData }: Route.ComponentProps) {
           <div>
             <div className="text-[13px] font-semibold text-label-2">URL</div>
             <code className="mt-1 block break-all font-mono text-[14px]">{ingestUrl}</code>
+            <div className="mt-3 flex gap-2">
+              <CopyButton text={ingestUrl} label="Copy URL" />
+            </div>
           </div>
           <div>
             <div className="text-[13px] font-semibold text-label-2">Authorization header</div>
@@ -93,17 +95,7 @@ export default function Settings({ loaderData }: Route.ComponentProps) {
             <button type="button" onClick={() => setShown(!shown)} className="btn-secondary h-11 rounded-full px-[18px] text-[15px] font-semibold">
               {shown ? "Hide" : "Show"}
             </button>
-            <button
-              type="button"
-              onClick={async () => {
-                await navigator.clipboard.writeText(`Bearer ${ingestToken}`);
-                setCopied(true);
-                setTimeout(() => setCopied(false), 2000);
-              }}
-              className="btn-secondary h-11 rounded-full px-[18px] text-[15px] font-semibold"
-            >
-              {copied ? "Copied" : "Copy header"}
-            </button>
+            <CopyButton text={`Bearer ${ingestToken}`} label="Copy header" />
           </div>
         </Card>
       </section>
@@ -119,6 +111,23 @@ export default function Settings({ loaderData }: Route.ComponentProps) {
         </Form>
       </Card>
     </Screen>
+  );
+}
+
+function CopyButton({ text, label }: { text: string; label: string }) {
+  const [copied, setCopied] = useState(false);
+  return (
+    <button
+      type="button"
+      onClick={async () => {
+        await navigator.clipboard.writeText(text);
+        setCopied(true);
+        setTimeout(() => setCopied(false), 2000);
+      }}
+      className="btn-secondary h-11 rounded-full px-[18px] text-[15px] font-semibold"
+    >
+      {copied ? "Copied" : label}
+    </button>
   );
 }
 

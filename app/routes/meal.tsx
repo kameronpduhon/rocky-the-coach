@@ -36,7 +36,8 @@ export async function loader({ request, params }: Route.LoaderArgs) {
   const now = serverNow();
   const date = mealDate(now);
   const day = await loadDay(db, date, now);
-  const requested = new URL(request.url).searchParams.get("slot") as Slot | null;
+  const url = new URL(request.url);
+  const requested = url.searchParams.get("slot") as Slot | null;
   const plannedSlot = day.slots.find((s) => s.meal.slug === meal.slug && (!requested || s.slot === requested));
   const slot = plannedSlot?.slot ?? (requested && SLOTS.includes(requested) ? requested : null);
 
@@ -63,6 +64,7 @@ export async function loader({ request, params }: Route.LoaderArgs) {
     batch: await openBatch(db, meal.slug, date),
     photoKey: photo?.photoKey ?? null,
     swapOptions,
+    fromLibrary: url.searchParams.get("from") === "library",
   };
 }
 
@@ -112,7 +114,7 @@ const PORTIONS = [
 ];
 
 export default function MealScreen({ loaderData }: Route.ComponentProps) {
-  const { meal, slot, slotTime, logged, ingredients, mainProtein, batch, photoKey, swapOptions } = loaderData;
+  const { meal, slot, slotTime, logged, ingredients, mainProtein, batch, photoKey, swapOptions, fromLibrary } = loaderData;
   const [portions, setPortions] = useState(1);
   const [swapOpen, setSwapOpen] = useState(false);
   const [saving, setSaving] = useState<"idle" | "sending" | "queued">("idle");
@@ -124,7 +126,7 @@ export default function MealScreen({ loaderData }: Route.ComponentProps) {
       <div className="relative h-[320px]">
         <MealPhoto photoKey={photoKey} alt={meal.name} className="h-full w-full" hero />
         <div className="absolute left-4 top-[max(54px,env(safe-area-inset-top))]">
-          <BackButton to="/" label="Back to Today" onImage={photoKey !== null} />
+          <BackButton to={fromLibrary ? "/library" : "/"} label={fromLibrary ? "Back to Library" : "Back to Today"} onImage={photoKey !== null} />
         </div>
         {slot && (
           <button type="button" onClick={() => setSwapOpen(true)} className={`${photoKey ? "glass-on-image" : "glass"} absolute right-4 top-[max(54px,env(safe-area-inset-top))] flex h-11 items-center gap-1.5 rounded-full px-4 text-[15px] font-semibold`}>

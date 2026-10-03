@@ -6,7 +6,7 @@ export function MealPhoto({ photoKey, alt, className, hero = false }: { photoKey
     return (
       <div aria-hidden="true" className={`${className} flex flex-col items-center justify-center gap-2.5 bg-card text-label-4`}>
         <Icon name="meal" size={56} strokeWidth={1.2} />
-        <div className="text-[14px] font-semibold">Meal photo</div>
+        <div className="text-[14px] font-semibold text-label-2">Meal photo</div>
       </div>
     );
   }

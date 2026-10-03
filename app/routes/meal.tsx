@@ -207,7 +207,7 @@ export default function MealScreen({ loaderData }: Route.ComponentProps) {
                 <input id="cooked" name="cookedWeight" inputMode="numeric" placeholder="0" required className="tabular w-full min-w-0 bg-transparent text-[20px] font-semibold outline-none" />
                 <span className="font-semibold text-label-2">g</span>
               </div>
-              <button type="submit" className="btn-prominent h-[52px] rounded-full px-5 text-[16px] font-semibold">
+              <button type="submit" className="glass h-[52px] rounded-full px-5 text-[16px] font-semibold">
                 Split
               </button>
               </div>

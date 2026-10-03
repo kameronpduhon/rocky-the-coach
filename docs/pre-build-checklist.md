@@ -22,11 +22,11 @@ Everything we need to settle before writing any code, in the order to do it. Eac
 
 Get it out of your head in any format. Messy is fine. Paste it in chat or drop it in `docs/my-plan-raw.md`.
 
-- [ ] **Goal:** what success looks like and by when
-- [ ] **Training:** what you plan to do and how often
-- [ ] **Nutrition:** what you plan to eat, and what you are cutting out
-- [ ] **Rules you have already decided** (anything non-negotiable)
-- [ ] **Your schedule:** work hours, when you would train, when you eat
+- [x] **Goal:** what success looks like and by when
+- [x] **Training:** what you plan to do and how often
+- [x] **Nutrition:** what you plan to eat, and what you are cutting out
+- [x] **Rules you have already decided** (anything non-negotiable)
+- [x] **Your schedule:** work hours, when you would train, when you eat
 
 ---
 
@@ -34,17 +34,17 @@ Get it out of your head in any format. Messy is fine. Paste it in chat or drop i
 
 Targets come from these, so they need to be real numbers, not guesses.
 
-- [ ] Age, height, current weight
+- [x] Age, height, current weight
 - [ ] Waist measurement (at the belly button)
-- [ ] Body fat estimate, if you have one (not required)
+- [x] Body fat estimate, if you have one (not required)
 - [ ] Starting photos: front, side, back. Keep them private, **never in this repo**
-- [ ] Job type: desk, on your feet, or mixed
-- [ ] Current average daily steps (check your phone's Health app)
-- [ ] What a typical day of eating looks like right now, honestly
-- [ ] Typical bedtime and wake time
-- [ ] Injuries, pain, medical conditions, or medications that affect training or appetite
-- [ ] Equipment: gym membership, home gear, or both
-- [ ] Trackers you own: Apple Watch, smart scale, anything else
+- [x] Job type: desk, on your feet, or mixed
+- [x] Current average daily steps (check your phone's Health app)
+- [x] What a typical day of eating looks like right now, honestly
+- [x] Typical bedtime and wake time
+- [x] Injuries, pain, medical conditions, or medications that affect training or appetite
+- [x] Equipment: gym membership, home gear, or both
+- [x] Trackers you own: Apple Watch, smart scale, anything else
 
 If anything on the medical line applies, get a doctor's OK on the calorie target and training intensity before we lock them in.
 
@@ -56,63 +56,63 @@ These are the questions most plans leave open. We only go through the ones your 
 
 ### Goal and timeline
 
-- [ ] One **primary** goal: lose fat, build muscle, recomp, performance, or general health
-- [ ] Target number and date (example: 190 lb by March 1)
-- [ ] Rate sanity check (sustainable fat loss is roughly 0.5 to 1% of bodyweight per week)
-- [ ] Phases (example: 12-week cut, 2-week maintenance break, reassess)
-- [ ] Non-scale goals: lifts, waist size, energy, how clothes fit
+- [x] One **primary** goal: lose fat, build muscle, recomp, performance, or general health
+- [x] Target number and date (example: 190 lb by March 1)
+- [x] Rate sanity check (sustainable fat loss is roughly 0.5 to 1% of bodyweight per week)
+- [x] Phases (example: 12-week cut, 2-week maintenance break, reassess)
+- [x] Non-scale goals: lifts, waist size, energy, how clothes fit
 
 ### Training
 
-- [ ] Days per week, and which days
-- [ ] Split: full body, upper/lower, push/pull/legs, or something else
-- [ ] Exercises, sets, reps, and rest for each day
-- [ ] **Progression rule:** exactly when you add weight or reps
-- [ ] Cardio: type, how often, how long
-- [ ] Daily step target
-- [ ] Deload and rest-day rules
-- [ ] **Plan B workout:** a 20-minute version for bad days, travel, or no gym
+- [x] Days per week, and which days
+- [x] Split: full body, upper/lower, push/pull/legs, or something else
+- [x] Exercises, sets, reps, and rest for each day
+- [x] **Progression rule:** exactly when you add weight or reps
+- [x] Cardio: type, how often, how long
+- [x] Daily step target
+- [x] Deload and rest-day rules
+- [x] **Plan B workout:** a 20-minute version for bad days, travel, or no gym
 
 ### Nutrition
 
-- [ ] Calorie target (we estimate from Step 2, then correct it from your real weight trend after 2 to 3 weeks)
-- [ ] Protein target first, then the fat and carb split
-- [ ] **Tracking approach** (biggest decision here, it shapes the whole app):
+- [x] Calorie target (we estimate from Step 2, then correct it from your real weight trend after 2 to 3 weeks)
+- [x] Protein target first, then the fat and carb split
+- [x] **Tracking approach** (biggest decision here, it shapes the whole app):
   - Strict: log every food and gram
   - Fixed menu: rotate set meals, just check them off
   - Hybrid: fixed menu, only log what is off-plan
-- [ ] Meals per day and timing
-- [ ] Go-to meals list: breakfasts, lunches, dinners, snacks. The more fixed this is, the easier the app is to follow
-- [ ] Grocery list and meal-prep day
-- [ ] Eating out: rules, plus go-to orders at the places you actually go
-- [ ] Alcohol rules
-- [ ] Planned flexibility: free-meal policy (how often, how big)
-- [ ] Water target
-- [ ] Supplements (protein powder, creatine, etc.)
+- [x] Meals per day and timing
+- [x] Go-to meals list: breakfasts, lunches, dinners, snacks. The more fixed this is, the easier the app is to follow
+- [x] Grocery list and meal-prep day
+- [x] Eating out: rules, plus go-to orders at the places you actually go
+- [x] Alcohol rules
+- [x] Planned flexibility: free-meal policy (how often, how big)
+- [x] Water target
+- [x] Supplements (protein powder, creatine, etc.)
 
 ### Recovery
 
-- [ ] Sleep target and a bedtime
-- [ ] What a rest day looks like
+- [x] Sleep target and a bedtime
+- [x] What a rest day looks like
 
 ### The "old ways" (most important section for this app)
 
 The app's main job is stopping drift, so we need specifics, not "I fall off sometimes."
 
-- [ ] What are the old ways, exactly? (late-night snacking, skipping the gym after work, weekends, fast food on the drive home, one bad meal turning into a bad week...)
-- [ ] When do they happen? Time of day, day of week, stress, travel, social events
-- [ ] What made you fall off before? What worked before, even briefly?
-- [ ] Early warning signs (example: skipping one log, then two)
-- [ ] **If-then rule for each trigger.** Example: "If it's after 9pm and I want to snack, then I drink water and go to bed."
-- [ ] **Minimum viable day:** the smallest set of actions that still counts as "on plan" on your worst day
-- [ ] **Miss rule:** what happens after a missed workout or off-plan meal (example: never miss twice in a row)
-- [ ] **Coach tone:** how Rocky talks to you when you slip. Drill sergeant, straight shooter, or encouraging
+- [x] What are the old ways, exactly? (late-night snacking, skipping the gym after work, weekends, fast food on the drive home, one bad meal turning into a bad week...)
+- [x] When do they happen? Time of day, day of week, stress, travel, social events
+- [x] What made you fall off before? What worked before, even briefly?
+- [x] Early warning signs (example: skipping one log, then two)
+- [x] **If-then rule for each trigger.** Example: "If it's after 9pm and I want to snack, then I drink water and go to bed."
+- [x] **Minimum viable day:** the smallest set of actions that still counts as "on plan" on your worst day
+- [x] **Miss rule:** what happens after a missed workout or off-plan meal (example: never miss twice in a row)
+- [x] **Coach tone:** how Rocky talks to you when you slip. Drill sergeant, straight shooter, or encouraging
 
 ### Tracking and check-ins
 
-- [ ] Daily log: which of weight, workout done, meals hit, steps, water, sleep. Target: under 2 minutes a day
-- [ ] Weekly check-in: which day, what gets reviewed (average weight vs last week, adherence %, waist; photos every 2 to 4 weeks)
-- [ ] **Adjustment rules decided now**, so you never renegotiate mid-week. Example: if the weekly average has not moved in 2 weeks and adherence is above 90%, drop 150 calories or add 2,000 steps
+- [x] Daily log: which of weight, workout done, meals hit, steps, water, sleep. Target: under 2 minutes a day
+- [x] Weekly check-in: which day, what gets reviewed (average weight vs last week, adherence %, waist; photos every 2 to 4 weeks)
+- [x] **Adjustment rules decided now**, so you never renegotiate mid-week. Example: if the weekly average has not moved in 2 weeks and adherence is above 90%, drop 150 calories or add 2,000 steps
 
 **Output:** C writes `docs/plan.md` as the single source of truth. K approves it. This becomes the app's starting data.
 
@@ -131,7 +131,7 @@ Mark each one **v1**, **later**, or **never**. Rule of thumb: v1 is the smallest
 | Weigh-in + trend chart | Daily weight shown as a 7-day average so daily swings do not mess with your head |
 | Streaks and adherence score | Visible proof you are on track |
 | Weekly check-in flow | Guided review that applies the adjustment rules |
-| Reminders and nudges | Workout time, meal times, bedtime, logging |
+| Reminders and nudges | Workout time, meal times, bedtime, logging (no water tracking, not needed) |
 | If-then prompts | Your trigger rules pushed at trigger times (example: 8:45pm "Kitchen's closed.") |
 | Progress | Photos, measurements, lift PRs |
 | AI coach chat ("Rocky") | Ask questions, get pushback, weekly review written for you. Costs per message |
@@ -140,11 +140,24 @@ Mark each one **v1**, **later**, or **never**. Rule of thumb: v1 is the smallest
 
 Likely v1: Today screen, workout and meal check-off, weigh-in trend, reminders, weekly check-in.
 
+**Requirements already captured** (from Step 3 answers):
+
+- **Toggles over pages.** Options live as inline toggles right where they apply, not as separate steps or screens. Example: the 1 portion vs 2 to 3 days toggle sits just above the recipe and instantly updates every amount.
+- **Scale amounts, no math.** Every meal shows each ingredient as "put X g on the scale." The app handles raw vs cooked conversions.
+- **Cook for 1 or a batch.** Toggle between 1 portion and 2 to 3 days' worth, and every ingredient's gram amount updates in place.
+- **Batch prep math.** For 2 to 3 day prep: weigh the cooked batch once, the app splits it into per-meal gram portions.
+- **No prep schedule.** Cooking happens whenever food is needed. The app never assumes set prep days.
+- **Meal library with rotation.** The app picks meals so nothing repeats too often (the anti-burnout rule).
+- **Log in the moment.** Meals, sets, and weigh-ins are logged as they happen, never reconstructed the next day. Meal-time nudges if something has not been checked off.
+- **Warning-sign watch.** A missed training day gets a same-day nudge toward the Plan B home workout.
+- **Weekday vs weekend modes.** Animal-based meals on weekdays, meat-first whole foods on weekends.
+- **Relaxed restaurant meals.** 1 to 2 per weekend, logged quickly or just marked as relaxed, without breaking a streak.
+
 ---
 
 ## Step 5: Data sources and integrations (K+C)
 
-- [ ] **Food data**, based on the tracking approach:
+- [x] **Food data**, based on the tracking approach (leaning: USDA FoodData Central for ingredient numbers, including raw and cooked values, feeding your own meal library):
   - Your own saved meals only (free, simplest)
   - USDA FoodData Central (free API, generic foods)
   - Open Food Facts (free, barcode scanning)
@@ -192,7 +205,7 @@ Other decisions:
 
 ## Step 8: Spec and build plan (C writes, K approves)
 
-- [ ] `docs/plan.md`: your fitness and nutrition plan (from Step 3)
+- [x] `docs/plan.md`: your fitness and nutrition plan (from Step 3)
 - [ ] `docs/spec.md`: v1 features, screens, data model, reminder schedule, edge cases (missed days, travel, plan phase changes)
 - [ ] Build plan broken into sessions, test-first
 - [ ] Seed data: your plan loaded into the app on day one, so it opens already set up
@@ -212,7 +225,7 @@ Other decisions:
 
 ## Ready to build when
 
-- [ ] `docs/plan.md` approved
+- [x] `docs/plan.md` approved
 - [ ] v1 feature list locked
 - [ ] Stack, hosting, and address decided
 - [ ] Wireframes approved

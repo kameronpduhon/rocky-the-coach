@@ -26,7 +26,7 @@ export function meta({ loaderData }: Route.MetaArgs) {
   return [{ title: `${loaderData?.meal.name ?? "Meal"} · Rocky` }];
 }
 
-const STATE_LABEL = { raw: "Raw", cooked: "Cooked", "as-is": "" } as const;
+const STATE_LABEL = { raw: "Raw", cooked: "Cooked", "as-is": "As is" } as const;
 
 export async function loader({ request, params }: Route.LoaderArgs) {
   const meal = meals.get(params.slug);

@@ -17,6 +17,12 @@ describe("meal route", () => {
     expect(data.swapOptions.every((m) => m.pool === "main" && m.slug !== lunch.meal.slug)).toBe(true);
   });
 
+  it("labels every ingredient with the state it is weighed in", async () => {
+    const data = await loader(routeArgs(new Request("http://localhost/meal/chicken-and-rice-bowl"), { slug: "chicken-and-rice-bowl" }));
+    expect(data.ingredients.find((i) => i.food === "butter")?.state).toBe("As is");
+    expect(data.ingredients.every((i) => ["Raw", "Cooked", "As is"].includes(i.state))).toBe(true);
+  });
+
   it("404s an unknown meal", async () => {
     const res = await loader(routeArgs(new Request("http://localhost/meal/nope"), { slug: "nope" })).catch((e: Response) => e);
     expect((res as Response).status).toBe(404);

@@ -256,7 +256,7 @@ export default function CheckIn({ loaderData }: Route.ComponentProps) {
 
           <div className="mx-1 mt-2 flex items-baseline justify-between">
             <span className="text-[15px] font-semibold">Next week</span>
-            <span className="text-[13px] text-label-2">Lunch, then dinner. Tap for all 5</span>
+            <span className="text-[13px] text-label-2">Lunch on top. Tap a day for all 5</span>
           </div>
           <Card className="overflow-hidden" aria-label="Next week's plan">
             {Array.from({ length: 7 }, (_, i) => addDays(d.nextWeek.weekStart, i)).map((date) => {
@@ -264,12 +264,7 @@ export default function CheckIn({ loaderData }: Route.ComponentProps) {
               const name = (slot: Slot) => bySlug.get(day.find((p) => p.slot === slot)?.slug ?? "")?.name ?? "";
               const swapCount = liveSwaps.filter((s) => s.date === date).length;
               return (
-                <button
-                  key={date}
-                  type="button"
-                  onClick={() => setDayOpen(date)}
-                  className="flex h-[68px] w-full items-center gap-3.5 border-b-[0.5px] border-separator px-4 text-left leading-[normal] last:border-b-0"
-                >
+                <button key={date} type="button" onClick={() => setDayOpen(date)} className="group flex w-full items-center gap-3.5 pl-4 text-left leading-[normal]">
                   <span aria-hidden="true" className="flex size-11 flex-none flex-col items-center justify-center rounded-full bg-fill leading-none">
                     <span className="text-[10px] font-bold text-label-on-fill">{DOW[weekday(date)].toUpperCase()}</span>
                     <span className="tabular text-[17px] font-bold">{Number(date.slice(8))}</span>
@@ -277,17 +272,18 @@ export default function CheckIn({ loaderData }: Route.ComponentProps) {
                   <span className="sr-only">
                     {`${DOW[weekday(date)]} ${short(date)}: ${SLOTS.map((slot) => `${SLOT_LABEL[slot]} ${name(slot)}`).join(", ")}${swapCount > 0 ? `, ${swapCount} swapped` : ""}`}
                   </span>
-                  <span aria-hidden="true" className="flex min-w-0 flex-1 flex-col gap-0.5">
-                    <span className="truncate text-[15px] font-semibold">{name("lunch")}</span>
-                    <span className="truncate text-[15px] font-semibold">{name("dinner")}</span>
-                  </span>
-                  {swapCount > 0 && (
-                    <span aria-hidden="true" className="flex-none text-label-2">
-                      <Icon name="swap" size={15} />
+                  {/* The hairline starts after the day badge, like the inset separators in iOS lists. */}
+                  <span aria-hidden="true" className="flex h-[66px] min-w-0 flex-1 items-center gap-2.5 border-b-[0.5px] border-separator pr-4 group-last:border-b-0">
+                    <span className="flex min-w-0 flex-1 flex-col">
+                      <span className="truncate text-[16px] font-semibold">{name("lunch")}</span>
+                      <span className="mt-px truncate text-[13px] text-label-2">
+                        Dinner · {name("dinner")}
+                        {swapCount > 0 ? ` · ${swapCount} swapped` : ""}
+                      </span>
                     </span>
-                  )}
-                  <span aria-hidden="true" className="flex-none text-label-4">
-                    <Icon name="chevron" size={18} strokeWidth={2.4} />
+                    <span className="flex-none text-label-4">
+                      <Icon name="chevron" size={18} strokeWidth={2.4} />
+                    </span>
                   </span>
                 </button>
               );

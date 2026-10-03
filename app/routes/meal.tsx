@@ -122,10 +122,10 @@ export default function MealScreen({ loaderData }: Route.ComponentProps) {
       <div className="relative h-[320px]">
         <MealPhoto photoKey={photoKey} alt={meal.name} className="h-full w-full" hero />
         <div className="absolute left-4 top-[max(54px,env(safe-area-inset-top))]">
-          <BackButton to="/" label="Back to Today" onImage />
+          <BackButton to="/" label="Back to Today" onImage={photoKey !== null} />
         </div>
         {slot && (
-          <button type="button" onClick={() => setSwapOpen(true)} className="glass-on-image absolute right-4 top-[max(54px,env(safe-area-inset-top))] flex h-11 items-center gap-1.5 rounded-full px-4 text-[15px] font-semibold">
+          <button type="button" onClick={() => setSwapOpen(true)} className={`${photoKey ? "glass-on-image" : "glass"} absolute right-4 top-[max(54px,env(safe-area-inset-top))] flex h-11 items-center gap-1.5 rounded-full px-4 text-[15px] font-semibold`}>
             <Icon name="swap" size={16} />
             Swap
           </button>
@@ -179,7 +179,7 @@ export default function MealScreen({ loaderData }: Route.ComponentProps) {
               <div key={i.food} className="flex items-center justify-between border-t-[0.5px] border-separator py-[13px]">
                 <div>
                   <div className="text-[16px] font-medium">{i.name}</div>
-                  <div className="text-[13px] text-label-3">{[i.state, i.note, each && i.eachLabel ? `about ${each} ${i.eachLabel}${each === 1 ? "" : "s"}` : null].filter(Boolean).join(" · ")}</div>
+                  <div className="text-[13px] text-label-3">{[i.state, portions > 1 ? `${scaleGrams(i.grams, 1).toLocaleString()} g per portion` : null, i.note, each && i.eachLabel ? `about ${each} ${i.eachLabel}${each === 1 ? "" : "s"}` : null].filter(Boolean).join(" · ")}</div>
                 </div>
                 <div className="tabular text-[26px] font-bold">
                   {grams.toLocaleString()}
@@ -261,7 +261,7 @@ function PhotoButton() {
     fetcher.submit(body, { method: "post", encType: "multipart/form-data" });
   }
   return (
-    <label className="glass-on-image absolute bottom-4 right-4 flex h-10 cursor-pointer items-center gap-1.5 rounded-full px-3.5 text-[14px] font-semibold">
+    <label className="glass absolute bottom-4 right-4 flex h-11 cursor-pointer items-center gap-1.5 rounded-full px-3.5 text-[14px] font-semibold">
       <Icon name="camera" size={16} />
       {fetcher.state !== "idle" ? "Uploading..." : "Add photo"}
       <input type="file" accept="image/*" capture="environment" onChange={onChange} className="sr-only" />

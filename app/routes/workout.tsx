@@ -146,13 +146,13 @@ export default function Workout({ loaderData }: Route.ComponentProps) {
         <img key={`${ex.id}-0`} src={ex.images[0]} alt={`${ex.name}, start and end position`} className="absolute inset-0 h-full w-full object-cover" />
         <img key={`${ex.id}-1`} src={ex.images[1]} alt="" className="frame-b absolute inset-0 h-full w-full object-cover" />
         <div className="absolute left-4 top-[max(54px,env(safe-area-inset-top))]">
-          <BackButton to="/" label="Back to Today" onImage />
+          <BackButton to="/" label="Back to Today" onImage size={46} />
         </div>
-        <div role="timer" className="glass-on-image tabular absolute right-4 top-[max(54px,env(safe-area-inset-top))] flex h-11 items-center rounded-full px-4 text-[16px] font-semibold">
+        <div role="timer" className="glass-on-image tabular absolute right-4 top-[max(54px,env(safe-area-inset-top))] flex h-[46px] items-center rounded-full px-4 text-[16px] font-semibold">
           <span className="sr-only">Workout time </span>
           {elapsed}
         </div>
-        <button type="button" onClick={() => setSwapOpen(true)} className="glass-on-image absolute bottom-4 right-4 flex h-11 items-center gap-1.5 rounded-full px-4 text-[15px] font-semibold">
+        <button type="button" onClick={() => setSwapOpen(true)} className="glass-on-image absolute bottom-4 right-4 flex h-[46px] items-center gap-1.5 rounded-full px-4 text-[15px] font-semibold">
           <Icon name="swap" size={16} />
           Swap
         </button>

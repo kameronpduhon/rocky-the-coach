@@ -34,9 +34,9 @@ export function SectionTitle({ children, right }: { children: ReactNode; right?:
   );
 }
 
-export function BackButton({ to, label, onImage = false }: { to: string; label: string; onImage?: boolean }) {
+export function BackButton({ to, label, onImage = false, size = 44 }: { to: string; label: string; onImage?: boolean; size?: number }) {
   return (
-    <Link to={to} aria-label={label} className={`${onImage ? "glass-on-image" : "glass"} flex size-11 items-center justify-center rounded-full`}>
+    <Link to={to} aria-label={label} className={`${onImage ? "glass-on-image" : "glass"} flex items-center justify-center rounded-full`} style={{ width: size, height: size }}>
       <Icon name="back" strokeWidth={2.4} />
     </Link>
   );

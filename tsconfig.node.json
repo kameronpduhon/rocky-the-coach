@@ -4,7 +4,8 @@
     "vite.config.ts",
     "vitest.config.ts",
     "drizzle.config.ts",
-    "scripts/**/*.ts"
+    "scripts/**/*.ts",
+    "app/domain/**/*.ts"
   ],
   "compilerOptions": {
     "composite": true,

@@ -14,7 +14,8 @@
     "test:watch": "vitest",
     "db:generate": "drizzle-kit generate",
     "db:migrate:local": "wrangler d1 migrations apply rocky-db --local",
-    "db:migrate:remote": "wrangler d1 migrations apply rocky-db --remote"
+    "db:migrate:remote": "wrangler d1 migrations apply rocky-db --remote",
+    "seed:demo": "tsx scripts/seed-demo.ts"
   },
   "dependencies": {
     "drizzle-orm": "^0.45.3",

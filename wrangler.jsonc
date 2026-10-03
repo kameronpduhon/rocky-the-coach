@@ -1,0 +1,17 @@
+{
+	"$schema": "node_modules/wrangler/config-schema.json",
+	"name": "rocky",
+	"compatibility_date": "2026-10-01",
+	"main": "./workers/app.ts",
+	"routes": [{ "pattern": "kampduh.com", "custom_domain": true }],
+	"d1_databases": [
+		{ "binding": "DB", "database_name": "rocky-db", "database_id": "0b2f0bdb-8153-484e-9acc-3cd60c2613e0", "migrations_dir": "drizzle" }
+	],
+	"r2_buckets": [{ "binding": "MEDIA", "bucket_name": "rocky-media" }],
+	"secrets": {
+		"required": ["APP_PASSWORD", "SESSION_SECRET", "INGEST_TOKEN", "VAPID_PUBLIC_KEY", "VAPID_PRIVATE_KEY"]
+	},
+	"triggers": { "crons": ["*/5 * * * *", "0 9 * * 0"] },
+	"observability": { "enabled": true },
+	"upload_source_maps": true
+}

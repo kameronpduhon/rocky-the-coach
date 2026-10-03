@@ -136,7 +136,7 @@ export default function Plan({ loaderData }: Route.ComponentProps) {
               : d.optional
                 ? `${d.optional}, 30 min`
                 : isSunday
-                  ? "Check-in tonight"
+                  ? d.today ? "Check-in tonight" : "Check-in opens at 5pm"
                   : d.mode === "weekend"
                     ? "Weekend mode · meat-first whole foods"
                     : "";
@@ -152,7 +152,7 @@ export default function Plan({ loaderData }: Route.ComponentProps) {
                 <div className="min-w-0 flex-1">
                   <span className="sr-only">{new Date(`${d.date}T12:00:00Z`).toLocaleDateString("en-US", { weekday: "long", month: "short", day: "numeric", timeZone: "UTC" })}: </span>
                   <div className={`text-[16px] font-semibold ${d.name ? "" : "text-label-2"}`}>{d.name ?? (d.optional ? "Rest or optional" : "Rest")}</div>
-                  {sub && <div className={`mt-px text-[14px] ${isSunday && !d.name ? "font-semibold text-label" : d.name ? "text-label-2" : "text-label-3"}`}>{sub}</div>}
+                  {sub && <div className={`mt-px text-[14px] ${d.name ? "text-label-2" : "text-label-3"}`}>{sub}</div>}
                 </div>
                 {isSunday && (
                   <span className="flex-none text-label-4">

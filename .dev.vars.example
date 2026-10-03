@@ -3,3 +3,5 @@ SESSION_SECRET=""
 INGEST_TOKEN=""
 VAPID_PUBLIC_KEY=""
 VAPID_PRIVATE_KEY=""
+# Dev only: pins the server clock under npm run dev. Production and tests ignore it.
+# DEV_NOW="2026-10-12T11:00:00-05:00"

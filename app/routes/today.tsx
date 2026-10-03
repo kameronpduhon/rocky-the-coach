@@ -92,7 +92,7 @@ export default function Today({ loaderData }: Route.ComponentProps) {
         title="Today"
         right={
           <div className="flex items-center gap-2">
-            <span className="glass flex h-9 items-center rounded-full px-3.5 text-[14px] font-semibold">{day.streak} day streak</span>
+            <span className="tabular flex h-9 items-center rounded-full bg-card px-3.5 text-[14px] font-semibold text-label">{day.streak} day streak</span>
             <Link to="/settings" aria-label="Settings" className="glass flex size-11 items-center justify-center rounded-full">
               <Icon name="gear" />
             </Link>

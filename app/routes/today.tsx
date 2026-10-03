@@ -180,7 +180,7 @@ export default function Today({ loaderData }: Route.ComponentProps) {
                 ))}
               </Card>
             )}
-            <button type="button" onClick={() => setOffPlanOpen(true)} className="glass ml-0.5 h-10 self-start rounded-full px-4 text-[15px] font-semibold">
+            <button type="button" onClick={() => setOffPlanOpen(true)} className="glass ml-0.5 h-11 self-start rounded-full px-4 text-[15px] font-semibold">
               + Log off-plan
             </button>
           </section>

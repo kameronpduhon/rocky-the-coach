@@ -1,0 +1,5 @@
+{ "slug": "steak-and-eggs", "name": "Steak and eggs", "pool": "breakfast", "mode": "any", "tags": [], "source": "starter",
+  "ingredients": [
+    { "food": "sirloin-raw", "grams": 150 }, { "food": "egg-whole", "grams": 100, "note": "2 eggs" },
+    { "food": "egg-white", "grams": 100 }, { "food": "butter", "grams": 5 }, { "food": "banana", "grams": 120, "note": "1 banana, on the side" } ],
+  "steps": ["Pat the steak dry, salt and pepper both sides.", "Sear in a hot pan 3 to 4 minutes a side for medium. Rest 5 minutes.", "Scramble the eggs and whites in the butter over medium-low heat.", "Slice the steak and serve with the eggs and banana."] }

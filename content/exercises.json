@@ -1,0 +1,56 @@
+[
+  { "id": "incline-dumbbell-press", "name": "Incline dumbbell press", "dbId": "Incline_Dumbbell_Press", "group": "chest", "equipment": "dumbbell", "compound": true, "increment": 5 },
+  { "id": "pec-deck", "name": "Pec deck", "dbId": "Butterfly", "group": "chest", "equipment": "machine", "compound": false, "increment": 5 },
+  { "id": "flat-dumbbell-press", "name": "Flat dumbbell press", "dbId": "Dumbbell_Bench_Press", "group": "chest", "equipment": "dumbbell", "compound": true, "increment": 5 },
+  { "id": "low-to-high-cable-fly", "name": "Cable fly, low to high", "dbId": "Low_Cable_Crossover", "group": "chest", "equipment": "cable", "compound": false, "increment": 5 },
+  { "id": "cable-crossover", "name": "Cable crossover", "dbId": "Cable_Crossover", "group": "chest", "equipment": "cable", "compound": false, "increment": 5 },
+  { "id": "dumbbell-fly", "name": "Dumbbell fly", "dbId": "Dumbbell_Flyes", "group": "chest", "equipment": "dumbbell", "compound": false, "increment": 5 },
+  { "id": "machine-chest-press", "name": "Machine chest press", "dbId": "Leverage_Chest_Press", "group": "chest", "equipment": "machine", "compound": true, "increment": 5 },
+  { "id": "machine-incline-press", "name": "Machine incline press", "dbId": "Leverage_Incline_Chest_Press", "group": "chest", "equipment": "machine", "compound": true, "increment": 5 },
+  { "id": "push-up", "name": "Push-ups", "dbId": "Pushups", "group": "chest", "equipment": "body-weight", "compound": true, "increment": 5 },
+
+  { "id": "lat-pulldown", "name": "Lat pulldown", "dbId": "Wide-Grip_Lat_Pulldown", "group": "back", "equipment": "cable", "compound": true, "increment": 5 },
+  { "id": "seated-cable-row", "name": "Seated cable row", "dbId": "Seated_Cable_Rows", "group": "back", "equipment": "cable", "compound": true, "increment": 5 },
+  { "id": "pull-up", "name": "Pull-ups", "dbId": "Pullups", "group": "back", "equipment": "body-weight", "compound": true, "increment": 5 },
+  { "id": "one-arm-dumbbell-row", "name": "One-arm dumbbell row", "dbId": "One-Arm_Dumbbell_Row", "group": "back", "equipment": "dumbbell", "compound": true, "increment": 5 },
+  { "id": "close-grip-lat-pulldown", "name": "Close-grip lat pulldown", "dbId": "Close-Grip_Front_Lat_Pulldown", "group": "back", "equipment": "cable", "compound": true, "increment": 5 },
+  { "id": "machine-high-row", "name": "Machine high row", "dbId": "Leverage_High_Row", "group": "back", "equipment": "machine", "compound": true, "increment": 5 },
+
+  { "id": "preacher-curl", "name": "Preacher curl", "dbId": "Preacher_Curl", "group": "biceps", "equipment": "barbell", "compound": false, "increment": 5 },
+  { "id": "incline-dumbbell-curl", "name": "Incline dumbbell curl", "dbId": "Incline_Dumbbell_Curl", "group": "biceps", "equipment": "dumbbell", "compound": false, "increment": 5 },
+  { "id": "hammer-curl", "name": "Hammer curl", "dbId": "Hammer_Curls", "group": "biceps", "equipment": "dumbbell", "compound": false, "increment": 5 },
+  { "id": "dumbbell-curl", "name": "Dumbbell curl", "dbId": "Dumbbell_Bicep_Curl", "group": "biceps", "equipment": "dumbbell", "compound": false, "increment": 5 },
+  { "id": "machine-preacher-curl", "name": "Machine preacher curl", "dbId": "Machine_Preacher_Curls", "group": "biceps", "equipment": "machine", "compound": false, "increment": 5 },
+  { "id": "cable-rope-hammer-curl", "name": "Cable rope hammer curl", "dbId": "Cable_Hammer_Curls_-_Rope_Attachment", "group": "biceps", "equipment": "cable", "compound": false, "increment": 5 },
+  { "id": "alternating-dumbbell-curl", "name": "Alternating dumbbell curl", "dbId": "Dumbbell_Alternate_Bicep_Curl", "group": "biceps", "equipment": "dumbbell", "compound": false, "increment": 5 },
+
+  { "id": "cable-triceps-pushdown", "name": "Cable triceps pushdown", "dbId": "Triceps_Pushdown", "group": "triceps", "equipment": "cable", "compound": false, "increment": 5 },
+  { "id": "overhead-cable-triceps-extension", "name": "Overhead cable triceps extension", "dbId": "Cable_Rope_Overhead_Triceps_Extension", "group": "triceps", "equipment": "cable", "compound": false, "increment": 5 },
+  { "id": "rope-pushdown", "name": "Rope pushdown", "dbId": "Triceps_Pushdown_-_Rope_Attachment", "group": "triceps", "equipment": "cable", "compound": false, "increment": 5 },
+  { "id": "dip", "name": "Dips", "dbId": "Dips_-_Triceps_Version", "group": "triceps", "equipment": "body-weight", "compound": true, "increment": 5 },
+  { "id": "dumbbell-overhead-triceps-extension", "name": "Dumbbell overhead triceps extension", "dbId": "Standing_Dumbbell_Triceps_Extension", "group": "triceps", "equipment": "dumbbell", "compound": false, "increment": 5 },
+  { "id": "cable-lying-triceps-extension", "name": "Cable lying triceps extension", "dbId": "Cable_Lying_Triceps_Extension", "group": "triceps", "equipment": "cable", "compound": false, "increment": 5 },
+  { "id": "machine-triceps-extension", "name": "Machine triceps extension", "dbId": "Machine_Triceps_Extension", "group": "triceps", "equipment": "machine", "compound": false, "increment": 5 },
+
+  { "id": "leg-press", "name": "Leg press", "dbId": "Leg_Press", "group": "quads", "equipment": "machine", "compound": true, "increment": 10 },
+  { "id": "leg-extension", "name": "Leg extension", "dbId": "Leg_Extensions", "group": "quads", "equipment": "machine", "compound": false, "increment": 10 },
+  { "id": "narrow-stance-leg-press", "name": "Narrow-stance leg press", "dbId": "Narrow_Stance_Leg_Press", "group": "quads", "equipment": "machine", "compound": true, "increment": 10 },
+  { "id": "single-leg-extension", "name": "Single-leg extension", "dbId": "Single-Leg_Leg_Extension", "group": "quads", "equipment": "machine", "compound": false, "increment": 10 },
+
+  { "id": "dumbbell-romanian-deadlift", "name": "Dumbbell Romanian deadlift", "dbId": "Stiff-Legged_Dumbbell_Deadlift", "group": "hamstrings", "equipment": "dumbbell", "compound": true, "increment": 10 },
+  { "id": "lying-leg-curl", "name": "Lying leg curl", "dbId": "Lying_Leg_Curls", "group": "hamstrings", "equipment": "machine", "compound": false, "increment": 10 },
+  { "id": "seated-leg-curl", "name": "Seated leg curl", "dbId": "Seated_Leg_Curl", "group": "hamstrings", "equipment": "machine", "compound": false, "increment": 10 },
+  { "id": "barbell-romanian-deadlift", "name": "Barbell Romanian deadlift", "dbId": "Romanian_Deadlift", "group": "hamstrings", "equipment": "barbell", "compound": true, "increment": 10 },
+
+  { "id": "seated-dumbbell-shoulder-press", "name": "Seated dumbbell shoulder press", "dbId": "Dumbbell_Shoulder_Press", "group": "shoulder-press", "equipment": "dumbbell", "compound": true, "increment": 5 },
+  { "id": "machine-shoulder-press", "name": "Machine shoulder press", "dbId": "Leverage_Shoulder_Press", "group": "shoulder-press", "equipment": "machine", "compound": true, "increment": 5 },
+  { "id": "arnold-press", "name": "Arnold press", "dbId": "Arnold_Dumbbell_Press", "group": "shoulder-press", "equipment": "dumbbell", "compound": true, "increment": 5 },
+
+  { "id": "cable-lateral-raise", "name": "Cable lateral raise", "dbId": "Standing_Low-Pulley_Deltoid_Raise", "group": "side-delts", "equipment": "cable", "compound": false, "increment": 5 },
+  { "id": "dumbbell-lateral-raise", "name": "Dumbbell lateral raise", "dbId": "Side_Lateral_Raise", "group": "side-delts", "equipment": "dumbbell", "compound": false, "increment": 5 },
+  { "id": "seated-lateral-raise", "name": "Seated lateral raise", "dbId": "Seated_Side_Lateral_Raise", "group": "side-delts", "equipment": "dumbbell", "compound": false, "increment": 5 },
+
+  { "id": "reverse-pec-deck", "name": "Reverse pec deck", "dbId": "Reverse_Machine_Flyes", "group": "rear-delts", "equipment": "machine", "compound": false, "increment": 5 },
+  { "id": "dumbbell-reverse-fly", "name": "Dumbbell reverse fly", "dbId": "Reverse_Flyes", "group": "rear-delts", "equipment": "dumbbell", "compound": false, "increment": 5 },
+  { "id": "face-pull", "name": "Face pull", "dbId": "Face_Pull", "group": "rear-delts", "equipment": "cable", "compound": false, "increment": 5 }
+]

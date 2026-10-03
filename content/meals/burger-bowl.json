@@ -1,0 +1,4 @@
+{ "slug": "burger-bowl", "name": "Burger bowl", "pool": "main", "mode": "any", "tags": ["ground-beef"], "source": "starter",
+  "ingredients": [
+    { "food": "ground-beef-90-raw", "grams": 200 }, { "food": "potato-russet-raw", "grams": 250, "note": "cubed" }, { "food": "cheddar", "grams": 30 } ],
+  "steps": ["Roast or air-fry the potato cubes at 425°F for 25 minutes.", "Brown the beef with salt, pepper, and garlic powder, breaking it up.", "Pile the beef on the potatoes and top with the cheddar."] }

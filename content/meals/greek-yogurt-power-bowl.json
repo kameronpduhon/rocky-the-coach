@@ -1,0 +1,5 @@
+{ "slug": "greek-yogurt-power-bowl", "name": "Greek yogurt power bowl", "pool": "breakfast", "mode": "any", "tags": [], "source": "starter",
+  "ingredients": [
+    { "food": "greek-yogurt-nonfat", "grams": 350 }, { "food": "whey-protein", "grams": 30, "note": "1 scoop" },
+    { "food": "blueberries", "grams": 75 }, { "food": "strawberries", "grams": 75 }, { "food": "banana", "grams": 100 }, { "food": "honey", "grams": 20 } ],
+  "steps": ["Stir the protein powder into the yogurt until smooth.", "Slice the banana and strawberries.", "Top with the fruit and drizzle the honey."] }

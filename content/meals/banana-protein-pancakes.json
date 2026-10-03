@@ -1,0 +1,5 @@
+{ "slug": "banana-protein-pancakes", "name": "Banana protein pancakes", "pool": "breakfast", "mode": "any", "tags": [], "source": "starter",
+  "ingredients": [
+    { "food": "egg-whole", "grams": 150, "note": "3 eggs" }, { "food": "banana", "grams": 120, "note": "1 ripe banana" },
+    { "food": "whey-protein", "grams": 30, "note": "1 scoop" }, { "food": "greek-yogurt-nonfat", "grams": 150, "note": "on top" }, { "food": "honey", "grams": 15 } ],
+  "steps": ["Mash the banana, whisk in the eggs and protein powder.", "Cook small pancakes on a nonstick pan over medium heat, about 2 minutes a side.", "Top with the yogurt and honey."] }

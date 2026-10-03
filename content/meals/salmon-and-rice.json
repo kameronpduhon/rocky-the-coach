@@ -1,0 +1,3 @@
+{ "slug": "salmon-and-rice", "name": "Salmon and rice", "pool": "main", "mode": "any", "tags": [], "source": "starter",
+  "ingredients": [ { "food": "salmon-raw", "grams": 200 }, { "food": "white-rice-cooked", "grams": 150 } ],
+  "steps": ["Season the salmon with salt, pepper, and lemon.", "Roast skin-side down at 400°F for 12 to 14 minutes.", "Serve over the rice. Lower protein than most mains, so pick a higher-protein snack today."] }

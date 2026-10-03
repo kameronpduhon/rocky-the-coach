@@ -1,0 +1,4 @@
+{ "slug": "lemon-butter-cod-and-potatoes", "name": "Lemon butter cod and potatoes", "pool": "main", "mode": "any", "tags": [], "source": "starter",
+  "ingredients": [
+    { "food": "cod-raw", "grams": 300 }, { "food": "potato-russet-raw", "grams": 300, "note": "cut in wedges" }, { "food": "butter", "grams": 15 } ],
+  "steps": ["Roast the potato wedges at 425°F for 30 minutes, salted.", "Season the cod with salt, pepper, and lemon zest.", "Pan-sear the cod in the butter 3 to 4 minutes a side until it flakes.", "Squeeze lemon over the top and serve with the potatoes."] }

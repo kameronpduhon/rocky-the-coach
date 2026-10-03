@@ -1,0 +1,52 @@
+{
+  "relaxed-day": [
+    "Holiday. Enjoy it. Back on it tomorrow.",
+    "Relaxed day. Eat, enjoy, no guilt. The plan picks up tomorrow.",
+    "Day off from the numbers. Tomorrow we go again."
+  ],
+  "missed-twice": [
+    "Two training days missed. That's the pattern we said we'd catch. Plan B is 25 minutes. Do it tonight.",
+    "Two misses in a row. Not a disaster, but a third is how it slips. Plan B tonight.",
+    "We said never miss twice. That happened. Fix it with Plan B before bed."
+  ],
+  "missed-today": [
+    "No lift yet today. Plan B at home still counts. Get it done.",
+    "Gym didn't happen? 25 minutes with the dumbbells tonight keeps it honest.",
+    "Session's still open. Gym or Plan B, your call. Just not zero."
+  ],
+  "weigh-in-missing": [
+    "Step on the scale first. One number, five seconds.",
+    "Weigh-in before anything else. The trend needs today's number.",
+    "Scale first, then breakfast."
+  ],
+  "training-day-morning": [
+    "Breakfast is in, {protein} g protein down. Lift at noon, then {lunch} right after.",
+    "Training day. {workout} at noon. Eat, show up, beat last week.",
+    "Lift today: {workout}. Last time's numbers are waiting to be beaten."
+  ],
+  "protein-behind": [
+    "{left} g protein to go. The snack and dinner cover it if you eat both.",
+    "Protein's behind: {left} g left. Don't skip dinner.",
+    "{left} g of protein still on the table. Hit it before the kitchen closes."
+  ],
+  "steps-behind": [
+    "{left} steps left. Two 15-minute walks and you're there.",
+    "{left} steps to go. Walk after dinner.",
+    "Steps are short by {left}. Short walks add up, keep each under 30 minutes for your feet."
+  ],
+  "kitchen-closed": [
+    "Dessert's done. Kitchen's closed. See you at breakfast.",
+    "Kitchen's closed. Bored isn't hungry. Water and bed.",
+    "Done eating for today. Good work."
+  ],
+  "on-plan": [
+    "On plan today. {streak} days straight. Keep stacking them.",
+    "Today counts. {streak} in a row.",
+    "{streak}-day streak. This is what the new normal looks like."
+  ],
+  "default": [
+    "One meal at a time. Next up: {nextMeal}.",
+    "Next up: {nextMeal}. Stick to the plan and the day takes care of itself.",
+    "Keep it simple. {nextMeal} is next."
+  ]
+}

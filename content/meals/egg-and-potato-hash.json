@@ -1,0 +1,5 @@
+{ "slug": "egg-and-potato-hash", "name": "Loaded egg and potato hash", "pool": "breakfast", "mode": "any", "tags": [], "source": "starter",
+  "ingredients": [
+    { "food": "potato-russet-raw", "grams": 200, "note": "diced small" }, { "food": "butter", "grams": 5 },
+    { "food": "egg-whole", "grams": 150, "note": "3 eggs" }, { "food": "egg-white", "grams": 250 }, { "food": "cheddar", "grams": 30 } ],
+  "steps": ["Microwave the diced potato 3 minutes to par-cook.", "Crisp the potato in the butter in a nonstick pan, 6 to 8 minutes. Salt and pepper.", "Pour in the eggs and whites, stir gently until just set.", "Top with the cheddar and cover 1 minute to melt."] }

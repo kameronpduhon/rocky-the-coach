@@ -1,0 +1,5 @@
+{ "slug": "steak-and-baked-potato", "name": "Steak and baked potato", "pool": "main", "mode": "any", "tags": [], "source": "starter",
+  "ingredients": [
+    { "food": "sirloin-raw", "grams": 200 }, { "food": "potato-russet-raw", "grams": 300 },
+    { "food": "butter", "grams": 10 }, { "food": "greek-yogurt-nonfat", "grams": 100, "note": "as sour cream" } ],
+  "steps": ["Prick the potato and microwave 8 to 10 minutes until soft, turning once.", "Salt and pepper the steak, sear 3 to 4 minutes a side, rest 5 minutes.", "Split the potato, add the butter and yogurt.", "Slice the steak and serve."] }

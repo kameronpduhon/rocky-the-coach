@@ -1,0 +1,5 @@
+{ "slug": "shrimp-stir-fry", "name": "Shrimp stir-fry", "pool": "main", "mode": "weekend", "tags": [], "source": "starter",
+  "ingredients": [
+    { "food": "shrimp-raw", "grams": 250 }, { "food": "broccoli", "grams": 120 }, { "food": "bell-pepper-red", "grams": 80 },
+    { "food": "sesame-oil", "grams": 10 }, { "food": "coconut-aminos", "grams": 15 }, { "food": "white-rice-cooked", "grams": 150 } ],
+  "steps": ["Heat the sesame oil in a wok or large pan over high heat.", "Stir-fry the broccoli and pepper 3 minutes.", "Add the shrimp and cook 2 to 3 minutes until pink.", "Toss with the coconut aminos and serve over the rice."] }

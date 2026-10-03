@@ -1,0 +1,5 @@
+{ "slug": "steak-salad", "name": "Steak salad", "pool": "main", "mode": "weekend", "tags": [], "source": "starter",
+  "ingredients": [
+    { "food": "sirloin-raw", "grams": 200 }, { "food": "lettuce-green-leaf", "grams": 100 }, { "food": "grape-tomatoes", "grams": 100 },
+    { "food": "feta", "grams": 30 }, { "food": "olive-oil", "grams": 10 }, { "food": "potato-russet-raw", "grams": 100, "note": "roasted, cubed" } ],
+  "steps": ["Roast the potato cubes at 425°F for 25 minutes.", "Sear the steak 3 to 4 minutes a side, rest, slice.", "Toss the greens and tomatoes with the olive oil, salt, and a squeeze of lemon.", "Top with the steak, potatoes, and feta."] }

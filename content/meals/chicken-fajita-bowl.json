@@ -1,0 +1,5 @@
+{ "slug": "chicken-fajita-bowl", "name": "Chicken fajita bowl", "pool": "main", "mode": "weekend", "tags": [], "source": "starter",
+  "ingredients": [
+    { "food": "chicken-breast-raw", "grams": 220, "note": "sliced in strips" }, { "food": "bell-pepper-red", "grams": 100 },
+    { "food": "onion", "grams": 50 }, { "food": "white-rice-cooked", "grams": 150 }, { "food": "avocado", "grams": 50 }, { "food": "salsa", "grams": 40 } ],
+  "steps": ["Toss the chicken with chili powder, cumin, salt, and lime.", "Sear the chicken in a hot pan until cooked, then the peppers and onion until charred.", "Build the bowl over rice, top with avocado and salsa."] }

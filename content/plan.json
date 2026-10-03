@@ -1,0 +1,77 @@
+{
+  "phaseStart": "2026-10-05",
+  "weekTypes": { "8": "deload", "12": "maintenance", "13": "checkpoint" },
+  "relaxedDays": ["2026-11-26", "2026-12-25"],
+  "training": { "1": "mon-chest-back-arms", "3": "wed-legs-shoulders", "5": "fri-chest-shoulders-arms" },
+  "optional": { "2": "optional-arms-back", "4": "optional-arms-back" },
+  "planB": "plan-b-home",
+  "startingTargets": { "kcal": 2400, "proteinG": 180, "stepGoal": 7000 },
+  "maintenanceKcal": 2800,
+  "slotTimes": { "breakfast": "07:30", "lunch": "14:00", "snack": "15:30", "dinner": "18:30", "dessert": "20:00" },
+  "poolRanges": {
+    "breakfast": { "kcalMin": 450, "kcalMax": 750, "proteinMin": 40 },
+    "main": { "kcalMin": 500, "kcalMax": 800, "proteinMin": 40 },
+    "snack": { "kcalMin": 150, "kcalMax": 300, "proteinMin": 15 },
+    "dessert": { "kcalMin": 100, "kcalMax": 260, "proteinMin": 0 }
+  },
+  "templates": {
+    "mon-chest-back-arms": {
+      "name": "Chest, Back, Arms",
+      "kind": "gym",
+      "exercises": [
+        { "exercise": "incline-dumbbell-press", "repMin": 6, "repMax": 10 },
+        { "exercise": "pec-deck", "repMin": 8, "repMax": 12 },
+        { "exercise": "lat-pulldown", "repMin": 8, "repMax": 12 },
+        { "exercise": "seated-cable-row", "repMin": 8, "repMax": 12 },
+        { "exercise": "preacher-curl", "repMin": 8, "repMax": 12 },
+        { "exercise": "cable-triceps-pushdown", "repMin": 8, "repMax": 12 }
+      ]
+    },
+    "wed-legs-shoulders": {
+      "name": "Legs, Shoulders",
+      "kind": "gym",
+      "exercises": [
+        { "exercise": "leg-press", "repMin": 8, "repMax": 12 },
+        { "exercise": "dumbbell-romanian-deadlift", "repMin": 8, "repMax": 10 },
+        { "exercise": "lying-leg-curl", "repMin": 10, "repMax": 12 },
+        { "exercise": "leg-extension", "repMin": 10, "repMax": 15 },
+        { "exercise": "seated-dumbbell-shoulder-press", "repMin": 6, "repMax": 10 },
+        { "exercise": "cable-lateral-raise", "repMin": 10, "repMax": 15 }
+      ]
+    },
+    "fri-chest-shoulders-arms": {
+      "name": "Chest, Shoulders, Arms",
+      "kind": "gym",
+      "exercises": [
+        { "exercise": "flat-dumbbell-press", "repMin": 6, "repMax": 10 },
+        { "exercise": "low-to-high-cable-fly", "repMin": 10, "repMax": 12 },
+        { "exercise": "dumbbell-lateral-raise", "repMin": 10, "repMax": 15 },
+        { "exercise": "reverse-pec-deck", "repMin": 10, "repMax": 15 },
+        { "exercise": "incline-dumbbell-curl", "repMin": 8, "repMax": 12 },
+        { "exercise": "overhead-cable-triceps-extension", "repMin": 8, "repMax": 12 }
+      ]
+    },
+    "optional-arms-back": {
+      "name": "Arms and Back extra",
+      "kind": "optional",
+      "exercises": [
+        { "exercise": "pull-up", "repMin": 5, "repMax": 12 },
+        { "exercise": "cable-lateral-raise", "repMin": 10, "repMax": 15 },
+        { "exercise": "hammer-curl", "repMin": 8, "repMax": 12 },
+        { "exercise": "rope-pushdown", "repMin": 10, "repMax": 12 }
+      ]
+    },
+    "plan-b-home": {
+      "name": "Plan B at home",
+      "kind": "plan-b",
+      "exercises": [
+        { "exercise": "pull-up", "repMin": 5, "repMax": 12 },
+        { "exercise": "dip", "repMin": 6, "repMax": 15 },
+        { "exercise": "seated-dumbbell-shoulder-press", "repMin": 8, "repMax": 12 },
+        { "exercise": "dumbbell-romanian-deadlift", "repMin": 8, "repMax": 12 },
+        { "exercise": "dumbbell-curl", "repMin": 8, "repMax": 12 },
+        { "exercise": "dumbbell-overhead-triceps-extension", "repMin": 8, "repMax": 12 }
+      ]
+    }
+  }
+}

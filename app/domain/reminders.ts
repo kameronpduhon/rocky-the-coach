@@ -50,6 +50,19 @@ export const DEFAULT_REMINDERS: ReminderDef[] = [
   { kind: 'check-in', time: '19:00', days: [0], when: (f) => !f.checkInDone, title: 'Sunday check-in', body: 'Ten minutes to set up next week.' },
 ];
 
+export const REMINDER_LABEL: Record<ReminderKind, string> = {
+  'weigh-in': 'Weigh-in',
+  breakfast: 'Breakfast',
+  lift: 'Lift at noon',
+  lunch: 'Lunch',
+  snack: 'Snack',
+  'plan-b': 'Plan B nudge',
+  steps: 'Steps check',
+  dinner: 'Dinner',
+  'kitchen-closed': 'Kitchen closes',
+  'check-in': 'Check-in',
+};
+
 const WINDOW_MINUTES = 30;
 
 export interface ReminderSetting {

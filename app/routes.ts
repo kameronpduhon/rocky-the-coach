@@ -10,5 +10,6 @@ export default [
     route("progress", "routes/progress.tsx"),
     route("library", "routes/library.tsx"),
     route("settings", "routes/settings.tsx"),
+    route("meal/:slug", "routes/meal.tsx"),
   ]),
 ] satisfies RouteConfig;

@@ -8,6 +8,7 @@ import { getDb } from "~/db/client";
 import { dayMode, optionalTemplateFor, templateFor, weekNumber, weekType } from "~/domain/calendar";
 import { addDays, localDate, weekStart, weekday } from "~/domain/dates";
 import { serverNow } from "~/server/clock.server";
+import { groceryList } from "~/server/groceries.server";
 import { targetsFor } from "~/server/targets.server";
 import { resolveTemplate } from "~/server/workouts.server";
 
@@ -45,6 +46,7 @@ export async function loader(_args: Route.LoaderArgs) {
     targets: await targetsFor(db, today),
     days,
     monday,
+    groceryCount: (await groceryList(db, monday, today, { rest: null, swaps: [] })).count,
   };
 }
 
@@ -65,7 +67,7 @@ function weekFill(n: number, current: number, type: string) {
 }
 
 export default function Plan({ loaderData }: Route.ComponentProps) {
-  const { current, lastWeek, phaseStart, weeks, targets, days, monday } = loaderData;
+  const { current, lastWeek, phaseStart, weeks, targets, days, monday, groceryCount } = loaderData;
   const [open, setOpen] = useState<string | null>(null);
   const left = Math.max(0, lastWeek - current);
   const deload = weeks.find((w) => w.type === "deload")?.n;
@@ -188,6 +190,16 @@ export default function Plan({ loaderData }: Route.ComponentProps) {
           })}
         </Card>
       </section>
+
+      <Link to="/groceries" className="flex min-h-[60px] items-center justify-between gap-3 rounded-[26px] bg-card px-[18px] py-4">
+        <span>
+          <span className="block text-[16px] font-semibold">Grocery list</span>
+          <span className="tabular mt-px block text-[14px] text-label-2">{groceryCount} items for this week's meals</span>
+        </span>
+        <span className="flex-none text-label-4">
+          <Icon name="chevron" size={18} strokeWidth={2.4} />
+        </span>
+      </Link>
     </Screen>
   );
 }

@@ -87,7 +87,9 @@ const rotation = meals.map(({ slug, pool, mode, tags }) => ({ slug, pool, mode, 
 const week1 = generateWeek({ weekStart: WEEK1, meals: rotation, lastEaten: {}, rested: [] });
 const lastEaten: Record<string, string> = {};
 for (const p of week1) if (!lastEaten[p.slug] || lastEaten[p.slug] < p.date) lastEaten[p.slug] = p.date;
-const week2 = generateWeek({ weekStart: TODAY, meals: rotation, lastEaten, rested: [] });
+// Week 1's check-in rested the burger bowl for two weeks, so Library shows a resting meal and week 2 skips it.
+const RESTED = { slug: "burger-bowl", until: "2026-10-25" };
+const week2 = generateWeek({ weekStart: TODAY, meals: rotation, lastEaten, rested: [RESTED.slug] });
 
 // Pin Monday to the mockup's meals. Wherever a pinned meal also landed later in the week in the same pool,
 // hand that slot the meal Monday gave up, so weekly counts stay what the rotation chose.
@@ -133,7 +135,7 @@ if (SUNDAY) {
     const weekend = ["2026-10-17", "2026-10-18"].includes(p.date);
     const sameDay = week2.filter((x) => x.date === p.date).map((x) => x.slug);
     const pick = meals
-      .filter((m) => m.pool === slotPool(p.slot) && (weekend || m.mode !== "weekend") && !m.tags.includes("ground-beef") && !sameDay.includes(m.slug) && !pinned.has(m.slug))
+      .filter((m) => m.pool === slotPool(p.slot) && (weekend || m.mode !== "weekend") && !m.tags.includes("ground-beef") && m.slug !== RESTED.slug && !sameDay.includes(m.slug) && !pinned.has(m.slug))
       .sort((a, b) => (c.get(a.slug) ?? 0) - (c.get(b.slug) ?? 0))[0];
     if (pick && (c.get(pick.slug) ?? 0) < 2) p.slug = pick.slug;
   }
@@ -155,6 +157,7 @@ const WEIGHTS = [207.0, 206.3, 206.6, 205.7, 206.0, 205.4, 205.7];
 // The week before the phase started, so the first check-ins have a week-on-week change to judge.
 const WEEK0_WEIGHTS = [207.6, 207.2, 207.5, 207.0, 207.4, 207.1, 207.3];
 WEEK0_WEIGHTS.forEach((w, d) => insert("weigh_ins", { date: addDays(WEEK0, d), weight_lb: w, logged_at: at(addDays(WEEK0, d), "07:20") }));
+insert("meal_state", { slug: RESTED.slug, photo_key: null, rested_until: RESTED.until });
 insert("waist_logs", { date: "2026-10-04", inches: 35.0 });
 insert("waist_logs", { date: "2026-10-11", inches: 34.8 });
 insert("check_ins", {

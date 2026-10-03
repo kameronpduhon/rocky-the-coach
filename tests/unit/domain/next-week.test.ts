@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { previewWeek, swapFits } from '~/domain/next-week';
+import { encodeSwap, parseSwaps, previewWeek, swapFits } from '~/domain/next-week';
 import type { RotationMeal } from '~/domain/rotation';
 
 const meals: RotationMeal[] = [
@@ -30,5 +30,12 @@ describe('previewWeek', () => {
     expect(rested.map((p) => p.slug)).not.toContain('m1');
     const swapped = previewWeek({ ...base, swaps: [{ date: '2026-10-21', slot: 'snack', slug: 's3' }] });
     expect(swapped.find((p) => p.date === '2026-10-21' && p.slot === 'snack')!.slug).toBe('s3');
+  });
+});
+
+describe('parseSwaps', () => {
+  it('reads date|slot|slug and drops anything malformed', () => {
+    expect(parseSwaps(['2026-10-20|lunch|m2', 'nope', '2026-10-20|brunch|m2', '2026-10-20|lunch|'])).toEqual([{ date: '2026-10-20', slot: 'lunch', slug: 'm2' }]);
+    expect(parseSwaps([encodeSwap({ date: '2026-10-21', slot: 'snack', slug: 's3' })])).toEqual([{ date: '2026-10-21', slot: 'snack', slug: 's3' }]);
   });
 });

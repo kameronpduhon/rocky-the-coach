@@ -6,7 +6,7 @@ import { weekAdherence, weekIsOnPlan } from "~/domain/adherence";
 import { decideAdjustment, type Adjustment } from "~/domain/adjustments";
 import { isTrainingDay, weekNumber } from "~/domain/calendar";
 import { addDays, localDate, localMinutes, weekStart, weekday } from "~/domain/dates";
-import { previewWeek, swapFits, type MealSwap } from "~/domain/next-week";
+import { freshMeals, previewWeek, swapFits, type MealSwap } from "~/domain/next-week";
 import type { RotationMeal } from "~/domain/rotation";
 import { rampStepGoal } from "~/domain/steps";
 import type { ISODate } from "~/domain/types";
@@ -32,6 +32,24 @@ export async function checkInDone(db: Db, monday: ISODate): Promise<boolean> {
 
 export function rotationMeals(): RotationMeal[] {
   return [...meals.values()].map((m) => ({ slug: m.slug, pool: m.pool, mode: m.mode, tags: m.tags }));
+}
+
+/**
+ * Planned meals eaten this week, and the ones eaten 3 or more times. The spec lists only those with a Rest
+ * toggle (on by default): the rotation already allows twice a week, so a 2 is normal and not burnout.
+ */
+export async function mealRepeats(db: Db, monday: ISODate) {
+  const counts = await db
+    .select({ slug: mealLogs.mealSlug, n: sql<number>`count(*)` })
+    .from(mealLogs)
+    .where(and(between(mealLogs.date, monday, addDays(monday, 6)), eq(mealLogs.category, "planned")))
+    .groupBy(mealLogs.mealSlug)
+    .all();
+  const mealCounts = counts
+    .filter((c) => c.slug && meals.has(c.slug) && c.n >= 3)
+    .map((c) => ({ slug: c.slug!, name: meals.get(c.slug!)!.name, count: c.n, defaultRest: true }))
+    .sort((a, b) => b.count - a.count || a.name.localeCompare(b.name));
+  return { counts, mealCounts };
 }
 
 export interface CheckInData {
@@ -94,16 +112,7 @@ export async function checkInData(db: Db, monday: ISODate): Promise<CheckInData>
   }
   const avgSteps = Math.round(thisWeek.reduce((s, d) => s + d.steps, 0) / 7);
 
-  const counts = await db
-    .select({ slug: mealLogs.mealSlug, n: sql<number>`count(*)` })
-    .from(mealLogs)
-    .where(and(between(mealLogs.date, monday, sunday), eq(mealLogs.category, "planned")))
-    .groupBy(mealLogs.mealSlug)
-    .all();
-  const mealCounts = counts
-    .filter((c) => c.slug && meals.has(c.slug) && c.n >= 2)
-    .map((c) => ({ slug: c.slug!, name: meals.get(c.slug!)!.name, count: c.n, defaultRest: c.n >= 3 }))
-    .sort((a, b) => b.count - a.count || a.name.localeCompare(b.name));
+  const { counts, mealCounts } = await mealRepeats(db, monday);
   const relaxed = await db
     .select({ n: sql<number>`count(*)` })
     .from(mealLogs)
@@ -121,7 +130,7 @@ export async function checkInData(db: Db, monday: ISODate): Promise<CheckInData>
     rested: [...restedBefore, ...mealCounts.filter((m) => m.defaultRest).map((m) => m.slug)],
     swaps: [],
   });
-  const preview = newThisWeek(previewPlan.map((p) => p.slug), eatenThisWeek);
+  const preview = freshMeals(previewPlan.map((p) => p.slug), eatenThisWeek, (slug) => meals.get(slug)?.pool).map((slug) => meals.get(slug)!.name);
 
   const waists = await waistLogsAll(db);
   return {
@@ -148,17 +157,6 @@ export async function checkInData(db: Db, monday: ISODate): Promise<CheckInData>
     nextWeek: { weekStart: nextMonday, lastEaten: nextLastEaten, restedBefore, eatenThisWeek },
     done: await checkInDone(db, monday),
   };
-}
-
-/** Names of planned meals that were not eaten this week, mains first, in plan order. */
-export function newThisWeek(plannedSlugs: string[], eatenThisWeek: string[]): string[] {
-  const order = { main: 0, breakfast: 1, snack: 2, dessert: 3 } as const;
-  const fresh = [...new Set(plannedSlugs)].filter((s) => !eatenThisWeek.includes(s) && meals.has(s));
-  return fresh
-    .map((s, i) => ({ meal: meals.get(s)!, i }))
-    .sort((a, b) => order[a.meal.pool] - order[b.meal.pool] || a.i - b.i)
-    .slice(0, 3)
-    .map((x) => x.meal.name);
 }
 
 export interface CheckInInput {

@@ -136,7 +136,7 @@ export default function Plan({ loaderData }: Route.ComponentProps) {
               : d.optional
                 ? `${d.optional}, 30 min`
                 : isSunday
-                  ? d.today ? "Check-in tonight" : "Check-in opens at 5pm"
+                  ? `Weekend mode · ${d.today ? "check-in tonight" : "check-in at 5pm"}`
                   : d.mode === "weekend"
                     ? "Weekend mode · meat-first whole foods"
                     : "";

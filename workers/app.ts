@@ -1,5 +1,6 @@
 import { createRequestHandler } from "react-router";
 import { runScheduled } from "../app/jobs/scheduled";
+import { httpsRedirect } from "./https";
 
 const requestHandler = createRequestHandler(
   () => import("virtual:react-router/server-build"),
@@ -8,7 +9,7 @@ const requestHandler = createRequestHandler(
 
 export default {
   async fetch(request) {
-    return requestHandler(request);
+    return httpsRedirect(request) ?? requestHandler(request);
   },
   async scheduled(controller, env, ctx) {
     ctx.waitUntil(runScheduled(env, controller.cron, new Date(controller.scheduledTime)));

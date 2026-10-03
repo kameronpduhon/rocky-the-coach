@@ -16,6 +16,14 @@ describe("check-in route", () => {
     expect(res.status).toBe(302);
     expect(res.headers.get("Location")).toBe("/groceries?week=2026-10-19");
   });
+
+  it("shows next week as saved once the check-in is done", async () => {
+    const data = await checkInLoader(routeArgs(new Request("http://localhost/check-in?week=2026-10-12")));
+    expect(data.data.done).toBe(true);
+    const saved = await db().select().from(plannedMeals).where(between(plannedMeals.date, "2026-10-19", "2026-10-25")).all();
+    expect(data.savedPlan).toHaveLength(35);
+    expect(data.savedPlan).toEqual(expect.arrayContaining(saved.map((r) => ({ date: r.date, slot: r.slot, slug: r.mealSlug }))));
+  });
 });
 
 describe("groceries route", () => {

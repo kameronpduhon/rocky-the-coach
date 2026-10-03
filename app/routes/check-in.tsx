@@ -34,15 +34,23 @@ export async function loader({ request }: Route.LoaderArgs) {
   const data = await checkInData(db, monday);
   const photos = new Map((await db.select().from(mealState).all()).map((s) => [s.slug, s.photoKey]));
   // A finished check-in already wrote next week; its swaps seed the page so the preview matches the plan.
-  const savedSwaps: MealSwap[] = data.done
-    ? (await db.select().from(plannedMeals).where(between(plannedMeals.date, data.nextWeek.weekStart, addDays(data.nextWeek.weekStart, 6))).all())
-        .filter((r) => r.swapped)
-        .map((r) => ({ date: r.date, slot: r.slot as Slot, slug: r.mealSlug }))
+  // A finished check-in already wrote next week. Show that plan as saved: regenerating it here would drift as
+  // the new week's meals get eaten and change the rotation's inputs.
+  const saved = data.done
+    ? (await db.select().from(plannedMeals).where(between(plannedMeals.date, data.nextWeek.weekStart, addDays(data.nextWeek.weekStart, 6))).all()).map((r) => ({
+        date: r.date,
+        slot: r.slot as Slot,
+        slug: r.mealSlug,
+        swapped: r.swapped,
+      }))
     : [];
+  const savedPlan = saved.length === 35 ? saved.map(({ date, slot, slug }) => ({ date, slot, slug })) : null;
+  const savedSwaps: MealSwap[] = saved.filter((r) => r.swapped).map(({ date, slot, slug }) => ({ date, slot, slug }));
   return {
     data,
     open: Boolean(param) || window !== null,
     savedSwaps,
+    savedPlan,
     catalog: [...meals.values()].map((m) => ({
       slug: m.slug,
       name: m.name,
@@ -108,7 +116,7 @@ function callText(d: Data, choice: "calories" | "steps") {
 }
 
 export default function CheckIn({ loaderData }: Route.ComponentProps) {
-  const { data: d, open, catalog, savedSwaps } = loaderData;
+  const { data: d, open, catalog, savedSwaps, savedPlan } = loaderData;
   const [choice, setChoice] = useState<"calories" | "steps">("calories");
   const [rest, setRest] = useState<string[]>(d.mealCounts.filter((m) => m.defaultRest).map((m) => m.slug));
   const [swaps, setSwaps] = useState<MealSwap[]>(savedSwaps);
@@ -118,8 +126,14 @@ export default function CheckIn({ loaderData }: Route.ComponentProps) {
   const rotation = useMemo(() => catalog.map(({ slug, pool, mode, tags }) => ({ slug, pool, mode, tags })), [catalog]);
   const rested = useMemo(() => [...d.nextWeek.restedBefore, ...rest], [d.nextWeek.restedBefore, rest]);
   const week = useMemo(
-    () => previewWeek({ weekStart: d.nextWeek.weekStart, meals: rotation, lastEaten: d.nextWeek.lastEaten, rested, swaps }),
-    [d.nextWeek, rotation, rested, swaps],
+    () =>
+      savedPlan
+        ? savedPlan.map((p) => {
+            const swap = swaps.find((s) => s.date === p.date && s.slot === p.slot);
+            return swap && swapFits(swap, rotation, rested) ? { ...p, slug: swap.slug } : p;
+          })
+        : previewWeek({ weekStart: d.nextWeek.weekStart, meals: rotation, lastEaten: d.nextWeek.lastEaten, rested, swaps }),
+    [savedPlan, d.nextWeek, rotation, rested, swaps],
   );
   const fresh = freshMeals(
     week.map((p) => p.slug),

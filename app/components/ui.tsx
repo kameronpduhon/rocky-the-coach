@@ -25,6 +25,17 @@ export function Card({ children, className = "", ...rest }: ComponentProps<"sect
   );
 }
 
+/** A 20 px radius figure tile: label, big value, one line under it. Green marks a good value or change. */
+export function Tile({ label, value, sub, valueGood, subGood }: { label: string; value: string; sub: string; valueGood?: boolean; subGood?: boolean }) {
+  return (
+    <div className="rounded-[20px] bg-card p-4">
+      <div className="text-[13px] font-semibold">{label}</div>
+      <div className={`tabular mt-1 text-[24px] font-bold ${valueGood ? "text-steps-text" : ""}`}>{value}</div>
+      <div className={`tabular mt-px text-[14px] ${subGood ? "font-semibold text-steps-text" : "text-label-2"}`}>{sub}</div>
+    </div>
+  );
+}
+
 export function SectionTitle({ children, right }: { children: ReactNode; right?: ReactNode }) {
   return (
     <div className="flex items-baseline justify-between px-1 pt-1.5">

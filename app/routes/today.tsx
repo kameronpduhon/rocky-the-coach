@@ -101,6 +101,18 @@ export default function Today({ loaderData }: Route.ComponentProps) {
       />
 
       {day.weighIn === null && <WeighInCard />}
+      {day.checkInDue && (
+        <Link to="/check-in" className="flex min-h-[60px] items-center justify-between gap-3 rounded-[26px] bg-card px-[18px] py-4">
+          <span>
+            <span className="block text-[17px] font-semibold">Sunday check-in</span>
+            <span className="block text-[14px] text-label-2">10 minutes to set up next week.</span>
+          </span>
+          <span className="flex-none text-label-4">
+            <Icon name="chevron" size={18} strokeWidth={2.4} />
+          </span>
+        </Link>
+      )}
+      {day.checkInSkipped && <Card className="px-[18px] py-3.5 text-[15px] text-label-2">Check-in skipped. This week runs on last week's numbers.</Card>}
 
       <div className="flex flex-col gap-[18px] min-[900px]:grid min-[900px]:grid-cols-2 min-[900px]:items-start">
         <div className="flex flex-col gap-[18px]">

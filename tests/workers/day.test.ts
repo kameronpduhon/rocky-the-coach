@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 import { meals } from "~/content";
-import { setLogs, workoutSessions } from "~/db/schema";
+import { checkIns, setLogs, workoutSessions } from "~/db/schema";
 import { upsertSteps } from "~/server/body.server";
 import { loadDay } from "~/server/day.server";
 import { dayResults } from "~/server/history.server";
@@ -72,5 +72,19 @@ describe("loadDay", () => {
     day = await loadDay(db(), "2026-10-27", chicago("2026-10-27", "18:00"));
     expect(day.missedTwice).toBe(false);
     expect(day.loggedSetToday).toBe(true);
+  });
+});
+
+describe("check-in on Today", () => {
+  it("is due from Sunday 5pm, then skipped after Monday noon, and clears once done", async () => {
+    expect((await loadDay(db(), "2026-10-25", chicago("2026-10-25", "16:30"))).checkInDue).toBe(false);
+    expect((await loadDay(db(), "2026-10-25", chicago("2026-10-25", "17:30"))).checkInDue).toBe(true);
+    const mondayMorning = await loadDay(db(), "2026-10-26", chicago("2026-10-26", "09:00"));
+    expect([mondayMorning.checkInDue, mondayMorning.checkInSkipped]).toEqual([true, false]);
+    const mondayAfternoon = await loadDay(db(), "2026-10-26", chicago("2026-10-26", "13:00"));
+    expect([mondayAfternoon.checkInDue, mondayAfternoon.checkInSkipped]).toEqual([false, true]);
+    await db().insert(checkIns).values({ weekStart: "2026-10-19", adherence: 6, outcome: "{}", completedAt: new Date().toISOString() });
+    expect((await loadDay(db(), "2026-10-25", chicago("2026-10-25", "18:00"))).checkInDue).toBe(false);
+    expect((await loadDay(db(), "2026-10-26", chicago("2026-10-26", "13:00"))).checkInSkipped).toBe(false);
   });
 });

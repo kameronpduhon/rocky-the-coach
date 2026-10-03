@@ -4,9 +4,10 @@ import type { Db } from "~/db/client";
 import { mealState, workoutSessions } from "~/db/schema";
 import { isOnPlan, streak as streakFrom } from "~/domain/adherence";
 import { dayMode, isRelaxedDay, isTrainingDay, optionalTemplateFor, setsFor, templateFor, weekNumber, weekType } from "~/domain/calendar";
-import { addDays, formatClock, localMinutes, parseTime } from "~/domain/dates";
+import { addDays, formatClock, localMinutes, parseTime, weekStart, weekday } from "~/domain/dates";
 import type { DayMode, ISODate, Slot, WeekType } from "~/domain/types";
 import { stepsFor, weighInEntry } from "./body.server";
+import { checkInDone, checkInWindow } from "./checkin.server";
 import { datesWithSets, dayResults } from "./history.server";
 import { plannedForDate } from "./meal-plan.server";
 import { logsForDate, type MealLog } from "./meals.server";
@@ -55,6 +56,8 @@ export interface DaySummary {
   streak: number;
   missedTwice: boolean;
   nextSlot: Slot | null;
+  checkInDue: boolean;
+  checkInSkipped: boolean;
 }
 
 export async function loadDay(db: Db, date: ISODate, now: Date): Promise<DaySummary> {
@@ -101,6 +104,10 @@ export async function loadDay(db: Db, date: ISODate, now: Date): Promise<DaySumm
   const history = await dayResults(db, addDays(date, -60), addDays(date, -1));
   const onPlan = isOnPlan({ proteinG: totals.proteinG, steps, offPlanDessert, relaxedDay: relaxed, proteinTarget: targets.proteinG, stepGoal: targets.stepGoal });
 
+  const openWeek = checkInWindow(now);
+  const checkInDue = openWeek !== null && !(await checkInDone(db, openWeek));
+  const checkInSkipped = weekday(date) === 1 && localMinutes(now) >= 12 * 60 && !(await checkInDone(db, addDays(weekStart(date), -7)));
+
   return {
     date,
     minutes: localMinutes(now),
@@ -124,6 +131,8 @@ export async function loadDay(db: Db, date: ISODate, now: Date): Promise<DaySumm
     streak: streakFrom(history, date, onPlan),
     missedTwice: missedTwoInARow(date, setDates),
     nextSlot: slotViews.find((s) => s.logId === null)?.slot ?? null,
+    checkInDue,
+    checkInSkipped,
   };
 }
 

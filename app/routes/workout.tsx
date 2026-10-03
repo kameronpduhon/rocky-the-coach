@@ -379,13 +379,18 @@ function SetCard({ ex, sets, pending, onLog }: { ex: ExerciseView; sets: number;
           </form>
         ) : (
           <div key={r.setNumber} className="grid grid-cols-[40px_minmax(0,1fr)_minmax(0,1fr)_50px] items-center gap-2.5">
-            <span className="text-[17px] font-bold text-label-3">
+            <span className="text-[17px] font-bold text-label-2">
               <span className="sr-only">Set </span>
               {r.setNumber}
             </span>
-            <div className="h-[50px] rounded-[14px] bg-fill opacity-50" />
-            <div className="h-[50px] rounded-[14px] bg-fill opacity-50" />
-            <span />
+            <div className="tabular flex h-[50px] items-center rounded-[14px] bg-fill px-3.5 text-[19px] font-semibold">
+              {weight}
+              <span className="sr-only"> pounds planned</span>
+            </div>
+            <div className="flex h-[50px] items-center rounded-[14px] bg-fill px-3.5 text-[19px] font-semibold text-label-on-fill">reps</div>
+            <button type="button" disabled aria-label={`Log set ${r.setNumber}, after set ${r.setNumber - 1}`} className="glass flex size-[50px] items-center justify-center rounded-full text-label-2">
+              <Icon name="check" strokeWidth={3} />
+            </button>
           </div>
         ),
       )}

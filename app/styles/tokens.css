@@ -22,6 +22,10 @@
      (#FDF1F4 gives 4.71:1 for calories, #F0F6FA gives 4.94:1 for protein). */
   --calories-chip-bg: color-mix(in srgb, var(--calories) 6%, #ffffff);
   --protein-chip-bg: color-mix(in srgb, var(--protein) 6%, #ffffff);
+  /* Daily weigh-in dots: #AEAEB2 (--label-4) fades to 2.2:1 on white, this keeps them at 3.3:1. */
+  --chart-dot: #8e8e93;
+  --toggle-off: #e9e9ea;
+  --timeline-past: #aeaeb2;
   --sheet-bg: #f2f2f7;
   --sheet-card: #ffffff;
   --glass-fill: rgba(255, 255, 255, 0.6);
@@ -57,6 +61,9 @@
     --label-on-glass: #aeaeb2;
     --calories-chip-bg: color-mix(in srgb, var(--calories) 16%, transparent);
     --protein-chip-bg: color-mix(in srgb, var(--protein) 16%, transparent);
+    --chart-dot: #636366;
+    --toggle-off: #39393d;
+    --timeline-past: #48484a;
     --sheet-bg: #1c1c1e;
     --sheet-card: #2c2c2e;
     --glass-fill: rgba(255, 255, 255, 0.1);

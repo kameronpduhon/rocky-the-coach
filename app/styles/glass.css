@@ -35,6 +35,12 @@
     border: 0.5px solid var(--segment-selected-border);
     box-shadow: inset 0 1px 0 var(--glass-highlight), var(--segment-selected-shadow);
   }
+  /* In-content secondary action: a solid neutral control on a solid surface. Glass is only for what floats.
+     --label on --fill is about 14:1 dark and 16:1 light. */
+  .btn-secondary {
+    background: var(--fill);
+    color: var(--label);
+  }
   .btn-prominent {
     background: var(--prominent-fill);
     color: var(--prominent-label);

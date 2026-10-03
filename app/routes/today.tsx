@@ -151,7 +151,7 @@ export default function Today({ loaderData }: Route.ComponentProps) {
                   <Link to="/workout" className="btn-prominent flex h-[50px] flex-1 items-center justify-center rounded-full text-[17px] font-semibold">
                     {day.loggedSetToday ? "Continue workout" : "Start workout"}
                   </Link>
-                  <Link to="/workout?plan=b" className="glass flex h-[50px] items-center justify-center rounded-full px-[18px] text-[16px] font-semibold">
+                  <Link to="/workout?plan=b" className="btn-secondary flex h-[50px] items-center justify-center rounded-full px-[18px] text-[16px] font-semibold">
                     Plan B
                   </Link>
                 </div>
@@ -164,7 +164,7 @@ export default function Today({ loaderData }: Route.ComponentProps) {
                 <div className="text-[14px] text-label-2">{day.optional ? `Optional: ${day.optional.name}, 30 min` : "Walk, recover, eat on plan."}</div>
               </div>
               {day.optional && (
-                <Link to={`/workout?template=${day.optional.templateId}`} className="glass flex h-10 items-center rounded-full px-4 text-[15px] font-semibold">
+                <Link to={`/workout?template=${day.optional.templateId}`} className="btn-secondary flex h-11 items-center rounded-full px-4 text-[15px] font-semibold">
                   Start
                 </Link>
               )}
@@ -193,7 +193,7 @@ export default function Today({ loaderData }: Route.ComponentProps) {
                 ))}
               </Card>
             )}
-            <button type="button" onClick={() => setOffPlanOpen(true)} className="glass ml-0.5 h-11 self-start rounded-full px-4 text-[15px] font-semibold">
+            <button type="button" onClick={() => setOffPlanOpen(true)} className="btn-secondary ml-0.5 h-11 self-start rounded-full px-4 text-[15px] font-semibold">
               + Log off-plan
             </button>
           </section>
@@ -292,7 +292,7 @@ function OffPlanSheet({ open, onClose }: { open: boolean; onClose: () => void })
             key={p.name}
             type="button"
             onClick={() => submit({ name: p.name, category: p.category, kcal: String(p.kcal), protein: String(p.protein), ...(p.relaxed ? { relaxed: "on" } : {}) })}
-            className="glass h-9 rounded-full px-3.5 text-[14px] font-semibold"
+            className="btn-secondary h-11 rounded-full px-4 text-[15px] font-semibold"
           >
             {p.name}
             {p.relaxed ? " (relaxed)" : ""}

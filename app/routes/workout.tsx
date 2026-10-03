@@ -249,7 +249,7 @@ export default function Workout({ loaderData }: Route.ComponentProps) {
         <Form method="post" action={`/workout?template=${view.templateId}`}>
           <input type="hidden" name="intent" value="end" />
           <input type="hidden" name="templateId" value={view.templateId} />
-          <button type="submit" className="glass h-[52px] w-full rounded-full text-[16px] font-semibold">
+          <button type="submit" className="btn-secondary h-[52px] w-full rounded-full text-[16px] font-semibold">
             {allDone ? "Finish workout" : "End workout"}
           </button>
         </Form>

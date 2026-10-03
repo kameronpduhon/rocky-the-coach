@@ -231,11 +231,11 @@ export default function CheckIn({ loaderData }: Route.ComponentProps) {
           {fresh.length > 0 && <div className="mx-1 mt-2 text-[15px] font-semibold">New this week</div>}
           <div className="flex flex-wrap items-center gap-2">
             {fresh.map((name) => (
-              <span key={name} className="flex h-9 items-center rounded-full bg-card px-3.5 text-[14px] font-semibold">
+              <span key={name} className="flex h-9 items-center rounded-full bg-card px-3.5 text-[14px] font-medium text-label-2">
                 {name}
               </span>
             ))}
-            <Link to="/library" className="glass flex h-11 items-center rounded-full px-4 text-[14px] font-semibold">
+            <Link to="/library" className="btn-secondary flex h-11 items-center rounded-full px-4 text-[15px] font-semibold">
               + Library
             </Link>
           </div>

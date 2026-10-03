@@ -76,7 +76,7 @@ export default function Settings({ loaderData }: Route.ComponentProps) {
             </code>
           </div>
           <div className="flex gap-2">
-            <button type="button" onClick={() => setShown(!shown)} className="glass h-11 rounded-full px-[18px] text-[15px] font-semibold">
+            <button type="button" onClick={() => setShown(!shown)} className="btn-secondary h-11 rounded-full px-[18px] text-[15px] font-semibold">
               {shown ? "Hide" : "Show"}
             </button>
             <button
@@ -86,7 +86,7 @@ export default function Settings({ loaderData }: Route.ComponentProps) {
                 setCopied(true);
                 setTimeout(() => setCopied(false), 2000);
               }}
-              className="glass h-11 rounded-full px-[18px] text-[15px] font-semibold"
+              className="btn-secondary h-11 rounded-full px-[18px] text-[15px] font-semibold"
             >
               {copied ? "Copied" : "Copy header"}
             </button>

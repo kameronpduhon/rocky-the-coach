@@ -3,7 +3,12 @@
 // and last Monday's session (pushdown hit the top of its range, so it goes up next time).
 // Pair it with DEV_NOW="2026-10-12T11:00:00-05:00" in .dev.vars.
 //
+// With --workout it also starts today's session the way the Workout mockup shows it at 11:00: started at
+// 10:41:18 (18:42 elapsed), incline press done at 60 x 10 twice, pec deck set 1 logged at 145 x 11 six seconds
+// ago (1:24 of rest left). Today then reads "Continue workout", so leave the flag off for the Today mockup.
+//
 // Usage: npm run seed:demo
+//        npm run seed:demo -- --workout
 import { execFileSync } from "node:child_process";
 import { existsSync, mkdirSync, readdirSync, readFileSync, writeFileSync } from "node:fs";
 import path from "node:path";
@@ -116,17 +121,18 @@ insert("meal_logs", {
 insert("weigh_ins", { date: TODAY, weight_lb: 205.8, logged_at: at(TODAY, "07:12") });
 insert("steps_daily", { date: TODAY, steps: 3120, updated_at: at(TODAY, "10:45") });
 
-// Week 1 sessions. Only the pushdown hit the top of its range on both sets.
+// Week 1 sessions. Only the pushdown hit the top of its range on both sets. Monday's numbers are the ones the
+// Workout mockup shows under "Last time".
 const SESSIONS: { date: string; template: string; sets: Record<string, [number, number, number][]> }[] = [
   {
     date: WEEK1,
     template: "mon-chest-back-arms",
     sets: {
       "incline-dumbbell-press": [[60, 9, 1], [60, 8, 2]],
-      "pec-deck": [[110, 11, 1], [110, 10, 2]],
+      "pec-deck": [[140, 12, 1], [140, 11, 2]],
       "lat-pulldown": [[130, 10, 1], [130, 9, 2]],
-      "seated-cable-row": [[140, 11, 1], [140, 10, 2]],
-      "preacher-curl": [[50, 10, 1], [50, 9, 2]],
+      "seated-cable-row": [[120, 12, 1], [120, 11, 2]],
+      "preacher-curl": [[60, 10, 1], [60, 9, 2]],
       "cable-triceps-pushdown": [[70, 12, 1], [70, 12, 2]],
     },
   },
@@ -173,6 +179,21 @@ SESSIONS.forEach((s, i) => {
   }
 });
 
+const WORKOUT = process.argv.includes("--workout");
+if (WORKOUT) {
+  const id = SESSIONS.length + 1;
+  const atSec = (hhmmss: string) => new Date(`${TODAY}T${hhmmss}-05:00`).toISOString();
+  insert("workout_sessions", { id, date: TODAY, template_id: "mon-chest-back-arms", started_at: atSec("10:41:18"), ended_at: null });
+  const today: [string, number, number, number, number, string][] = [
+    ["incline-dumbbell-press", 0, 1, 60, 10, "10:47:05"],
+    ["incline-dumbbell-press", 0, 2, 60, 10, "10:51:40"],
+    ["pec-deck", 1, 1, 145, 11, "10:59:54"],
+  ];
+  for (const [exerciseId, position, setNumber, weight, reps, time] of today) {
+    insert("set_logs", { session_id: id, exercise_id: exerciseId, position, set_number: setNumber, weight_lb: weight, reps, logged_at: atSec(time), client_id: `demo-${exerciseId}-${setNumber}` });
+  }
+}
+
 const sqlFile = path.join(ROOT, ".wrangler", "seed-demo.sql");
 mkdirSync(path.dirname(sqlFile), { recursive: true });
 writeFileSync(sqlFile, sql.join("\n") + "\n");
@@ -186,9 +207,10 @@ console.log(`Seeded local D1 with ${sql.length} statements.`);
 const BASE = "https://raw.githubusercontent.com/yuhonas/free-exercise-db/main/exercises";
 const CACHE = path.join(ROOT, ".exercise-images");
 mkdirSync(CACHE, { recursive: true });
-const heroes = new Set<string>(
-  Object.values(plan.templates as Record<string, { exercises: { exercise: string }[] }>).map((t) => exercisesById.get(t.exercises[0].exercise)!.dbId),
-);
+const templates = plan.templates as Record<string, { exercises: { exercise: string }[] }>;
+const heroes = new Set<string>(Object.values(templates).map((t) => exercisesById.get(t.exercises[0].exercise)!.dbId));
+// The mid-session Workout screen shows every Monday exercise as a thumbnail.
+if (WORKOUT) for (const e of templates["mon-chest-back-arms"].exercises) heroes.add(exercisesById.get(e.exercise)!.dbId);
 for (const dbId of heroes) {
   for (const frame of [0, 1]) {
     const file = path.join(CACHE, `${dbId}__${frame}.jpg`);

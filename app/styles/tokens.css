@@ -6,6 +6,7 @@
   --label: #000000;
   --label-2: #6c6c70;
   --label-3: #6c6c70;
+  --label-4: #aeaeb2;
   --calories: #d70f45;
   --protein: #0071a4;
   --steps: #248a3d;
@@ -16,6 +17,9 @@
   --glass-highlight: rgba(255, 255, 255, 0.9);
   --glass-shadow: 0 10px 30px rgba(0, 0, 0, 0.12);
   --glass-selected: rgba(0, 0, 0, 0.08);
+  --segment-selected: #ffffff;
+  --segment-selected-border: rgba(0, 0, 0, 0.04);
+  --segment-selected-shadow: 0 3px 10px rgba(0, 0, 0, 0.1);
   --prominent-fill: #000000;
   --prominent-label: #ffffff;
   color-scheme: light;
@@ -30,6 +34,7 @@
     --label: #ffffff;
     --label-2: #98989f;
     --label-3: #8e8e93;
+    --label-4: #636366;
     --calories: #ff375f;
     --protein: #64d2ff;
     --steps: #30d158;
@@ -40,6 +45,9 @@
     --glass-highlight: rgba(255, 255, 255, 0.28);
     --glass-shadow: 0 12px 32px rgba(0, 0, 0, 0.55);
     --glass-selected: rgba(255, 255, 255, 0.14);
+    --segment-selected: rgba(255, 255, 255, 0.22);
+    --segment-selected-border: rgba(255, 255, 255, 0.3);
+    --segment-selected-shadow: 0 4px 12px rgba(0, 0, 0, 0.3);
     --prominent-fill: rgba(255, 255, 255, 0.94);
     --prominent-label: #000000;
     color-scheme: dark;

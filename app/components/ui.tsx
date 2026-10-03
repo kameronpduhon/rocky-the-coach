@@ -30,10 +30,10 @@ export function SectionTitle({ children, right }: { children: ReactNode; right?:
   );
 }
 
-export function BackButton({ to, label }: { to: string; label: string }) {
+export function BackButton({ to, label, onImage = false }: { to: string; label: string; onImage?: boolean }) {
   return (
-    <Link to={to} aria-label={label} className="glass flex size-11 items-center justify-center rounded-full">
-      <Icon name="back" />
+    <Link to={to} aria-label={label} className={`${onImage ? "glass-on-image" : "glass"} flex size-11 items-center justify-center rounded-full`}>
+      <Icon name="back" strokeWidth={2.4} />
     </Link>
   );
 }
@@ -71,6 +71,13 @@ const PATHS: Record<string, ReactNode> = {
     <>
       <circle cx="12" cy="13" r="7" />
       <circle cx="12" cy="13" r="3.5" />
+    </>
+  ),
+  meal: (
+    <>
+      <circle cx="12" cy="13" r="7" />
+      <circle cx="12" cy="13" r="3.5" />
+      <path d="M3 4v5M5 4v5M4 9v11M20 4c-1.5 1-2 3-2 5h2v11" />
     </>
   ),
   camera: (

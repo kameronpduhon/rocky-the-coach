@@ -1,6 +1,14 @@
 import { isRouteErrorResponse, Links, Meta, Outlet, Scripts, ScrollRestoration } from "react-router";
 import type { Route } from "./+types/root";
 import "./app.css";
+import { requireSignedIn } from "~/server/auth.server";
+
+export const middleware: Route.MiddlewareFunction[] = [
+  async ({ request }, next) => {
+    await requireSignedIn(request);
+    return next();
+  },
+];
 
 export const links: Route.LinksFunction = () => [
   { rel: "manifest", href: "/manifest.webmanifest" },

@@ -11,7 +11,6 @@ import { BackButton, Card, Icon, Screen, SectionTitle, Tile } from "~/components
 import { meals } from "~/content";
 import { getDb } from "~/db/client";
 import { mealState, plannedMeals } from "~/db/schema";
-import { dayMode } from "~/domain/calendar";
 import { addDays, localDate, weekStart, weekday } from "~/domain/dates";
 import { encodeSwap, freshMeals, parseSwaps, previewWeek, swapFits, type MealSwap } from "~/domain/next-week";
 import { slotPool, type Slot } from "~/domain/types";
@@ -113,8 +112,7 @@ export default function CheckIn({ loaderData }: Route.ComponentProps) {
   const [choice, setChoice] = useState<"calories" | "steps">("calories");
   const [rest, setRest] = useState<string[]>(d.mealCounts.filter((m) => m.defaultRest).map((m) => m.slug));
   const [swaps, setSwaps] = useState<MealSwap[]>(savedSwaps);
-  const [showWeek, setShowWeek] = useState(false);
-  const [swapping, setSwapping] = useState<{ date: string; slot: Slot; slug: string } | null>(null);
+  const [dayOpen, setDayOpen] = useState<string | null>(null);
 
   const bySlug = useMemo(() => new Map(catalog.map((m) => [m.slug, m])), [catalog]);
   const rotation = useMemo(() => catalog.map(({ slug, pool, mode, tags }) => ({ slug, pool, mode, tags })), [catalog]);
@@ -242,43 +240,42 @@ export default function CheckIn({ loaderData }: Route.ComponentProps) {
             </Link>
           </div>
 
-          <Card className="mt-2 overflow-hidden">
-            <button type="button" onClick={() => setShowWeek(!showWeek)} aria-expanded={showWeek} className="flex min-h-[60px] w-full items-center justify-between gap-3 px-4 py-3 text-left">
-              <span>
-                <span className="block text-[16px] font-semibold">Next week day by day</span>
-                <span className="block text-[14px] text-label-2">{week.length} meals. Tap one to swap it.</span>
-              </span>
-              <span className={`flex-none text-label-4 transition-transform ${showWeek ? "rotate-90" : ""}`}>
-                <Icon name="chevron" size={18} strokeWidth={2.4} />
-              </span>
-            </button>
-            {showWeek &&
-              Array.from({ length: 7 }, (_, i) => addDays(d.nextWeek.weekStart, i)).map((date) => (
-                <div key={date} className="border-t-[0.5px] border-separator px-4 pb-1.5 pt-2.5">
-                  <div className="tabular text-[13px] font-semibold text-label-2">
-                    {DOW[weekday(date)]} {short(date)}
-                    {dayMode(date) === "weekend" ? " · weekend" : ""}
-                  </div>
-                  {week
-                    .filter((p) => p.date === date)
-                    .map((p) => {
-                      const swapped = liveSwaps.some((s) => s.date === p.date && s.slot === p.slot);
-                      return (
-                        <button
-                          key={p.slot}
-                          type="button"
-                          onClick={() => setSwapping({ date: p.date, slot: p.slot, slug: p.slug })}
-                          className="flex min-h-11 w-full items-center gap-3 text-left"
-                          aria-label={`${SLOT_LABEL[p.slot]}: ${bySlug.get(p.slug)?.name}. Swap`}
-                        >
-                          <span className="w-[76px] flex-none text-[14px] text-label-2">{SLOT_LABEL[p.slot]}</span>
-                          <span className="min-w-0 flex-1 truncate text-[15px] font-medium">{bySlug.get(p.slug)?.name}</span>
-                          {swapped && <span className="flex-none text-[13px] font-semibold text-label-2">Swapped</span>}
-                        </button>
-                      );
-                    })}
-                </div>
-              ))}
+          <div className="mx-1 mt-2 flex items-baseline justify-between">
+            <span className="text-[15px] font-semibold">Next week</span>
+            <span className="text-[13px] text-label-2">Tap a day to swap a meal</span>
+          </div>
+          <Card className="overflow-hidden" aria-label="Next week's plan">
+            {Array.from({ length: 7 }, (_, i) => addDays(d.nextWeek.weekStart, i)).map((date) => {
+              const day = week.filter((p) => p.date === date);
+              const name = (slot: Slot) => bySlug.get(day.find((p) => p.slot === slot)?.slug ?? "")?.name ?? "";
+              const swapCount = liveSwaps.filter((s) => s.date === date).length;
+              return (
+                <button
+                  key={date}
+                  type="button"
+                  onClick={() => setDayOpen(date)}
+                  className="flex w-full items-center gap-3.5 border-b-[0.5px] border-separator px-4 py-3 text-left leading-[1.25] last:border-b-0"
+                >
+                  <span aria-hidden="true" className="flex size-11 flex-none flex-col items-center justify-center rounded-full bg-fill leading-none">
+                    <span className="text-[10px] font-bold text-label-on-fill">{DOW[weekday(date)].toUpperCase()}</span>
+                    <span className="tabular text-[17px] font-bold">{Number(date.slice(8))}</span>
+                  </span>
+                  <span className="min-w-0 flex-1">
+                    <span className="sr-only">{`${DOW[weekday(date)]} ${short(date)}: `}</span>
+                    <span className="block text-[15px] font-semibold">
+                      {name("lunch")} · {name("dinner")}
+                    </span>
+                    <span className="mt-0.5 block text-[13px] text-label-2">
+                      {[name("breakfast"), name("snack"), name("dessert")].join(", ")}
+                      {swapCount > 0 ? ` · ${swapCount} swapped` : ""}
+                    </span>
+                  </span>
+                  <span className="flex-none text-label-4">
+                    <Icon name="chevron" size={18} strokeWidth={2.4} />
+                  </span>
+                </button>
+              );
+            })}
           </Card>
         </section>
 
@@ -302,35 +299,96 @@ export default function CheckIn({ loaderData }: Route.ComponentProps) {
         </div>
       </Form>
 
-      <SwapSheet
-        target={swapping}
-        options={catalog.filter((m) => swapping && m.slug !== swapping.slug && swapFits({ date: swapping.date, slot: swapping.slot, slug: m.slug }, rotation, rested))}
-        onClose={() => setSwapping(null)}
-        onPick={(slug) => {
-          if (!swapping) return;
-          setSwaps((all) => [...all.filter((s) => s.date !== swapping.date || s.slot !== swapping.slot), { date: swapping.date, slot: swapping.slot, slug }]);
-          setSwapping(null);
+      <DaySheet
+        date={dayOpen}
+        meals={week.filter((p) => p.date === dayOpen).map((p) => ({ slot: p.slot, meal: bySlug.get(p.slug)!, swapped: liveSwaps.some((s) => s.date === p.date && s.slot === p.slot) }))}
+        optionsFor={(slot, current) => catalog.filter((m) => dayOpen !== null && m.slug !== current && swapFits({ date: dayOpen, slot, slug: m.slug }, rotation, rested))}
+        onClose={() => setDayOpen(null)}
+        onPick={(slot, slug) => {
+          if (!dayOpen) return;
+          setSwaps((all) => [...all.filter((s) => s.date !== dayOpen || s.slot !== slot), { date: dayOpen, slot, slug }]);
         }}
       />
     </Screen>
   );
 }
 
-function SwapSheet({ target, options, onClose, onPick }: { target: { date: string; slot: Slot } | null; options: CatalogMeal[]; onClose: () => void; onPick: (slug: string) => void }) {
-  const sorted = [...options].sort((a, b) => b.protein - a.protein);
+function DaySheet({
+  date,
+  meals: dayMeals,
+  optionsFor,
+  onClose,
+  onPick,
+}: {
+  date: string | null;
+  meals: { slot: Slot; meal: CatalogMeal; swapped: boolean }[];
+  optionsFor: (slot: Slot, current: string) => CatalogMeal[];
+  onClose: () => void;
+  onPick: (slot: Slot, slug: string) => void;
+}) {
+  const [picking, setPicking] = useState<Slot | null>(null);
+  const close = () => {
+    setPicking(null);
+    onClose();
+  };
+  const current = dayMeals.find((m) => m.slot === picking);
+  const title = date ? new Date(`${date}T12:00:00Z`).toLocaleDateString("en-US", { weekday: "long", month: "short", day: "numeric", timeZone: "UTC" }) : "";
   return (
-    <Sheet open={target !== null} onClose={onClose} title={target ? `Swap ${DOW[weekday(target.date)]} ${SLOT_LABEL[target.slot].toLowerCase()}` : "Swap"}>
-      <p className="mb-3 px-1 text-[14px] text-label-2">{target && slotPool(target.slot) === "main" ? "Lunch and dinner meals" : "Same slot"} that fit that day. Only next week's plan changes.</p>
-      <div className="overflow-hidden rounded-[20px] bg-card">
-        {sorted.map((m) => (
-          <button key={m.slug} type="button" onClick={() => onPick(m.slug)} className="flex min-h-[52px] w-full items-center justify-between gap-3 border-b-[0.5px] border-separator px-4 py-3 text-left last:border-b-0">
-            <span className="text-[16px] font-semibold">{m.name}</span>
-            <span className="tabular flex-none text-[14px] text-label-2">
-              {m.kcal} cal · {m.protein} g
-            </span>
+    <Sheet open={date !== null} onClose={close} title={picking ? `Swap ${SLOT_LABEL[picking].toLowerCase()}` : title}>
+      {picking && current ? (
+        <>
+          <button type="button" onClick={() => setPicking(null)} className="mb-3 flex h-11 items-center gap-1 px-1 text-[15px] font-semibold text-label-2">
+            <Icon name="back" size={16} strokeWidth={2.4} />
+            {title}
           </button>
-        ))}
-      </div>
+          <p className="mb-3 px-1 text-[14px] text-label-2">
+            Instead of {current.meal.name}. {slotPool(picking) === "main" ? "Lunch and dinner meals" : "Meals for this slot"} that fit the day.
+          </p>
+          <div className="overflow-hidden rounded-[20px] bg-card">
+            {[...optionsFor(picking, current.meal.slug)]
+              .sort((a, b) => b.protein - a.protein)
+              .map((m) => (
+                <button
+                  key={m.slug}
+                  type="button"
+                  onClick={() => {
+                    onPick(picking, m.slug);
+                    setPicking(null);
+                  }}
+                  className="flex min-h-[52px] w-full items-center justify-between gap-3 border-b-[0.5px] border-separator px-4 py-3 text-left last:border-b-0"
+                >
+                  <span className="text-[16px] font-semibold">{m.name}</span>
+                  <span className="tabular flex-none text-[14px] text-label-2">
+                    {m.kcal} cal · {m.protein} g
+                  </span>
+                </button>
+              ))}
+          </div>
+        </>
+      ) : (
+        <div className="overflow-hidden rounded-[20px] bg-card">
+          {dayMeals.map(({ slot, meal, swapped }) => (
+            <button
+              key={slot}
+              type="button"
+              onClick={() => setPicking(slot)}
+              className="flex min-h-[60px] w-full items-center gap-3 border-b-[0.5px] border-separator px-4 py-2.5 text-left leading-[1.25] last:border-b-0"
+            >
+              <span className="min-w-0 flex-1">
+                <span className="block text-[13px] text-label-2">
+                  {SLOT_LABEL[slot]}
+                  {swapped ? " · swapped" : ""}
+                </span>
+                <span className="mt-0.5 block text-[16px] font-semibold">{meal.name}</span>
+              </span>
+              <span className="flex flex-none items-center gap-1 text-[14px] font-semibold text-label-2">
+                <Icon name="swap" size={15} />
+                Swap
+              </span>
+            </button>
+          ))}
+        </div>
+      )}
     </Sheet>
   );
 }

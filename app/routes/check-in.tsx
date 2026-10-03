@@ -138,7 +138,7 @@ export default function CheckIn({ loaderData }: Route.ComponentProps) {
   return (
     <Screen>
       <BackButton to="/plan" label="Back to Plan" />
-      <header className="px-1">
+      <header className="px-1 leading-[normal]">
         <div className="tabular text-[15px] font-semibold text-label-2">
           {d.weekNumber > 0 ? `Week ${d.weekNumber} · ` : ""}
           {weekRange(d.weekStart, d.weekEnd)}

@@ -79,7 +79,7 @@ export default function Plan({ loaderData }: Route.ComponentProps) {
       <LargeTitle eyebrow={`Phase 1 · ${short(phaseStart)} to Jan 1`} title="Plan" />
 
       <Card className="flex flex-col gap-3.5 p-[18px]" aria-label="Phase timeline">
-        <div className="flex items-baseline justify-between gap-3">
+        <div className="flex items-baseline justify-between gap-3 leading-[normal]">
           <h2 className="text-[17px] font-semibold">{current >= 1 ? `Week ${Math.min(current, lastWeek)} of ${lastWeek}` : `Starts ${short(phaseStart)}`}</h2>
           <span className="tabular text-[14px] text-label-2">{current < 1 ? "" : left > 0 ? `${left} week${left === 1 ? "" : "s"} to Jan 1` : "Checkpoint week"}</span>
         </div>
@@ -94,7 +94,7 @@ export default function Plan({ loaderData }: Route.ComponentProps) {
             />
           ))}
         </ol>
-        <ul className="flex flex-col gap-2 text-[14px] text-label-2">
+        <ul className="flex flex-col gap-2 text-[14px] leading-[normal] text-label-2">
           {deload && (
             <li className="flex items-center gap-2.5">
               <span aria-hidden="true" className="size-3 flex-none rounded" style={{ background: "color-mix(in srgb, var(--protein) 60%, transparent)" }} />
@@ -161,7 +161,7 @@ export default function Plan({ loaderData }: Route.ComponentProps) {
                 )}
               </>
             );
-            const cls = "flex min-h-[68px] w-full items-center gap-3.5 px-4 py-3 text-left";
+            const cls = "flex min-h-[68px] w-full items-center gap-3.5 px-4 py-3 text-left leading-[normal]";
             return (
               <div key={d.date} className="border-b-[0.5px] border-separator last:border-b-0">
                 {isSunday ? (
@@ -206,7 +206,7 @@ export default function Plan({ loaderData }: Route.ComponentProps) {
 
 function Target({ label, value, color }: { label: string; value: string; color: string }) {
   return (
-    <div className="rounded-[20px] bg-card p-3.5">
+    <div className="rounded-[20px] bg-card p-3.5 leading-[normal]">
       <div className="text-[13px] font-semibold">{label}</div>
       <div className={`tabular mt-0.5 text-[22px] font-bold ${color}`}>{value}</div>
     </div>

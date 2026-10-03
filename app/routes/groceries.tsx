@@ -45,7 +45,7 @@ export default function Groceries({ loaderData }: Route.ComponentProps) {
   return (
     <Screen>
       <BackButton to={back} label={back === "/check-in" ? "Back to check-in" : "Back to Plan"} />
-      <header className="px-1">
+      <header className="px-1 leading-[normal]">
         <div className="tabular text-[15px] font-semibold text-label-2">
           Week of {short(monday)} · {count} items
         </div>

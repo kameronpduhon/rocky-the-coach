@@ -7,7 +7,7 @@ export function Screen({ children }: { children: ReactNode }) {
 
 export function LargeTitle({ eyebrow, title, right }: { eyebrow?: string; title: string; right?: ReactNode }) {
   return (
-    <header className="flex items-end justify-between px-1">
+    <header className="flex items-end justify-between px-1 leading-[normal]">
       <div>
         {eyebrow && <div className="text-[15px] font-semibold text-label-2">{eyebrow}</div>}
         <h1 className="mt-0.5 text-[34px] font-bold">{title}</h1>

@@ -138,7 +138,22 @@ Mark each one **v1**, **later**, or **never**. Rule of thumb: v1 is the smallest
 | Grocery list | Generated from the meal plan |
 | Health sync | Steps and weight pulled in automatically |
 
-Likely v1: Today screen, workout and meal check-off, weigh-in trend, reminders, weekly check-in.
+### v1 scope (locked 2026-10-03)
+
+| v1 | Later |
+|---|---|
+| Today screen: workout, meals, snack, dessert, steps, minimum viable day checklist | AI Rocky chat |
+| Meals: recipe view, portion toggle, scale amounts, check-off, quick off-plan log | Progress photos in the app |
+| Meal library with swaps | Strength history and PR charts |
+| Workouts: live set logging, numbers to beat, add-weight flag, Plan B | |
+| Exercise library with swaps | |
+| Weigh-in: 7-day trend, waist | |
+| Steps: automatic from Apple Watch via iOS Shortcut | |
+| Reminders: meal nudges, training-day nudge, kitchen closes | |
+| Sunday check-in: review, adjustment rules, pick meals, grocery list, rest old meals | |
+| Streaks: days on plan, relaxed meals do not break them | |
+
+Rocky's voice in v1 comes from pre-written messages in the straight shooter + encouraging tone.
 
 **Requirements already captured** (from Step 3 answers):
 
@@ -146,6 +161,9 @@ Likely v1: Today screen, workout and meal check-off, weigh-in trend, reminders, 
 - **Scale amounts, no math.** Every meal shows each ingredient as "put X g on the scale." The app handles raw vs cooked conversions.
 - **Cook for 1 or a batch.** Toggle between 1 portion and 2 to 3 days' worth, and every ingredient's gram amount updates in place.
 - **Batch prep math.** For 2 to 3 day prep: weigh the cooked batch once, the app splits it into per-meal gram portions.
+- **Swap anything.** Any meal or exercise on the plan has a swap button that opens its library inline. Meals: same slot (breakfast, lunch, snack...), filtered by weekday or weekend mode, sorted by how well each fits the calories and protein left today. Exercises: same muscle group (handy when a machine is taken). A toggle on the swap sets "just today" or "always use this instead." Swapped exercises keep their own progress history.
+- **Images for every exercise and meal.** Exercises: start and end photos from free-exercise-db, verified to match. Meals: placeholder until Kameron adds their own photo from the meal screen.
+- **Recipe import, through Claude Code (no AI in the app).** Kameron sends a recipe (screenshot, caption, or link) in a Claude Code session. Claude converts it to scale amounts, calculates calories and protein from USDA data, fits the portion to the plan's meal targets, flags rule breakers (processed food, seed oils) with swaps, tags weekday or weekend, and adds it. So the meal library lives as files in this repo with a sync command that pushes them to production, plus a written runbook (or project skill) so every recipe is added the same way.
 - **No prep schedule.** Cooking happens whenever food is needed. The app never assumes set prep days.
 - **Meal library with rotation.** The app picks meals so nothing repeats too often (the anti-burnout rule).
 - **Log in the moment.** Meals, sets, and weigh-ins are logged as they happen, never reconstructed the next day. Meal-time nudges if something has not been checked off.
@@ -157,17 +175,19 @@ Likely v1: Today screen, workout and meal check-off, weigh-in trend, reminders, 
 
 ## Step 5: Data sources and integrations (K+C)
 
+- [x] **Exercise images:** free-exercise-db (github.com/yuhonas/free-exercise-db). Public domain (Unlicense), 800+ exercises with photos. Every plan exercise mapped and checked by eye: `docs/exercises.md`.
+- [x] **Meal images:** **Decided: placeholders, replaced by your own photos.** Snap a photo the first time you cook a meal and it becomes that meal's picture. Needs photo storage (Cloudflare R2).
 - [x] **Food data**, based on the tracking approach (leaning: USDA FoodData Central for ingredient numbers, including raw and cooked values, feeding your own meal library):
   - Your own saved meals only (free, simplest)
   - USDA FoodData Central (free API, generic foods)
   - Open Food Facts (free, barcode scanning)
   - Keep using MyFitnessPal or Cronometer for food and only track adherence here (MyFitnessPal has no public API, so no sync)
-- [ ] **Apple Health:** a website cannot read Apple Health directly. Workaround is an iOS Shortcut automation that sends steps and weight to the app once a day. Decide if this is v1
-- [ ] **Notification channel:**
+- [x] **Apple Health:** a website cannot read Apple Health directly. Workaround is an iOS Shortcut automation that sends steps and weight to the app once a day. **Decided: v1, automatic steps via Shortcut**
+- [x] **Notification channel:** **Decided: web push** (free). Weight is entered by hand each morning; the scale does not sync to Apple Health.
   - Web push: free, works on iPhone once the app is added to the home screen (iOS 16.4+)
   - Email: free, easy to ignore
   - Text (Twilio): hardest to ignore, small monthly cost
-- [ ] **AI coach:** only if it made v1. Needs an Anthropic API key and a monthly spending cap
+- [x] **AI coach:** only if it made v1. Needs an Anthropic API key and a monthly spending cap. **Decided: later, not v1**
 
 ---
 
@@ -182,24 +202,25 @@ Likely v1: Today screen, workout and meal check-off, weigh-in trend, reminders, 
 | Pros | Everything in one place, next to the domain you already own. Scheduled reminders, web push, and AI calls all run there | Your usual stack. Auth and scheduling come built in |
 | Cons | Auth and some plumbing built by hand (small job for a single-user app) | Two dashboards, two bills |
 
-**Recommendation: A.** With Laravel off the table as a requirement, a one-person app fits Cloudflare's free tier comfortably and keeps everything in one place. The exact framework (React Router, SvelteKit, etc.) is a build detail C settles in the spec.
+**Decided: A, fully on Cloudflare** (2026-10-03). With Laravel off the table as a requirement, a one-person app fits Cloudflare's free tier comfortably and keeps everything in one place. The exact framework (React Router, SvelteKit, etc.) is a build detail C settles in the spec.
 
 Other decisions:
 
-- [ ] **Address:** `rocky.kampduh.com` or the root `kampduh.com`? (Is the root used for anything else?)
-- [ ] **Installable app (PWA):** home-screen icon, full-screen, push notifications. Recommended, since this lives on your phone
-- [ ] **Login:** just you. Single account, no signup page, long-lived session so you are never logging in at the gym
-- [ ] **Backups:** this is months of personal health data, so automated database backups from day one
-- [ ] **Local dev:** if A, runs from this repo with Cloudflare's local dev server (no extra setup). If B, move the repo to `~/Herd/rocky-the-coach` so Herd serves it at `rocky-the-coach.test`, with local Postgres DB `rocky_the_coach`
+- [x] **Address:** `rocky.kampduh.com` or the root `kampduh.com`? (Is the root used for anything else?) **Decided: `kampduh.com`** (root, nothing else uses it).
+- [x] **Installable app (PWA):** home-screen icon, full-screen, push notifications. Recommended, since this lives on your phone **Decided: yes** (required for web push on iPhone).
+- [x] **Login:** just you. Single account, no signup page, long-lived session so you are never logging in at the gym **Decided.**
+- [x] **Backups:** this is months of personal health data, so automated database backups from day one D1 Time Travel restores to any point in the last 30 days, plus a scheduled export.
+- [x] **Local dev:** if A, runs from this repo with Cloudflare's local dev server (no extra setup). If B, move the repo to `~/Herd/rocky-the-coach` so Herd serves it at `rocky-the-coach.test`, with local Postgres DB `rocky_the_coach` **Decided: A.**
 
 ---
 
 ## Step 7: Look and feel (K+C)
 
-- [ ] Phone-first? (Assumed yes: gym floor and kitchen)
-- [ ] Vibe: gritty training-montage, clean and minimal, or data-dense dashboard
-- [ ] Wireframes of the main screens: **Today**, **Week/Plan**, **Progress**, **Weekly Check-in**. C mocks these before any code
-- [ ] Keep the "Rocky" name? App icon direction
+- [x] Phone-first? **Decided: phone first, desktop must work too** (Sunday check-in, occasional use)
+- [x] Vibe: **Decided: clean, Apple Liquid Glass.** Quality bar: Apple Fitness and Bevel. System font (SF Pro on Apple devices). Navigation and controls are floating glass (tab bar, buttons, toggles); content sits on solid dark cards. No orange as the main color: chrome stays neutral, color is only for data (calories pink, protein cyan, steps green).
+- [x] Wireframes of the main screens: **Today**, **Week/Plan**, **Progress**, **Weekly Check-in**. C mocks these before any code
+  - 6 phone screens (Today, Meal, Workout, Plan, Progress, Sunday check-in): https://claude.ai/artifact/WRiVyTVMD7GoJkGSqkoedQ. Liquid Glass style, **approved 2026-10-03**.
+- [x] Keep the "Rocky" name? **Decided: yes.** Icon: K generates it with AI from C's suggested prompts
 
 ---
 
@@ -215,10 +236,10 @@ Other decisions:
 ## Step 9: Accounts and access (K)
 
 - [ ] Cloudflare: confirm access to `kampduh.com` DNS
-- [ ] Hosting: nothing extra if Step 6 lands on Cloudflare. Laravel Cloud account only if it lands on B
-- [ ] GitHub: `kameronpduhon/rocky-the-coach` exists and is connected
-- [ ] Anthropic API key with a spend limit (only if AI coach is v1)
-- [ ] Twilio account (only if text reminders are v1)
+- [x] Hosting: nothing extra if Step 6 lands on Cloudflare. Laravel Cloud account only if it lands on B (Cloudflare chosen, nothing extra needed.)
+- [x] GitHub: `kameronpduhon/rocky-the-coach` exists and is connected
+- [x] Anthropic API key with a spend limit (not needed: AI coach is not v1)
+- [x] Twilio account (only if text reminders are v1) (not needed: web push chosen)
 - [ ] iPhone on iOS 16.4 or later (for web push)
 
 ---
@@ -226,9 +247,9 @@ Other decisions:
 ## Ready to build when
 
 - [x] `docs/plan.md` approved
-- [ ] v1 feature list locked
-- [ ] Stack, hosting, and address decided
-- [ ] Wireframes approved
+- [x] v1 feature list locked
+- [x] Stack, hosting, and address decided
+- [x] Wireframes approved
 - [ ] `docs/spec.md` and build plan written
 - [ ] Step 9 accounts ready
 

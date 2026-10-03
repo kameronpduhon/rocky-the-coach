@@ -146,7 +146,7 @@ export default function Library({ loaderData }: Route.ComponentProps) {
                 <Card className="overflow-hidden">
                   {list.map((e) => (
                     <div key={e.id} className="flex items-center gap-3 border-b-[0.5px] border-separator px-3.5 py-3 last:border-b-0">
-                      <img src={e.image} alt="" loading="lazy" className="size-[54px] flex-none rounded-[14px] bg-fill object-cover" />
+                      <img src={e.image} alt="" className="size-[54px] flex-none rounded-[14px] bg-fill object-cover" />
                       <div className="min-w-0 flex-1">
                         <div className="text-[13px] text-label-2">{e.equipment}</div>
                         <div className="mt-px text-[16px] font-semibold">{e.name}</div>

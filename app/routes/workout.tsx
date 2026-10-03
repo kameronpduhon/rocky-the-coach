@@ -142,9 +142,14 @@ export default function Workout({ loaderData }: Route.ComponentProps) {
 
   return (
     <div className="relative mx-auto min-h-dvh max-w-[760px] pb-12">
-      <div className="relative h-[300px] overflow-hidden bg-fill">
-        <img key={`${ex.id}-0`} src={ex.images[0]} alt={`${ex.name}, start and end position`} className="absolute inset-0 h-full w-full object-cover" />
-        <img key={`${ex.id}-1`} src={ex.images[1]} alt="" className="frame-b absolute inset-0 h-full w-full object-cover" />
+      <div className="relative h-[300px] overflow-hidden bg-fill min-[600px]:h-[420px]">
+        {/* The photos are 3:2. Wider than a phone, a full-width cover crop cuts off heads and bars, so the frame
+            keeps its own 3:2 box and a blurred copy of it fills the sides. */}
+        <img src={ex.images[0]} alt="" aria-hidden="true" className="absolute inset-0 hidden h-full w-full scale-110 object-cover blur-2xl brightness-[0.6] min-[600px]:block" />
+        <div className="absolute inset-y-0 left-1/2 w-full -translate-x-1/2 min-[600px]:aspect-[3/2] min-[600px]:w-auto min-[600px]:max-w-full">
+          <img key={`${ex.id}-0`} src={ex.images[0]} alt={`${ex.name}, start and end position`} className="absolute inset-0 h-full w-full object-cover" />
+          <img key={`${ex.id}-1`} src={ex.images[1]} alt="" className="frame-b absolute inset-0 h-full w-full object-cover" />
+        </div>
         <div className="absolute left-4 top-[max(54px,env(safe-area-inset-top))]">
           <BackButton to="/" label="Back to Today" onImage size={46} />
         </div>

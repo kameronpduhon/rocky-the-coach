@@ -127,7 +127,7 @@ Expected: `d1 create` prints a `database_id` (a UUID). Copy it for the next step
 	"secrets": {
 		"required": ["APP_PASSWORD", "SESSION_SECRET", "INGEST_TOKEN", "VAPID_PUBLIC_KEY", "VAPID_PRIVATE_KEY"]
 	},
-	"triggers": { "crons": ["*/5 * * * *", "0 9 * * 0"] },
+	"triggers": { "crons": ["*/5 * * * *", "0 9 * * SUN"] },
 	"observability": { "enabled": true },
 	"upload_source_maps": true
 }

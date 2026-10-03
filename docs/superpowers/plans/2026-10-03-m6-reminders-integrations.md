@@ -723,7 +723,7 @@ import worker from "../../workers/app";
 
 it("runs the backup on the weekly cron", async () => {
   const ctx = createExecutionContext();
-  await worker.scheduled(createScheduledController({ cron: "0 9 * * 0", scheduledTime: Date.UTC(2026, 9, 18, 9) }), env, ctx);
+  await worker.scheduled(createScheduledController({ cron: "0 9 * * SUN", scheduledTime: Date.UTC(2026, 9, 18, 9) }), env, ctx);
   await waitOnExecutionContext(ctx);
   expect(await env.MEDIA.get("backups/2026-10-18.json")).not.toBeNull();
 });
@@ -750,7 +750,7 @@ import { runReminders } from "~/server/reminders.server";
 
 export async function runScheduled(env: Env, cron: string, now: Date): Promise<void> {
   try {
-    if (cron === "0 9 * * 0") {
+    if (cron === "0 9 * * SUN") {
       const key = await runBackup(env.DB, env.MEDIA, now);
       console.log(`[cron] backup written to ${key}`);
       return;

@@ -13,14 +13,16 @@ export function logsForDate(db: Db, date: ISODate): Promise<MealLog[]> {
   return db.select().from(mealLogs).where(eq(mealLogs.date, date)).orderBy(asc(mealLogs.loggedAt)).all();
 }
 
-export async function logPlannedMeal(db: Db, date: ISODate, slot: Slot, meal: MealWithMacros, now: Date): Promise<number> {
-  const [row] = await db
+export async function logPlannedMeal(db: Db, date: ISODate, slot: Slot, meal: MealWithMacros, now: Date, clientId?: string): Promise<number | null> {
+  const rows = await db
     .insert(mealLogs)
-    .values({ date, slot, mealSlug: meal.slug, name: meal.name, category: "planned", kcal: meal.kcal, proteinG: meal.protein, loggedAt: now.toISOString() })
+    .values({ date, slot, mealSlug: meal.slug, name: meal.name, category: "planned", kcal: meal.kcal, proteinG: meal.protein, loggedAt: now.toISOString(), clientId: clientId ?? null })
+    .onConflictDoNothing()
     .returning({ id: mealLogs.id });
+  if (rows.length === 0) return null;
   const batch = await openBatch(db, meal.slug, date);
   if (batch) await db.update(batches).set({ portionsLeft: batch.portionsLeft - 1 }).where(eq(batches.id, batch.id));
-  return row.id;
+  return rows[0].id;
 }
 
 export async function logOffPlan(

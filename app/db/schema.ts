@@ -33,6 +33,7 @@ export const mealLogs = sqliteTable(
     relaxed: bool("relaxed").notNull().default(false),
     portions: integer("portions").notNull().default(1),
     loggedAt: text("logged_at").notNull(),
+    clientId: text("client_id").unique(),
   },
   (t) => [index("meal_logs_date").on(t.date)],
 );
@@ -70,6 +71,7 @@ export const setLogs = sqliteTable(
     weightLb: real("weight_lb").notNull(),
     reps: integer("reps").notNull(),
     loggedAt: text("logged_at").notNull(),
+    clientId: text("client_id").unique(),
   },
   (t) => [index("set_logs_exercise").on(t.exerciseId), index("set_logs_session").on(t.sessionId)],
 );

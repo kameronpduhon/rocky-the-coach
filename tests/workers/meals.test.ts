@@ -11,7 +11,7 @@ describe("meal logs", () => {
     let logs = await logsForDate(db(), "2026-10-12");
     expect(logs).toHaveLength(1);
     expect(logs[0]).toMatchObject({ slot: "lunch", mealSlug: meal.slug, kcal: meal.kcal, proteinG: meal.protein, category: "planned" });
-    await unlog(db(), id);
+    await unlog(db(), id!);
     logs = await logsForDate(db(), "2026-10-12");
     expect(logs).toHaveLength(0);
   });

@@ -235,12 +235,12 @@ Other decisions:
 
 ## Step 9: Accounts and access (K)
 
-- [ ] Cloudflare: confirm access to `kampduh.com` DNS
+- [x] Cloudflare: confirm access to `kampduh.com` DNS
 - [x] Hosting: nothing extra if Step 6 lands on Cloudflare. Laravel Cloud account only if it lands on B (Cloudflare chosen, nothing extra needed.)
 - [x] GitHub: `kameronpduhon/rocky-the-coach` exists and is connected
 - [x] Anthropic API key with a spend limit (not needed: AI coach is not v1)
 - [x] Twilio account (only if text reminders are v1) (not needed: web push chosen)
-- [ ] iPhone on iOS 16.4 or later (for web push)
+- [x] iPhone on iOS 16.4 or later (for web push; a real push arrived 2026-10-03)
 
 ---
 
@@ -251,6 +251,6 @@ Other decisions:
 - [x] Stack, hosting, and address decided
 - [x] Wireframes approved
 - [x] `docs/spec.md` and build plan written
-- [ ] Step 9 accounts ready
+- [x] Step 9 accounts ready
 
-**Next action:** Step 1. Paste your plan in chat, rough is fine.
+**Next action:** v1 shipped 2026-10-03. Build the steps Shortcut (Settings, Steps from Apple Watch) before Monday 2026-10-05, and log the starting waist and photos above.

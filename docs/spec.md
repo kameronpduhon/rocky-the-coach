@@ -1,6 +1,6 @@
 # Rocky v1: Spec
 
-Status: **draft for approval**, 2026-10-03. Build plans: `docs/superpowers/plans/2026-10-03-m1-foundation.md` through `m6-reminders-integrations.md`.
+Status: **v1 shipped**, 2026-10-03, live at https://kampduh.com. Build plans: `docs/superpowers/plans/2026-10-03-m1-foundation.md` through `m6-reminders-integrations.md`.
 
 Rocky is a personal fitness and nutrition coach app for one user (Kameron). Its job is to keep the approved plan in front of Kameron every day, make following it effortless, and catch drift before it turns into quitting.
 
@@ -353,6 +353,8 @@ Plan content lives as files in the repo and is **bundled into the Worker at buil
 AI chat, progress photos in the app, strength history and PR charts beyond the Progress list, weight sync from a smart scale, native iOS app, multiple users, water tracking.
 
 ## Verification before calling v1 done
+
+Status on 2026-10-03: login persistence, a real cron push and the R2 backup are verified on the iPhone. The Shortcut, the full-day walkthrough and the first check-in happen in the first week of use.
 
 - Deployed at `https://kampduh.com`, login persists across days on the iPhone Home Screen app.
 - A real web push arrives on Kameron's iPhone from the cron (not just a passing test).

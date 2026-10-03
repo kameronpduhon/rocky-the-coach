@@ -15,7 +15,8 @@
      --fill, both under 4.5:1, so text gets a darker step (5.39:1 and 5.63:1). */
   --steps-text: #1f7a36;
   --label-on-fill: #58585d;
-  /* Secondary text inside a selected pill on the floating glass bar (about #E6E6EA light, #353538 dark). */
+  /* Secondary text on glass: the rest pill and unselected segments. --label-2 drops to about 3.9:1 on a dark
+     segmented track inside a sheet (about #3C3A3D); this stays above 5:1 there and on the page. */
   --label-on-glass: #58585d;
   /* Chip text is the data color on its own tint. Over white, 6% keeps it above 4.5:1
      (#FDF1F4 gives 4.71:1 for calories, #F0F6FA gives 4.94:1 for protein). */

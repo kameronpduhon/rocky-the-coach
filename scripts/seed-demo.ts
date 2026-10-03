@@ -7,8 +7,16 @@
 // 10:41:18 (18:42 elapsed), incline press done at 60 x 10 twice, pec deck set 1 logged at 140 x 11 six seconds
 // ago (1:24 of rest left). Today then reads "Continue workout", so leave the flag off for the Today mockup.
 //
+// With --sunday it plays the whole of week 2 out instead, for the Progress and Sunday check-in mockups at
+// Sunday 2026-10-18 7:30pm (DEV_NOW="2026-10-18T19:30:00-05:00"): daily weigh-ins from 207 down to a 205.2
+// average, waist 34.6 (down 0.4), every training day lifted plus a Thursday optional session, a few lifts gone
+// up, 6 of 7 days on plan with one relaxed Saturday dinner, 7,640 average steps, and the chicken bowl eaten 4
+// times and the yogurt bowl 3 times so both Rest toggles show. Next week's grocery list is the preview the
+// check-in builds. Week 1's check-in is on record in every variant, so Monday morning never shows it as due.
+//
 // Usage: npm run seed:demo
 //        npm run seed:demo -- --workout
+//        npm run seed:demo -- --sunday
 import { execFileSync } from "node:child_process";
 import { existsSync, mkdirSync, readdirSync, readFileSync, writeFileSync } from "node:fs";
 import path from "node:path";
@@ -39,6 +47,14 @@ const exercisesById = new Map<string, { dbId: string }>(read("content/exercises.
 
 const macros = (slug: string) => mealMacros(bySlug.get(slug)!.ingredients.map((i) => ({ foodId: i.food, grams: i.grams })), foods);
 
+const WORKOUT = process.argv.includes("--workout");
+const SUNDAY = process.argv.includes("--sunday");
+if (WORKOUT && SUNDAY) {
+  console.error("Pick one of --workout and --sunday.");
+  process.exit(1);
+}
+
+const WEEK0 = "2026-09-28";
 const WEEK1 = "2026-10-05";
 const TODAY = "2026-10-12";
 const TODAY_MEALS: Record<Slot, string> = {
@@ -85,11 +101,66 @@ for (const slot of Object.keys(TODAY_MEALS) as Slot[]) {
   monday.slug = forced;
 }
 
+// Sunday variant: the week ran on a batch of chicken bowls and the yogurt bowl most mornings, so both cross
+// the 3-a-week line the check-in watches for. Each target slot takes the pinned meal; whatever it displaced
+// fills any other slot that already held it, so nothing else reaches 3.
+if (SUNDAY) {
+  const targets: [string, Slot, string][] = [
+    ["2026-10-13", "lunch", "chicken-and-rice-bowl"],
+    ["2026-10-14", "dinner", "chicken-and-rice-bowl"],
+    ["2026-10-15", "lunch", "chicken-and-rice-bowl"],
+    ["2026-10-14", "breakfast", "greek-yogurt-power-bowl"],
+    ["2026-10-16", "breakfast", "greek-yogurt-power-bowl"],
+  ];
+  const isTarget = (p: PlannedMeal) => p.date === TODAY || targets.some(([d, sl]) => d === p.date && sl === p.slot);
+  for (const [date, slot, slug] of targets) {
+    const entry = week2.find((p) => p.date === date && p.slot === slot)!;
+    const displaced = entry.slug;
+    entry.slug = slug;
+    const elsewhere = week2.find((p) => p.slug === slug && !isTarget(p) && slotPool(p.slot) === slotPool(slot));
+    if (elsewhere) elsewhere.slug = displaced;
+  }
+  // Monday's pins can push a displaced meal to a third showing; spread those extras to the least used fits.
+  const pinned = new Set(targets.map(([, , slug]) => slug));
+  const tally = () => {
+    const c = new Map<string, number>();
+    for (const p of week2) c.set(p.slug, (c.get(p.slug) ?? 0) + 1);
+    return c;
+  };
+  for (const p of week2) {
+    const c = tally();
+    if (isTarget(p) || pinned.has(p.slug) || (c.get(p.slug) ?? 0) < 3) continue;
+    const weekend = ["2026-10-17", "2026-10-18"].includes(p.date);
+    const sameDay = week2.filter((x) => x.date === p.date).map((x) => x.slug);
+    const pick = meals
+      .filter((m) => m.pool === slotPool(p.slot) && (weekend || m.mode !== "weekend") && !m.tags.includes("ground-beef") && !sameDay.includes(m.slug) && !pinned.has(m.slug))
+      .sort((a, b) => (c.get(a.slug) ?? 0) - (c.get(b.slug) ?? 0))[0];
+    if (pick && (c.get(pick.slug) ?? 0) < 2) p.slug = pick.slug;
+  }
+  for (const day of new Set(week2.map((p) => p.date))) {
+    const lunch = week2.find((p) => p.date === day && p.slot === "lunch")!.slug;
+    if (lunch === week2.find((p) => p.date === day && p.slot === "dinner")!.slug) throw new Error(`Lunch and dinner match on ${day}`);
+  }
+  const counts = new Map<string, number>();
+  for (const p of week2) counts.set(p.slug, (counts.get(p.slug) ?? 0) + 1);
+  const heavy = [...counts].filter(([, n]) => n >= 3).map(([slug, n]) => `${slug} ${n}`).sort();
+  if (heavy.join() !== "chicken-and-rice-bowl 4,greek-yogurt-power-bowl 3") throw new Error(`Unexpected repeats: ${heavy.join(", ")}`);
+}
+
 for (const p of [...week1, ...week2] as PlannedMeal[]) insert("planned_meals", { date: p.date, slot: p.slot, meal_slug: p.slug, swapped: 0 });
 
 // Week 1: every planned meal eaten, enough protein, steps over goal, no off-plan dessert. Seven days on plan.
-const STEPS = [8240, 7610, 9130, 7420, 8870, 10210, 7980];
-const WEIGHTS = [207.4, 207.0, 206.8, 206.9, 206.4, 206.2, 206.0];
+const STEPS = [8240, 7610, 9130, 7420, 8870, 10210, 7820];
+const WEIGHTS = [207.0, 206.3, 206.6, 205.7, 206.0, 205.4, 205.7];
+// The week before the phase started, so the first check-ins have a week-on-week change to judge.
+const WEEK0_WEIGHTS = [207.6, 207.2, 207.5, 207.0, 207.4, 207.1, 207.3];
+WEEK0_WEIGHTS.forEach((w, d) => insert("weigh_ins", { date: addDays(WEEK0, d), weight_lb: w, logged_at: at(addDays(WEEK0, d), "07:20") }));
+insert("waist_logs", { date: "2026-10-04", inches: 35.0 });
+insert("waist_logs", { date: "2026-10-11", inches: 34.8 });
+insert("check_ins", {
+  week_start: WEEK1, avg_weight: 206.1, change: -1.2, adherence: 7,
+  outcome: JSON.stringify({ kind: "too-early", choice: "calories", kcal: 2400, stepGoal: 7500 }), completed_at: at("2026-10-11", "19:40"),
+});
 for (let d = 0; d < 7; d++) {
   const date = addDays(WEEK1, d);
   let protein = 0;
@@ -112,16 +183,51 @@ for (let d = 0; d < 7; d++) {
   insert("weigh_ins", { date, weight_lb: WEIGHTS[d], logged_at: at(date, "07:15") });
 }
 
-// Today so far.
-const breakfast = macros(TODAY_MEALS.breakfast);
-insert("meal_logs", {
-  date: TODAY, slot: "breakfast", meal_slug: TODAY_MEALS.breakfast, name: bySlug.get(TODAY_MEALS.breakfast)!.name, category: "planned",
-  kcal: breakfast.kcal, protein_g: breakfast.protein, relaxed: 0, portions: 1, logged_at: at(TODAY, "08:05"),
-});
-insert("weigh_ins", { date: TODAY, weight_lb: 205.8, logged_at: at(TODAY, "07:12") });
-insert("steps_daily", { date: TODAY, steps: 3120, updated_at: at(TODAY, "10:45") });
+if (SUNDAY) {
+  // Week 2 played out. Tuesday came up short on steps, Saturday dinner was a relaxed restaurant meal, and
+  // Sunday is logged through dinner (dessert is still to come at 7:30pm).
+  const W2_STEPS = [8120, 5900, 8340, 7710, 8030, 7560, 7820];
+  const W2_WEIGHTS = [205.8, 205.3, 205.6, 204.9, 205.2, 204.7, 204.9];
+  for (let d = 0; d < 7; d++) {
+    const date = addDays(TODAY, d);
+    let protein = 0;
+    for (const p of week2.filter((x) => x.date === date)) {
+      if (date === "2026-10-17" && p.slot === "dinner") continue;
+      if (date === "2026-10-18" && p.slot === "dessert") continue;
+      const m = macros(p.slug);
+      protein += m.protein;
+      insert("meal_logs", {
+        date, slot: p.slot, meal_slug: p.slug, name: bySlug.get(p.slug)!.name, category: "planned", kcal: m.kcal, protein_g: m.protein, relaxed: 0, portions: 1,
+        logged_at: at(date, plan.slotTimes[p.slot]),
+      });
+    }
+    if (date === "2026-10-17") {
+      protein += 50;
+      insert("meal_logs", {
+        date, slot: null, meal_slug: null, name: "Restaurant meal", category: "meal", kcal: 900, protein_g: 50, relaxed: 1, portions: 1, logged_at: at(date, "19:10"),
+      });
+    }
+    if (protein < 180) {
+      insert("meal_logs", {
+        date, slot: null, meal_slug: null, name: "Protein shake", category: "snack", kcal: 130, protein_g: 25, relaxed: 0, portions: 1, logged_at: at(date, "16:30"),
+      });
+    }
+    insert("steps_daily", { date, steps: W2_STEPS[d], updated_at: at(date, d === 6 ? "19:15" : "21:00") });
+    insert("weigh_ins", { date, weight_lb: W2_WEIGHTS[d], logged_at: at(date, "07:12") });
+  }
+  insert("waist_logs", { date: "2026-10-18", inches: 34.6 });
+} else {
+  const breakfast = macros(TODAY_MEALS.breakfast);
+  insert("meal_logs", {
+    date: TODAY, slot: "breakfast", meal_slug: TODAY_MEALS.breakfast, name: bySlug.get(TODAY_MEALS.breakfast)!.name, category: "planned",
+    kcal: breakfast.kcal, protein_g: breakfast.protein, relaxed: 0, portions: 1, logged_at: at(TODAY, "08:05"),
+  });
+  insert("weigh_ins", { date: TODAY, weight_lb: 205.8, logged_at: at(TODAY, "07:12") });
+  insert("steps_daily", { date: TODAY, steps: 3120, updated_at: at(TODAY, "10:45") });
+}
 
-// Week 1 sessions. Only the pushdown hit the top of its range on both sets. Monday's numbers are the ones the
+// Week 1 sessions. On Monday only the pushdown hit the top of its range on both sets; Wednesday's leg press
+// and Friday's flat press and lateral raise did too, so the Sunday variant shows them gone up. Monday's numbers are the ones the
 // Workout mockup shows under "Last time".
 const SESSIONS: { date: string; template: string; sets: Record<string, [number, number, number][]> }[] = [
   {
@@ -140,7 +246,7 @@ const SESSIONS: { date: string; template: string; sets: Record<string, [number, 
     date: "2026-10-07",
     template: "wed-legs-shoulders",
     sets: {
-      "leg-press": [[270, 11, 1], [270, 10, 2]],
+      "leg-press": [[270, 12, 1], [270, 12, 2]],
       "dumbbell-romanian-deadlift": [[55, 9, 1], [55, 9, 2]],
       "lying-leg-curl": [[90, 11, 1], [90, 10, 2]],
       "leg-extension": [[120, 13, 1], [120, 12, 2]],
@@ -152,15 +258,66 @@ const SESSIONS: { date: string; template: string; sets: Record<string, [number, 
     date: "2026-10-09",
     template: "fri-chest-shoulders-arms",
     sets: {
-      "flat-dumbbell-press": [[65, 8, 1], [65, 8, 2]],
+      "flat-dumbbell-press": [[65, 10, 1], [65, 10, 2]],
       "low-to-high-cable-fly": [[30, 11, 1], [30, 10, 2]],
-      "dumbbell-lateral-raise": [[20, 13, 1], [20, 12, 2]],
+      "dumbbell-lateral-raise": [[20, 15, 1], [20, 15, 2]],
       "reverse-pec-deck": [[80, 13, 1], [80, 12, 2]],
       "incline-dumbbell-curl": [[30, 10, 1], [30, 9, 2]],
       "overhead-cable-triceps-extension": [[50, 11, 1], [50, 10, 2]],
     },
   },
 ];
+if (SUNDAY) {
+  SESSIONS.push(
+    {
+      date: TODAY,
+      template: "mon-chest-back-arms",
+      sets: {
+        "incline-dumbbell-press": [[60, 10, 1], [60, 10, 2]],
+        "pec-deck": [[140, 12, 1], [140, 12, 2]],
+        "lat-pulldown": [[130, 11, 1], [130, 10, 2]],
+        "seated-cable-row": [[120, 12, 1], [120, 11, 2]],
+        "preacher-curl": [[60, 11, 1], [60, 10, 2]],
+        "cable-triceps-pushdown": [[75, 11, 1], [75, 10, 2]],
+      },
+    },
+    {
+      date: "2026-10-14",
+      template: "wed-legs-shoulders",
+      sets: {
+        "leg-press": [[280, 10, 1], [280, 9, 2]],
+        "dumbbell-romanian-deadlift": [[55, 10, 1], [55, 9, 2]],
+        "lying-leg-curl": [[90, 12, 1], [90, 11, 2]],
+        "leg-extension": [[120, 14, 1], [120, 13, 2]],
+        "seated-dumbbell-shoulder-press": [[45, 9, 1], [45, 8, 2]],
+        "cable-lateral-raise": [[15, 14, 1], [15, 13, 2]],
+      },
+    },
+    {
+      date: "2026-10-15",
+      template: "optional-arms-back",
+      sets: {
+        "pull-up": [[0, 8, 1], [0, 7, 2]],
+        "cable-lateral-raise": [[15, 13, 1], [15, 12, 2]],
+        "hammer-curl": [[35, 11, 1], [35, 10, 2]],
+        "rope-pushdown": [[50, 12, 1], [50, 11, 2]],
+      },
+    },
+    {
+      date: "2026-10-16",
+      template: "fri-chest-shoulders-arms",
+      sets: {
+        "flat-dumbbell-press": [[70, 8, 1], [70, 8, 2]],
+        "low-to-high-cable-fly": [[30, 12, 1], [30, 11, 2]],
+        "dumbbell-lateral-raise": [[25, 11, 1], [25, 10, 2]],
+        "reverse-pec-deck": [[80, 14, 1], [80, 13, 2]],
+        "incline-dumbbell-curl": [[30, 11, 1], [30, 10, 2]],
+        "overhead-cable-triceps-extension": [[50, 12, 1], [50, 11, 2]],
+      },
+    },
+  );
+}
+
 SESSIONS.forEach((s, i) => {
   const id = i + 1;
   insert("workout_sessions", { id, date: s.date, template_id: s.template, started_at: at(s.date, "12:05"), ended_at: at(s.date, "12:52") });
@@ -179,7 +336,6 @@ SESSIONS.forEach((s, i) => {
   }
 });
 
-const WORKOUT = process.argv.includes("--workout");
 if (WORKOUT) {
   const id = SESSIONS.length + 1;
   const atSec = (hhmmss: string) => new Date(`${TODAY}T${hhmmss}-05:00`).toISOString();
@@ -212,6 +368,8 @@ const templates = plan.templates as Record<string, { exercises: { exercise: stri
 const heroes = new Set<string>(Object.values(templates).map((t) => exercisesById.get(t.exercises[0].exercise)!.dbId));
 // The mid-session Workout screen shows every Monday exercise as a thumbnail.
 if (WORKOUT) for (const e of templates["mon-chest-back-arms"].exercises) heroes.add(exercisesById.get(e.exercise)!.dbId);
+// Progress lists the lifts that went up with their photos.
+if (SUNDAY) for (const s of SESSIONS) for (const id of Object.keys(s.sets)) heroes.add(exercisesById.get(id)!.dbId);
 for (const dbId of heroes) {
   for (const frame of [0, 1]) {
     const file = path.join(CACHE, `${dbId}__${frame}.jpg`);

@@ -35,4 +35,31 @@ All 26 were checked by eye on 2026-10-03: the photos show the named exercise.
 | Dumbbell curl | Plan B | `Dumbbell_Bicep_Curl` |
 | Dumbbell overhead triceps extension | Plan B | `Standing_Dumbbell_Triceps_Extension` |
 
-Swap options come from the same database, filtered by primary muscle and equipment. Any new exercise added to the library gets the same by-eye check before it ships.
+## Swap alternatives
+
+Curated alternatives for the swap sheet, grouped by the muscle group the plan exercise trains. All 20 checked by eye on 2026-10-03. Plan exercises in the same group are also swap options for each other (for example, side lateral raise and cable lateral raise).
+
+| Group | Alternative | free-exercise-db id | Equipment |
+|---|---|---|---|
+| Chest | Cable crossover | `Cable_Crossover` | Cable |
+| Chest | Dumbbell fly | `Dumbbell_Flyes` | Dumbbell |
+| Chest | Machine chest press | `Leverage_Chest_Press` | Machine |
+| Chest | Machine incline press | `Leverage_Incline_Chest_Press` | Machine |
+| Back | One-arm dumbbell row | `One-Arm_Dumbbell_Row` | Dumbbell |
+| Back | Close-grip lat pulldown | `Close-Grip_Front_Lat_Pulldown` | Cable |
+| Back | Machine high row | `Leverage_High_Row` | Machine |
+| Biceps | Machine preacher curl | `Machine_Preacher_Curls` | Machine |
+| Biceps | Cable rope hammer curl | `Cable_Hammer_Curls_-_Rope_Attachment` | Cable |
+| Biceps | Alternating dumbbell curl | `Dumbbell_Alternate_Bicep_Curl` | Dumbbell |
+| Triceps | Cable lying triceps extension | `Cable_Lying_Triceps_Extension` | Cable |
+| Triceps | Machine triceps extension | `Machine_Triceps_Extension` | Machine |
+| Quads | Narrow-stance leg press | `Narrow_Stance_Leg_Press` | Machine |
+| Quads | Single-leg extension | `Single-Leg_Leg_Extension` | Machine |
+| Hamstrings | Barbell Romanian deadlift | `Romanian_Deadlift` | Barbell |
+| Shoulder press | Machine shoulder press | `Leverage_Shoulder_Press` | Machine |
+| Shoulder press | Arnold press | `Arnold_Dumbbell_Press` | Dumbbell |
+| Side delts | Seated lateral raise | `Seated_Side_Lateral_Raise` | Dumbbell |
+| Rear delts | Dumbbell reverse fly | `Reverse_Flyes` | Dumbbell |
+| Rear delts | Face pull | `Face_Pull` | Cable |
+
+Any new exercise added to the library gets the same by-eye check before it ships.

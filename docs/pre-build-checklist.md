@@ -227,9 +227,9 @@ Other decisions:
 ## Step 8: Spec and build plan (C writes, K approves)
 
 - [x] `docs/plan.md`: your fitness and nutrition plan (from Step 3)
-- [ ] `docs/spec.md`: v1 features, screens, data model, reminder schedule, edge cases (missed days, travel, plan phase changes)
-- [ ] Build plan broken into sessions, test-first
-- [ ] Seed data: your plan loaded into the app on day one, so it opens already set up
+- [x] `docs/spec.md`: v1 features, screens, data model, reminder schedule, edge cases (missed days, travel, plan phase changes)
+- [x] Build plan broken into sessions, test-first: six milestones in `docs/superpowers/plans/` (M1 foundation and deploy, M2 domain rules, M3 Today and meals, M4 workouts, M5 plan/progress/check-in, M6 reminders, integrations, launch)
+- [x] Seed data: your plan loaded into the app on day one, so it opens already set up (starter content written out in M1 Task 6, macros checked against USDA)
 
 ---
 
@@ -250,7 +250,7 @@ Other decisions:
 - [x] v1 feature list locked
 - [x] Stack, hosting, and address decided
 - [x] Wireframes approved
-- [ ] `docs/spec.md` and build plan written
+- [x] `docs/spec.md` and build plan written
 - [ ] Step 9 accounts ready
 
 **Next action:** Step 1. Paste your plan in chat, rough is fine.

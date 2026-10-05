@@ -20,22 +20,26 @@ export async function loader(_args: Route.LoaderArgs) {
   const db = getDb(env.DB);
   const today = localDate(serverNow());
   const monday = weekStart(today);
-  const days = await Promise.all(
-    Array.from({ length: 7 }, async (_, i) => {
-      const date = addDays(monday, i);
-      const templateId = templateFor(plan, date);
-      const optionalId = optionalTemplateFor(plan, date);
-      const shown = templateId ?? optionalId;
-      return {
-        date,
-        today: date === today,
-        name: templateId ? plan.templates[templateId]!.name : null,
-        optional: optionalId ? plan.templates[optionalId]!.name : null,
-        mode: dayMode(date),
-        exercises: shown ? (await resolveTemplate(db, shown, date)).map((s) => ({ name: s.exercise.name, reps: `${s.repMin} to ${s.repMax}` })) : [],
-      };
-    }),
-  );
+  const [days, targets, groceries] = await Promise.all([
+    Promise.all(
+      Array.from({ length: 7 }, async (_, i) => {
+        const date = addDays(monday, i);
+        const templateId = templateFor(plan, date);
+        const optionalId = optionalTemplateFor(plan, date);
+        const shown = templateId ?? optionalId;
+        return {
+          date,
+          today: date === today,
+          name: templateId ? plan.templates[templateId]!.name : null,
+          optional: optionalId ? plan.templates[optionalId]!.name : null,
+          mode: dayMode(date),
+          exercises: shown ? (await resolveTemplate(db, shown, date)).map((s) => ({ name: s.exercise.name, reps: `${s.repMin} to ${s.repMax}` })) : [],
+        };
+      }),
+    ),
+    targetsFor(db, today),
+    groceryList(db, monday, today, { rest: null, swaps: [] }),
+  ]);
   const current = weekNumber(plan, today);
   const lastWeek = Math.max(...Object.keys(plan.weekTypes).map(Number), 13);
   return {
@@ -43,10 +47,10 @@ export async function loader(_args: Route.LoaderArgs) {
     lastWeek,
     phaseStart: plan.phaseStart,
     weeks: Array.from({ length: lastWeek }, (_, i) => ({ n: i + 1, type: weekType(plan, addDays(plan.phaseStart, i * 7)) })),
-    targets: await targetsFor(db, today),
+    targets,
     days,
     monday,
-    groceryCount: (await groceryList(db, monday, today, { rest: null, swaps: [] })).count,
+    groceryCount: groceries.count,
   };
 }
 

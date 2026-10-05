@@ -39,7 +39,22 @@ export interface ProgressData {
 
 export async function progressData(db: Db, today: ISODate): Promise<ProgressData> {
   const start = plan.phaseStart;
-  const weighIns = (await weighInsBetween(db, addDays(start, -7), today)).map((w) => ({ date: w.date, weight: w.weightLb }));
+  const [weighInRows, waists, results, [todayResult], setDates, last7, sets, targets] = await Promise.all([
+    weighInsBetween(db, addDays(start, -7), today),
+    waistLogsAll(db),
+    today > start ? dayResults(db, start, addDays(today, -1)) : Promise.resolve([]),
+    dayResults(db, today, today),
+    datesWithSets(db, start, today),
+    dayResults(db, addDays(today, -7), addDays(today, -1)),
+    db
+      .select({ exerciseId: setLogs.exerciseId, weight: setLogs.weightLb, date: workoutSessions.date })
+      .from(setLogs)
+      .innerJoin(workoutSessions, eq(setLogs.sessionId, workoutSessions.id))
+      .orderBy(asc(workoutSessions.date))
+      .all(),
+    targetsFor(db, today),
+  ]);
+  const weighIns = weighInRows.map((w) => ({ date: w.date, weight: w.weightLb }));
   const byDate = new Map(weighIns.map((w) => [w.date, w.weight]));
   const lastWeighIn = weighIns.at(-1)?.date ?? start;
   const end = lastWeighIn > today ? today : lastWeighIn;
@@ -52,18 +67,14 @@ export async function progressData(db: Db, today: ISODate): Promise<ProgressData
   const firstWeight = weighIns.find((w) => w.date >= start)?.weight ?? null;
   const latestAvg = avgs.at(-1) ?? null;
 
-  const waists = await waistLogsAll(db);
   const waist = waists.length
     ? { latest: waists.at(-1)!.inches, change: waists.length > 1 ? Math.round((waists.at(-1)!.inches - waists[0].inches) * 10) / 10 : null }
     : null;
 
-  const results = today > start ? await dayResults(db, start, addDays(today, -1)) : [];
-  const [todayResult] = await dayResults(db, today, today);
   // Today joins the count once it is already on plan, the same way it joins the streak.
   const daysOnPlan = results.filter((r) => r.onPlan).length + (todayResult.onPlan ? 1 : 0);
   const daysTracked = results.length + (todayResult.onPlan ? 1 : 0);
 
-  const setDates = await datesWithSets(db, start, today);
   let workoutsDone = 0;
   let workoutsPlanned = 0;
   let optionalDone = 0;
@@ -74,14 +85,6 @@ export async function progressData(db: Db, today: ISODate): Promise<ProgressData
       if (setDates.has(d)) workoutsDone++;
     } else if (setDates.has(d)) optionalDone++;
   }
-  const last7 = await dayResults(db, addDays(today, -7), addDays(today, -1));
-
-  const sets = await db
-    .select({ exerciseId: setLogs.exerciseId, weight: setLogs.weightLb, date: workoutSessions.date })
-    .from(setLogs)
-    .innerJoin(workoutSessions, eq(setLogs.sessionId, workoutSessions.id))
-    .orderBy(asc(workoutSessions.date))
-    .all();
   const topByExercise = new Map<string, Map<ISODate, number>>();
   for (const s of sets) {
     const days = topByExercise.get(s.exerciseId) ?? new Map<ISODate, number>();
@@ -112,7 +115,7 @@ export async function progressData(db: Db, today: ISODate): Promise<ProgressData
     workoutsPlanned,
     optionalDone,
     avgSteps: Math.round(last7.reduce((s, d) => s + d.steps, 0) / 7),
-    stepGoal: (await targetsFor(db, today)).stepGoal,
+    stepGoal: targets.stepGoal,
     strength,
     nextPhoto: nextPhotoDate(today),
   };

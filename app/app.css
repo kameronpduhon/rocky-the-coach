@@ -29,6 +29,34 @@ body {
   -webkit-tap-highlight-color: transparent;
 }
 
+html {
+  touch-action: manipulation;
+}
+
+/* Every tap answers on the frame it lands, before any data comes back. Base layer, so a utility like
+   disabled:opacity-60 or active:opacity-100 still wins. */
+@layer base {
+  a[href],
+  button:not(:disabled) {
+    transition: opacity 180ms ease-out;
+  }
+  a[href]:active,
+  button:not(:disabled):active {
+    opacity: 0.55;
+    transition: none;
+  }
+}
+
+/* Shows only when a screen is still loading after 150 ms, so fast taps never flash it. */
+@keyframes nav-progress {
+  from { transform: scaleX(0); }
+  to { transform: scaleX(0.9); }
+}
+.nav-progress {
+  transform-origin: left;
+  animation: nav-progress 3s cubic-bezier(0.1, 0.7, 0.3, 1) 150ms both;
+}
+
 .tabular {
   font-variant-numeric: tabular-nums;
 }

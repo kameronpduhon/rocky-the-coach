@@ -21,20 +21,23 @@ export interface DayResult {
 }
 
 export async function dayResults(db: Db, from: ISODate, to: ISODate): Promise<DayResult[]> {
-  const food = await db
-    .select({
-      date: mealLogs.date,
-      kcal: sql<number>`coalesce(sum(${mealLogs.kcal}), 0)`,
-      protein: sql<number>`coalesce(sum(${mealLogs.proteinG}), 0)`,
-      dessert: sql<number>`max(case when ${mealLogs.category} = 'dessert' and ${mealLogs.relaxed} = 0 then 1 else 0 end)`,
-    })
-    .from(mealLogs)
-    .where(between(mealLogs.date, from, to))
-    .groupBy(mealLogs.date)
-    .all();
+  const [food, steps, targetRows] = await Promise.all([
+    db
+      .select({
+        date: mealLogs.date,
+        kcal: sql<number>`coalesce(sum(${mealLogs.kcal}), 0)`,
+        protein: sql<number>`coalesce(sum(${mealLogs.proteinG}), 0)`,
+        dessert: sql<number>`max(case when ${mealLogs.category} = 'dessert' and ${mealLogs.relaxed} = 0 then 1 else 0 end)`,
+      })
+      .from(mealLogs)
+      .where(between(mealLogs.date, from, to))
+      .groupBy(mealLogs.date)
+      .all(),
+    stepsBetween(db, from, to),
+    allTargets(db),
+  ]);
   const foodByDate = new Map(food.map((f) => [f.date, f]));
-  const stepsByDate = new Map((await stepsBetween(db, from, to)).map((s) => [s.date, s.steps]));
-  const targetRows = await allTargets(db);
+  const stepsByDate = new Map(steps.map((s) => [s.date, s.steps]));
 
   const out: DayResult[] = [];
   for (let i = 0; i <= daysBetween(from, to); i++) {

@@ -1,4 +1,4 @@
-import { NavLink } from "react-router";
+import { NavLink, useNavigation } from "react-router";
 import { BarSpacer, Icon } from "./ui";
 
 const TABS = [
@@ -9,6 +9,9 @@ const TABS = [
 ] as const;
 
 export function TabBar() {
+  // Light the tapped tab at once instead of after its data arrives, and only that one.
+  const pending = useNavigation().location?.pathname;
+  const pendingTab = pending ? TABS.find((t) => (t.to === "/" ? pending === "/" : pending.startsWith(t.to)))?.to : undefined;
   return (
     <>
       {/* Below 900 px the tab bar floats at the bottom; at 900 and up it is a sidebar and needs no room. */}
@@ -25,7 +28,7 @@ export function TabBar() {
             end={t.to === "/"}
             className={({ isActive }) =>
               `flex flex-col items-center justify-center gap-0.5 rounded-full text-[10px] font-semibold min-[900px]:h-12 min-[900px]:flex-row min-[900px]:justify-start min-[900px]:gap-3 min-[900px]:rounded-2xl min-[900px]:px-4 min-[900px]:text-[15px] ${
-                isActive ? "bg-[var(--glass-selected)] text-label" : "text-label-2"
+                (pendingTab ? pendingTab === t.to : isActive) ? "bg-[var(--glass-selected)] text-label" : "text-label-2"
               }`
             }
           >

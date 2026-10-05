@@ -4,6 +4,10 @@
 	"compatibility_date": "2026-10-01",
 	"main": "./workers/app.ts",
 	"routes": [{ "pattern": "kampduh.com", "custom_domain": true }],
+	// D1's primary runs in Atlanta, and Today makes several queries per tap. Running the Worker beside it turns each
+	// query into a local hop instead of a trip from whichever colo the phone hit. Smart placement would need more
+	// traffic than one user sends, so the region is pinned (GCP us-east1, South Carolina, is the nearest to ATL).
+	"placement": { "region": "gcp:us-east1" },
 	"d1_databases": [
 		{ "binding": "DB", "database_name": "rocky-db", "database_id": "0b2f0bdb-8153-484e-9acc-3cd60c2613e0", "migrations_dir": "drizzle" }
 	],

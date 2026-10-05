@@ -30,22 +30,17 @@ export async function resolveTemplate(db: Db, templateId: string, date: ISODate)
 }
 
 export async function lastSessionSets(db: Db, exerciseId: string, before: ISODate): Promise<LoggedSet[] | null> {
-  const last = await db
-    .select({ sessionId: setLogs.sessionId })
+  // One round trip: newest session first, so the leading rows that share its id are that session's sets.
+  const rows = await db
+    .select({ sessionId: setLogs.sessionId, weight: setLogs.weightLb, reps: setLogs.reps })
     .from(setLogs)
     .innerJoin(workoutSessions, eq(setLogs.sessionId, workoutSessions.id))
     .where(and(eq(setLogs.exerciseId, exerciseId), lt(workoutSessions.date, before)))
-    .orderBy(desc(workoutSessions.date), desc(setLogs.sessionId))
-    .limit(1)
-    .get();
-  if (!last) return null;
-  const rows = await db
-    .select()
-    .from(setLogs)
-    .where(and(eq(setLogs.sessionId, last.sessionId), eq(setLogs.exerciseId, exerciseId)))
-    .orderBy(asc(setLogs.setNumber))
+    .orderBy(desc(workoutSessions.date), desc(setLogs.sessionId), asc(setLogs.setNumber))
+    .limit(20)
     .all();
-  return rows.map((r) => ({ weight: r.weightLb, reps: r.reps }));
+  if (rows.length === 0) return null;
+  return rows.filter((r) => r.sessionId === rows[0].sessionId).map((r) => ({ weight: r.weight, reps: r.reps }));
 }
 
 function findSession(db: Db, date: ISODate, templateId: string) {
@@ -137,8 +132,7 @@ export interface WorkoutView {
 
 export async function workoutView(db: Db, date: ISODate, templateId: string): Promise<WorkoutView> {
   const template = plan.templates[templateId]!;
-  const slots = await resolveTemplate(db, templateId, date);
-  const session = await findSession(db, date, templateId);
+  const [slots, session] = await Promise.all([resolveTemplate(db, templateId, date), findSession(db, date, templateId)]);
   const todays = session ? await db.select().from(setLogs).where(eq(setLogs.sessionId, session.id)).orderBy(asc(setLogs.setNumber)).all() : [];
   const sets = setsFor(plan, date);
   const deload = weekType(plan, date) === "deload";

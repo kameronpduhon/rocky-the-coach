@@ -39,7 +39,8 @@ export function Layout({ children }: { children: React.ReactNode }) {
         <Scripts />
         <script
           dangerouslySetInnerHTML={{
-            __html: `if ("serviceWorker" in navigator) navigator.serviceWorker.register("/sw.js");`,
+            // WebKit only applies :active press styles once a touchstart listener exists on the page.
+            __html: `if ("serviceWorker" in navigator) navigator.serviceWorker.register("/sw.js");document.addEventListener("touchstart",function(){},{passive:true});`,
           }}
         />
       </body>

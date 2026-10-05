@@ -1,5 +1,5 @@
 import { env } from "cloudflare:workers";
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { Form, redirect, useRevalidator } from "react-router";
 import type { Route } from "./+types/workout";
 import { Segmented } from "~/components/Segmented";
@@ -96,10 +96,39 @@ interface PendingSet {
   reps: number;
 }
 
+/** Workout time, in its own component so the 250 ms tick re-renders this pill and not the whole screen. */
+function Elapsed({ serverIso, startedAt, endedAt }: { serverIso: string; startedAt: string | null; endedAt: string | null }) {
+  const now = useServerClock(serverIso);
+  const start = startedAt ? Date.parse(startedAt) : null;
+  const end = endedAt ? Date.parse(endedAt) : now;
+  return <>{start ? mmss(Math.max(0, Math.floor((end - start) / 1000))) : "0:00"}</>;
+}
+
+function RestBar({ serverIso, restUntil, onSkip }: { serverIso: string; restUntil: number | null; onSkip: () => void }) {
+  const now = useServerClock(serverIso);
+  const restLeft = restUntil ? Math.max(0, Math.ceil((restUntil - now) / 1000)) : 0;
+  if (restLeft <= 0) return null;
+  return (
+    <FloatingBar spacer={false} className="flex items-center gap-2.5">
+      <div role="timer" className="tabular flex h-[54px] flex-1 items-center justify-center gap-2 rounded-full bg-[var(--glass-selected)] text-[17px] font-semibold">
+        <span className="font-medium text-label-on-glass">Rest</span>
+        {mmss(restLeft)}
+      </div>
+      <button type="button" onClick={onSkip} className="btn-prominent h-[54px] rounded-full px-[22px] text-[17px] font-semibold">
+        Skip rest
+      </button>
+    </FloatingBar>
+  );
+}
+
 export default function Workout({ loaderData }: Route.ComponentProps) {
   const { view } = loaderData;
   const revalidator = useRevalidator();
-  const now = useServerClock(loaderData.now);
+  // The server clock's offset from this phone's, so a rest timer started here counts down on the same clock.
+  const skew = useRef(0);
+  useEffect(() => {
+    skew.current = Date.parse(loaderData.now) - Date.now();
+  }, [loaderData.now]);
   const firstOpen = view.exercises.findIndex((e) => !e.done);
   const [current, setCurrent] = useState(firstOpen === -1 ? view.exercises.length - 1 : firstOpen);
   const [swapOpen, setSwapOpen] = useState(false);
@@ -112,25 +141,22 @@ export default function Workout({ loaderData }: Route.ComponentProps) {
 
   useEffect(() => setPending([]), [view]);
 
-  const startedAt = view.startedAt ? Date.parse(view.startedAt) : null;
-  const elapsedEnd = view.endedAt ? Date.parse(view.endedAt) : now;
-  const elapsed = startedAt ? mmss(Math.max(0, Math.floor((elapsedEnd - startedAt) / 1000))) : "0:00";
-  const restLeft = restUntil ? Math.max(0, Math.ceil((restUntil - now) / 1000)) : 0;
-
   const doneByPosition = new Map(view.exercises.map((e) => [e.position, e.done || pending.filter((p) => p.position === e.position).length + e.logged.length >= view.sets]));
   const done = view.exercises.filter((e) => doneByPosition.get(e.position) && e.position !== ex.position);
   const upNext = view.exercises.filter((e) => !doneByPosition.get(e.position) && e.position !== ex.position);
   const allDone = view.exercises.every((e) => doneByPosition.get(e.position));
 
   async function post(fields: Record<string, string>) {
-    const sent = await send("/workout", { templateId: view.templateId, ...fields });
+    // The .data endpoint runs only the action. Posting to /workout would also run the loader and render the whole
+    // page as HTML, and the revalidate below loads it again anyway.
+    const sent = await send("/workout.data", { templateId: view.templateId, ...fields });
     // Offline, the queue keeps the change and PendingSync revalidates once it lands.
     if (sent) revalidator.revalidate();
   }
 
   function logSetNow(e: ExerciseView, setNumber: number, weight: number, reps: number) {
     setPending((p) => [...p, { position: e.position, setNumber, weight, reps }]);
-    setRestUntil(now + e.restSeconds * 1000);
+    setRestUntil(Date.now() + skew.current + e.restSeconds * 1000);
     if (setNumber >= view.sets) {
       const next = view.exercises.findIndex((x, i) => i > current && !doneByPosition.get(x.position));
       const wrap = view.exercises.findIndex((x) => !doneByPosition.get(x.position) && x.position !== e.position);
@@ -155,7 +181,7 @@ export default function Workout({ loaderData }: Route.ComponentProps) {
         </div>
         <div role="timer" className="glass-on-image tabular absolute right-4 top-[max(54px,env(safe-area-inset-top))] flex h-[46px] items-center rounded-full px-4 text-[16px] font-semibold">
           <span className="sr-only">Workout time </span>
-          {elapsed}
+          <Elapsed serverIso={loaderData.now} startedAt={view.startedAt} endedAt={view.endedAt} />
         </div>
         <button type="button" onClick={() => setSwapOpen(true)} className="glass-on-image absolute bottom-4 right-4 flex h-[46px] items-center gap-1.5 rounded-full px-4 text-[15px] font-semibold">
           <Icon name="swap" size={16} />
@@ -262,17 +288,7 @@ export default function Workout({ loaderData }: Route.ComponentProps) {
 
       {/* Always reserved so the page does not jump when the rest bar comes and goes. */}
       <BarSpacer />
-      {restLeft > 0 && (
-        <FloatingBar spacer={false} className="flex items-center gap-2.5">
-          <div role="timer" className="tabular flex h-[54px] flex-1 items-center justify-center gap-2 rounded-full bg-[var(--glass-selected)] text-[17px] font-semibold">
-            <span className="font-medium text-label-on-glass">Rest</span>
-            {mmss(restLeft)}
-          </div>
-          <button type="button" onClick={() => setRestUntil(null)} className="btn-prominent h-[54px] rounded-full px-[22px] text-[17px] font-semibold">
-            Skip rest
-          </button>
-        </FloatingBar>
-      )}
+      <RestBar serverIso={loaderData.now} restUntil={restUntil} onSkip={() => setRestUntil(null)} />
 
       <Sheet open={swapOpen} onClose={() => setSwapOpen(false)} title="Swap exercise">
         <SwapList

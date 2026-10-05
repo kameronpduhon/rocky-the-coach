@@ -63,13 +63,23 @@ export interface DaySummary {
 }
 
 export async function loadDay(db: Db, date: ISODate, now: Date): Promise<DaySummary> {
-  const [targets, slots, logs, steps, weighInRow, photos] = await Promise.all([
+  const templateId = templateFor(plan, date);
+  const openWeek = checkInWindow(now);
+  const mondayAfterNoon = weekday(date) === 1 && localMinutes(now) >= 12 * 60;
+  // One flat batch: each await is a round trip to D1, so nothing here waits on anything else.
+  const [targets, slots, logs, steps, weighInRow, photos, trainingGoUps, sessions, setDates, history, checkInDoneOpen, checkInDoneLast] = await Promise.all([
     targetsFor(db, date),
     plannedForDate(db, date),
     logsForDate(db, date),
     stepsFor(db, date),
     weighInEntry(db, date),
     db.select().from(mealState).all(),
+    templateId ? goUps(db, date, templateId) : Promise.resolve([]),
+    db.select().from(workoutSessions).where(eq(workoutSessions.date, date)).all(),
+    datesWithSets(db, addDays(date, -14), date),
+    dayResults(db, addDays(date, -60), addDays(date, -1)),
+    openWeek !== null ? checkInDone(db, openWeek) : Promise.resolve(true),
+    mondayAfterNoon ? checkInDone(db, addDays(weekStart(date), -7)) : Promise.resolve(true),
   ]);
   const photoBySlug = new Map(photos.map((p) => [p.slug, p.photoKey]));
 
@@ -84,7 +94,6 @@ export async function loadDay(db: Db, date: ISODate, now: Date): Promise<DaySumm
   const offPlanDessert = offPlan.some((l) => l.category === "dessert" && !l.relaxed);
   const relaxed = isRelaxedDay(plan, date);
 
-  const templateId = templateFor(plan, date);
   let training: TrainingView | null = null;
   if (templateId) {
     const t = plan.templates[templateId]!;
@@ -95,20 +104,13 @@ export async function loadDay(db: Db, date: ISODate, now: Date): Promise<DaySumm
       exerciseCount: t.exercises.length,
       setCount: t.exercises.length * setsFor(plan, date),
       heroImage: exerciseImage(first, 0),
-      goUps: await goUps(db, date, templateId),
+      goUps: trainingGoUps,
     };
   }
   const optionalId = optionalTemplateFor(plan, date);
-
-  const sessions = await db.select().from(workoutSessions).where(eq(workoutSessions.date, date)).all();
-  const setDates = await datesWithSets(db, addDays(date, -14), date);
-
-  const history = await dayResults(db, addDays(date, -60), addDays(date, -1));
   const onPlan = isOnPlan({ proteinG: totals.proteinG, steps, offPlanDessert, relaxedDay: relaxed, proteinTarget: targets.proteinG, stepGoal: targets.stepGoal });
-
-  const openWeek = checkInWindow(now);
-  const checkInDue = openWeek !== null && !(await checkInDone(db, openWeek));
-  const checkInSkipped = weekday(date) === 1 && localMinutes(now) >= 12 * 60 && !(await checkInDone(db, addDays(weekStart(date), -7)));
+  const checkInDue = !checkInDoneOpen;
+  const checkInSkipped = !checkInDoneLast;
 
   return {
     date,

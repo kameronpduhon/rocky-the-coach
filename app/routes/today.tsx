@@ -283,8 +283,8 @@ function WeighInCard() {
           <input id="weight" name="weight" inputMode="decimal" placeholder="0.0" required className="tabular w-full min-w-0 bg-transparent text-right text-[18px] font-semibold outline-none" />
           <span className="font-semibold text-label-2">lb</span>
         </div>
-        <button type="submit" className="btn-prominent h-11 rounded-full px-4 text-[15px] font-semibold">
-          Save
+        <button type="submit" disabled={fetcher.state !== "idle"} className="btn-prominent h-11 rounded-full px-4 text-[15px] font-semibold disabled:opacity-60">
+          {fetcher.state !== "idle" ? "Saving..." : "Save"}
         </button>
       </fetcher.Form>
       {fetcher.data && "error" in fetcher.data && <p className="mt-2 text-[14px] text-calories">{fetcher.data.error}</p>}

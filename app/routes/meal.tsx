@@ -35,13 +35,17 @@ export async function loader({ request, params }: Route.LoaderArgs) {
   const db = getDb(env.DB);
   const now = serverNow();
   const date = mealDate(now);
-  const day = await loadDay(db, date, now);
+  const [day, rested, photo, batch] = await Promise.all([
+    loadDay(db, date, now),
+    restedSlugs(db, date),
+    db.select().from(mealState).where(eq(mealState.slug, meal.slug)).get(),
+    openBatch(db, meal.slug, date),
+  ]);
   const url = new URL(request.url);
   const requested = url.searchParams.get("slot") as Slot | null;
   const plannedSlot = day.slots.find((s) => s.meal.slug === meal.slug && (!requested || s.slot === requested));
   const slot = plannedSlot?.slot ?? (requested && SLOTS.includes(requested) ? requested : null);
 
-  const rested = await restedSlugs(db, date);
   const mode = dayMode(date);
   const unlogged = day.slots.filter((s) => s.logId === null).length || 1;
   const perSlot = (day.targets.kcal - day.totals.kcal) / unlogged;
@@ -50,7 +54,6 @@ export async function loader({ request, params }: Route.LoaderArgs) {
     .sort((a, b) => Math.abs(a.kcal - perSlot) - 2 * a.protein - (Math.abs(b.kcal - perSlot) - 2 * b.protein));
 
   const main = mainProtein(meal);
-  const photo = await db.select().from(mealState).where(eq(mealState.slug, meal.slug)).get();
   return {
     meal,
     slot,
@@ -61,7 +64,7 @@ export async function loader({ request, params }: Route.LoaderArgs) {
       return { food: i.food, name: f.name, state: STATE_LABEL[f.state], grams: i.grams, note: i.note ?? null, eachG: f.eachG ?? null, eachLabel: f.eachLabel ?? null };
     }),
     mainProtein: { food: main.food, name: foods.get(main.food)!.name },
-    batch: await openBatch(db, meal.slug, date),
+    batch,
     photoKey: photo?.photoKey ?? null,
     swapOptions,
     fromLibrary: url.searchParams.get("from") === "library",

@@ -148,12 +148,24 @@ export default function Today({ loaderData }: Route.ComponentProps) {
                 </div>
                 {day.training.goUps[0] && <div className="text-[15px] font-semibold text-steps-text">{day.training.goUps[0]}</div>}
                 <div className="mt-3 flex gap-2.5">
-                  <Link to="/workout" className="btn-prominent flex h-[50px] flex-1 items-center justify-center rounded-full text-[17px] font-semibold">
-                    {day.loggedSetToday ? "Continue workout" : "Start workout"}
-                  </Link>
-                  <Link to="/workout?plan=b" className="btn-secondary flex h-[50px] items-center justify-center rounded-full px-[18px] text-[16px] font-semibold">
-                    Plan B
-                  </Link>
+                  {day.finishedTemplateId ? (
+                    <Link
+                      to={`/workout?template=${day.finishedTemplateId}`}
+                      className="btn-secondary flex h-[50px] flex-1 items-center justify-center gap-2 rounded-full text-[17px] font-semibold"
+                    >
+                      <Icon name="check" size={18} strokeWidth={3} />
+                      Workout done
+                    </Link>
+                  ) : (
+                    <>
+                      <Link to="/workout" className="btn-prominent flex h-[50px] flex-1 items-center justify-center rounded-full text-[17px] font-semibold">
+                        {day.loggedSetToday ? "Continue workout" : "Start workout"}
+                      </Link>
+                      <Link to="/workout?plan=b" className="btn-secondary flex h-[50px] items-center justify-center rounded-full px-[18px] text-[16px] font-semibold">
+                        Plan B
+                      </Link>
+                    </>
+                  )}
                 </div>
               </div>
             </Card>
@@ -164,8 +176,15 @@ export default function Today({ loaderData }: Route.ComponentProps) {
                 <div className="text-[14px] text-label-2">{day.optional ? `Optional: ${day.optional.name}, 30 min` : "Walk, recover, eat on plan."}</div>
               </div>
               {day.optional && (
-                <Link to={`/workout?template=${day.optional.templateId}`} className="btn-secondary flex h-11 items-center rounded-full px-4 text-[15px] font-semibold">
-                  Start
+                <Link to={`/workout?template=${day.optional.templateId}`} className="btn-secondary flex h-11 items-center gap-1.5 rounded-full px-4 text-[15px] font-semibold">
+                  {day.finishedTemplateId === day.optional.templateId ? (
+                    <>
+                      <Icon name="check" size={16} strokeWidth={3} />
+                      Done
+                    </>
+                  ) : (
+                    "Start"
+                  )}
                 </Link>
               )}
             </Card>

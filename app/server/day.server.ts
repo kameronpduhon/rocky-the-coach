@@ -52,6 +52,8 @@ export interface DaySummary {
   optional: { templateId: string; name: string } | null;
   sessionStarted: boolean;
   loggedSetToday: boolean;
+  /** The workout ended most recently today, so Today stops offering to continue it. */
+  finishedTemplateId: string | null;
   onPlan: boolean;
   streak: number;
   missedTwice: boolean;
@@ -127,6 +129,7 @@ export async function loadDay(db: Db, date: ISODate, now: Date): Promise<DaySumm
     optional: optionalId ? { templateId: optionalId, name: plan.templates[optionalId]!.name } : null,
     sessionStarted: sessions.length > 0,
     loggedSetToday: setDates.has(date),
+    finishedTemplateId: sessions.filter((s) => s.endedAt).sort((a, b) => b.endedAt!.localeCompare(a.endedAt!))[0]?.templateId ?? null,
     onPlan,
     streak: streakFrom(history, date, onPlan),
     missedTwice: missedTwoInARow(date, setDates),

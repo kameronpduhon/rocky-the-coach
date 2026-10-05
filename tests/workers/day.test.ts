@@ -5,6 +5,7 @@ import { upsertSteps } from "~/server/body.server";
 import { loadDay } from "~/server/day.server";
 import { dayResults } from "~/server/history.server";
 import { logOffPlan, logPlannedMeal } from "~/server/meals.server";
+import { endSession } from "~/server/workouts.server";
 import { chicago, db } from "./helpers";
 
 async function onPlanDay(date: string) {
@@ -72,6 +73,14 @@ describe("loadDay", () => {
     day = await loadDay(db(), "2026-10-27", chicago("2026-10-27", "18:00"));
     expect(day.missedTwice).toBe(false);
     expect(day.loggedSetToday).toBe(true);
+  });
+
+  it("reports the finished workout once the session is ended", async () => {
+    const [s] = await db().insert(workoutSessions).values({ date: "2026-10-27", templateId: "plan-b-home", startedAt: new Date().toISOString() }).returning();
+    await db().insert(setLogs).values({ sessionId: s.id, exerciseId: "pull-up", position: 0, setNumber: 1, weightLb: 0, reps: 8, loggedAt: new Date().toISOString() });
+    expect((await loadDay(db(), "2026-10-27", chicago("2026-10-27", "13:00"))).finishedTemplateId).toBeNull();
+    await endSession(db(), "2026-10-27", "plan-b-home", chicago("2026-10-27", "13:30"));
+    expect((await loadDay(db(), "2026-10-27", chicago("2026-10-27", "14:00"))).finishedTemplateId).toBe("plan-b-home");
   });
 });
 

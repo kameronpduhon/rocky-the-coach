@@ -9,7 +9,7 @@ describe("content", () => {
   it("loads the starter library", () => {
     expect(meals.size).toBe(25);
     expect(foods.size).toBeGreaterThanOrEqual(38);
-    expect(exercises.size).toBe(46);
+    expect(exercises.size).toBe(49);
   });
 
   it("references only known foods", () => {

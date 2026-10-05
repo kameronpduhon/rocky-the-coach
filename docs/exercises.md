@@ -37,7 +37,7 @@ All 26 were checked by eye on 2026-10-03: the photos show the named exercise.
 
 ## Swap alternatives
 
-Curated alternatives for the swap sheet, grouped by the muscle group the plan exercise trains. All 20 checked by eye on 2026-10-03. Plan exercises in the same group are also swap options for each other (for example, side lateral raise and cable lateral raise).
+Curated alternatives for the swap sheet, grouped by the muscle group the plan exercise trains. All checked by eye: the first 20 on 2026-10-03, the barbell and Smith machine presses on 2026-10-05. Plan exercises in the same group are also swap options for each other (for example, side lateral raise and cable lateral raise).
 
 | Group | Alternative | free-exercise-db id | Equipment |
 |---|---|---|---|
@@ -45,6 +45,9 @@ Curated alternatives for the swap sheet, grouped by the muscle group the plan ex
 | Chest | Dumbbell fly | `Dumbbell_Flyes` | Dumbbell |
 | Chest | Machine chest press | `Leverage_Chest_Press` | Machine |
 | Chest | Machine incline press | `Leverage_Incline_Chest_Press` | Machine |
+| Chest | Barbell bench press | `Barbell_Bench_Press_-_Medium_Grip` | Barbell |
+| Chest | Smith machine bench press | `Smith_Machine_Bench_Press` | Machine |
+| Chest | Smith machine incline press | `Smith_Machine_Incline_Bench_Press` | Machine |
 | Back | One-arm dumbbell row | `One-Arm_Dumbbell_Row` | Dumbbell |
 | Back | Close-grip lat pulldown | `Close-Grip_Front_Lat_Pulldown` | Cable |
 | Back | Machine high row | `Leverage_High_Row` | Machine |

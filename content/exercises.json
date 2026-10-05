@@ -7,6 +7,9 @@
   { "id": "dumbbell-fly", "name": "Dumbbell fly", "dbId": "Dumbbell_Flyes", "group": "chest", "equipment": "dumbbell", "compound": false, "increment": 5 },
   { "id": "machine-chest-press", "name": "Machine chest press", "dbId": "Leverage_Chest_Press", "group": "chest", "equipment": "machine", "compound": true, "increment": 5 },
   { "id": "machine-incline-press", "name": "Machine incline press", "dbId": "Leverage_Incline_Chest_Press", "group": "chest", "equipment": "machine", "compound": true, "increment": 5 },
+  { "id": "barbell-bench-press", "name": "Barbell bench press", "dbId": "Barbell_Bench_Press_-_Medium_Grip", "group": "chest", "equipment": "barbell", "compound": true, "increment": 5 },
+  { "id": "smith-machine-bench-press", "name": "Smith machine bench press", "dbId": "Smith_Machine_Bench_Press", "group": "chest", "equipment": "machine", "compound": true, "increment": 5 },
+  { "id": "smith-machine-incline-press", "name": "Smith machine incline press", "dbId": "Smith_Machine_Incline_Bench_Press", "group": "chest", "equipment": "machine", "compound": true, "increment": 5 },
   { "id": "push-up", "name": "Push-ups", "dbId": "Pushups", "group": "chest", "equipment": "body-weight", "compound": true, "increment": 5 },
 
   { "id": "lat-pulldown", "name": "Lat pulldown", "dbId": "Wide-Grip_Lat_Pulldown", "group": "back", "equipment": "cable", "compound": true, "increment": 5 },

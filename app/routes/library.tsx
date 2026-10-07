@@ -5,7 +5,7 @@ import type { Route } from "./+types/library";
 import { MealPhoto } from "~/components/MealPhoto";
 import { Segmented } from "~/components/Segmented";
 import { Card, Icon, LargeTitle, Screen, SectionTitle } from "~/components/ui";
-import { exerciseImage, exercises, meals, plan } from "~/content";
+import { exerciseImage, exercises, GROUP_LABEL, meals, plan } from "~/content";
 import { getDb } from "~/db/client";
 import { exerciseOverrides, mealState } from "~/db/schema";
 import { localDate } from "~/domain/dates";
@@ -15,17 +15,6 @@ export function meta() {
   return [{ title: "Library · Rocky" }];
 }
 
-const GROUP_LABEL: Record<string, string> = {
-  chest: "Chest",
-  back: "Back",
-  "shoulder-press": "Shoulder press",
-  "side-delts": "Side delts",
-  "rear-delts": "Rear delts",
-  biceps: "Biceps",
-  triceps: "Triceps",
-  quads: "Quads",
-  hamstrings: "Hamstrings",
-};
 const POOL_LABEL: Record<string, string> = { breakfast: "Breakfasts", main: "Lunch and dinner", snack: "Snacks", dessert: "Desserts" };
 const TEMPLATE_DAY: Record<string, string> = {
   "mon-chest-back-arms": "Mon",

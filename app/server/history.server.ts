@@ -1,7 +1,7 @@
-import { and, between, eq, sql } from "drizzle-orm";
+import { and, between, eq, exists, isNotNull, or, sql } from "drizzle-orm";
 import { plan } from "~/content";
 import type { Db } from "~/db/client";
-import { mealLogs, setLogs, workoutSessions } from "~/db/schema";
+import { exerciseChecks, mealLogs, setLogs, workoutSessions } from "~/db/schema";
 import { isOnPlan } from "~/domain/adherence";
 import { isRelaxedDay } from "~/domain/calendar";
 import { addDays, daysBetween } from "~/domain/dates";
@@ -66,13 +66,21 @@ export async function dayResults(db: Db, from: ISODate, to: ISODate): Promise<Da
   return out;
 }
 
-/** Dates in [from, to] that have at least one logged set. */
-export async function datesWithSets(db: Db, from: ISODate, to: ISODate): Promise<Set<ISODate>> {
+/** Dates in [from, to] with a workout done: a logged set, an exercise checked off, or the workout marked done. */
+export async function datesWithWorkouts(db: Db, from: ISODate, to: ISODate): Promise<Set<ISODate>> {
   const rows = await db
     .selectDistinct({ date: workoutSessions.date })
     .from(workoutSessions)
-    .innerJoin(setLogs, eq(setLogs.sessionId, workoutSessions.id))
-    .where(and(between(workoutSessions.date, from, to)))
+    .where(
+      and(
+        between(workoutSessions.date, from, to),
+        or(
+          isNotNull(workoutSessions.endedAt),
+          exists(db.select({ one: sql`1` }).from(setLogs).where(eq(setLogs.sessionId, workoutSessions.id))),
+          exists(db.select({ one: sql`1` }).from(exerciseChecks).where(eq(exerciseChecks.sessionId, workoutSessions.id))),
+        ),
+      ),
+    )
     .all();
   return new Set(rows.map((r) => r.date));
 }

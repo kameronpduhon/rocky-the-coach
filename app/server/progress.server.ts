@@ -1,16 +1,17 @@
-import { asc, count, desc, eq } from "drizzle-orm";
+import { asc, countDistinct, desc, eq, isNotNull, or, sql } from "drizzle-orm";
 import { exerciseImage, exercises, plan } from "~/content";
 import type { Db } from "~/db/client";
-import { setLogs, workoutSessions } from "~/db/schema";
+import { exerciseChecks, setLogs, workoutSessions } from "~/db/schema";
 import { streak as streakFrom } from "~/domain/adherence";
 import { isTrainingDay } from "~/domain/calendar";
 import { addDays, daysBetween } from "~/domain/dates";
 import type { ISODate } from "~/domain/types";
 import { sevenDayAverage } from "~/domain/weight";
 import { waistLogsAll, weighInsBetween } from "./body.server";
-import { datesWithSets, dayResults } from "./history.server";
+import { datesWithWorkouts, dayResults } from "./history.server";
 import { movesBetween } from "./schedule.server";
 import { targetsFor } from "./targets.server";
+import { isWorkout, workoutName } from "./workouts.server";
 
 /** Progress photos every 4 weeks: the first round on the Sunday that ends week 4. */
 export function nextPhotoDate(today: ISODate): ISODate {
@@ -38,7 +39,7 @@ export interface ProgressData {
   nextPhoto: ISODate;
   /** Newest first, for fixing a wrong entry. */
   recentWeighIns: { date: ISODate; weight: number }[];
-  recentWorkouts: { date: ISODate; templateId: string; name: string; sets: number }[];
+  recentWorkouts: { date: ISODate; templateId: string; name: string; sets: number; checks: number }[];
 }
 
 export async function progressData(db: Db, today: ISODate): Promise<ProgressData> {
@@ -48,7 +49,7 @@ export async function progressData(db: Db, today: ISODate): Promise<ProgressData
     waistLogsAll(db),
     today > start ? dayResults(db, start, addDays(today, -1)) : Promise.resolve([]),
     dayResults(db, today, today),
-    datesWithSets(db, start, today),
+    datesWithWorkouts(db, start, today),
     dayResults(db, addDays(today, -7), addDays(today, -1)),
     db
       .select({ exerciseId: setLogs.exerciseId, weight: setLogs.weightLb, date: workoutSessions.date })
@@ -59,10 +60,12 @@ export async function progressData(db: Db, today: ISODate): Promise<ProgressData
     targetsFor(db, today),
     movesBetween(db, start, today),
     db
-      .select({ date: workoutSessions.date, templateId: workoutSessions.templateId, sets: count(setLogs.id) })
+      .select({ date: workoutSessions.date, templateId: workoutSessions.templateId, sets: countDistinct(setLogs.id), checks: countDistinct(exerciseChecks.exerciseId) })
       .from(workoutSessions)
-      .innerJoin(setLogs, eq(setLogs.sessionId, workoutSessions.id))
+      .leftJoin(setLogs, eq(setLogs.sessionId, workoutSessions.id))
+      .leftJoin(exerciseChecks, eq(exerciseChecks.sessionId, workoutSessions.id))
       .groupBy(workoutSessions.id)
+      .having(or(isNotNull(workoutSessions.endedAt), sql`count(${setLogs.id}) > 0`, sql`count(${exerciseChecks.exerciseId}) > 0`))
       .orderBy(desc(workoutSessions.date), desc(workoutSessions.startedAt))
       .limit(8)
       .all(),
@@ -133,7 +136,7 @@ export async function progressData(db: Db, today: ISODate): Promise<ProgressData
     nextPhoto: nextPhotoDate(today),
     recentWeighIns: weighIns.slice(-10).reverse(),
     recentWorkouts: sessions
-      .filter((s) => plan.templates[s.templateId])
-      .map((s) => ({ date: s.date, templateId: s.templateId, name: plan.templates[s.templateId]!.name, sets: s.sets })),
+      .filter((s) => isWorkout(s.templateId))
+      .map((s) => ({ ...s, name: workoutName(s.templateId) })),
   };
 }

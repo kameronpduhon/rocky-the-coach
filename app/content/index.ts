@@ -30,3 +30,16 @@ export const meals: Map<string, MealWithMacros> = new Map(
 export function exerciseImage(ex: Exercise, frame: 0 | 1): string {
   return `/media/exercises/${ex.dbId}/${frame}.jpg`;
 }
+
+/** Muscle groups in display order, for lists of exercises. */
+export const GROUP_LABEL: Record<string, string> = {
+  chest: "Chest",
+  back: "Back",
+  "shoulder-press": "Shoulder press",
+  "side-delts": "Side delts",
+  "rear-delts": "Rear delts",
+  biceps: "Biceps",
+  triceps: "Triceps",
+  quads: "Quads",
+  hamstrings: "Hamstrings",
+};

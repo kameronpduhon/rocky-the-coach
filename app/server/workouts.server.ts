@@ -2,10 +2,10 @@ import { and, asc, desc, eq, lt } from "drizzle-orm";
 import { exerciseImage, exercises, plan } from "~/content";
 import type { Exercise } from "~/content/schema";
 import type { Db } from "~/db/client";
-import { exerciseOverrides, exerciseSwaps, setLogs, workoutSessions } from "~/db/schema";
+import { exerciseChecks, exerciseOverrides, exerciseSwaps, setLogs, workoutSessions } from "~/db/schema";
 import { setsFor, weekType } from "~/domain/calendar";
 import { nextSuggestion, restSeconds, type LoggedSet, type Suggestion } from "~/domain/progression";
-import type { ISODate } from "~/domain/types";
+import { CUSTOM_WORKOUT, type ISODate } from "~/domain/types";
 
 export interface ExerciseSlot {
   position: number;
@@ -13,6 +13,31 @@ export interface ExerciseSlot {
   repMin: number;
   repMax: number;
   swapped: boolean;
+}
+
+export const CUSTOM = CUSTOM_WORKOUT;
+const CUSTOM_REPS = { repMin: 8, repMax: 12 };
+
+export const isWorkout = (templateId: string) => templateId === CUSTOM || templateId in plan.templates;
+
+export function workoutName(templateId: string): string {
+  return templateId === CUSTOM ? "Custom workout" : (plan.templates[templateId]?.name ?? "Workout");
+}
+
+type Session = typeof workoutSessions.$inferSelect;
+
+function customIds(session: Session | undefined): string[] {
+  const ids: unknown = JSON.parse(session?.exercises ?? "[]");
+  return Array.isArray(ids) ? ids.filter((id): id is string => typeof id === "string" && exercises.has(id)) : [];
+}
+
+function customSlots(session: Session | undefined): ExerciseSlot[] {
+  return customIds(session).map((id, position) => ({ position, exercise: exercises.get(id)!, ...CUSTOM_REPS, swapped: false }));
+}
+
+/** The exercises in a day's workout: the plan's, or for a custom workout the ones picked for it. */
+export async function workoutSlots(db: Db, date: ISODate, templateId: string): Promise<ExerciseSlot[]> {
+  return templateId === CUSTOM ? customSlots(await findSession(db, date, CUSTOM)) : resolveTemplate(db, templateId, date);
 }
 
 export async function resolveTemplate(db: Db, templateId: string, date: ISODate): Promise<ExerciseSlot[]> {
@@ -58,11 +83,15 @@ export interface SetInput {
   clientId: string;
 }
 
+async function ensureSession(db: Db, date: ISODate, templateId: string, now: Date): Promise<Session> {
+  const found = await findSession(db, date, templateId);
+  if (found) return found;
+  const [created] = await db.insert(workoutSessions).values({ date, templateId, startedAt: now.toISOString() }).returning();
+  return created;
+}
+
 export async function logSet(db: Db, input: SetInput, now: Date): Promise<void> {
-  let session = await findSession(db, input.date, input.templateId);
-  if (!session) {
-    [session] = await db.insert(workoutSessions).values({ date: input.date, templateId: input.templateId, startedAt: now.toISOString() }).returning();
-  }
+  const session = await ensureSession(db, input.date, input.templateId, now);
   await db
     .insert(setLogs)
     .values({
@@ -98,8 +127,33 @@ export async function swapExercise(db: Db, date: ISODate, templateId: string, po
   }
 }
 
+/** Ends the workout. With nothing logged it still counts as done, for a workout logged without the numbers. */
 export async function endSession(db: Db, date: ISODate, templateId: string, now: Date): Promise<void> {
-  await db.update(workoutSessions).set({ endedAt: now.toISOString() }).where(and(eq(workoutSessions.date, date), eq(workoutSessions.templateId, templateId)));
+  const session = await ensureSession(db, date, templateId, now);
+  await db.update(workoutSessions).set({ endedAt: now.toISOString() }).where(eq(workoutSessions.id, session.id));
+}
+
+/** Marks an exercise done without weights or reps, or clears that mark. */
+export async function checkExercise(db: Db, date: ISODate, templateId: string, exerciseId: string, done: boolean, now: Date): Promise<void> {
+  const session = await ensureSession(db, date, templateId, now);
+  if (done) await db.insert(exerciseChecks).values({ sessionId: session.id, exerciseId }).onConflictDoNothing();
+  else await db.delete(exerciseChecks).where(and(eq(exerciseChecks.sessionId, session.id), eq(exerciseChecks.exerciseId, exerciseId)));
+}
+
+/**
+ * Sets the exercises in a custom workout. Ones with sets or a check stay even if left out, so nothing logged is
+ * orphaned; the rest keep their order and new picks go on the end.
+ */
+export async function setCustomExercises(db: Db, date: ISODate, ids: string[], now: Date): Promise<void> {
+  const session = await ensureSession(db, date, CUSTOM, now);
+  const [sets, checks] = await Promise.all([
+    db.select({ id: setLogs.exerciseId }).from(setLogs).where(eq(setLogs.sessionId, session.id)).all(),
+    db.select({ id: exerciseChecks.exerciseId }).from(exerciseChecks).where(eq(exerciseChecks.sessionId, session.id)).all(),
+  ]);
+  const keep = new Set([...ids, ...sets.map((r) => r.id), ...checks.map((r) => r.id)]);
+  const current = customIds(session);
+  const next = [...current.filter((id) => keep.has(id)), ...ids.filter((id) => exercises.has(id) && !current.includes(id))];
+  await db.update(workoutSessions).set({ exercises: JSON.stringify([...new Set(next)]) }).where(eq(workoutSessions.id, session.id));
 }
 
 export interface ExerciseView {
@@ -113,6 +167,8 @@ export interface ExerciseView {
   compound: boolean;
   restSeconds: number;
   swapped: boolean;
+  /** Done without logging weights or reps. */
+  checked: boolean;
   last: LoggedSet[] | null;
   suggestion: Suggestion;
   logged: { id: number; setNumber: number; weight: number; reps: number; loggedAt: string }[];
@@ -126,6 +182,7 @@ export interface WorkoutView {
   templateId: string;
   name: string;
   kind: string;
+  custom: boolean;
   date: ISODate;
   sets: number;
   deload: boolean;
@@ -135,9 +192,16 @@ export interface WorkoutView {
 }
 
 export async function workoutView(db: Db, date: ISODate, templateId: string): Promise<WorkoutView> {
-  const template = plan.templates[templateId]!;
-  const [slots, session] = await Promise.all([resolveTemplate(db, templateId, date), findSession(db, date, templateId)]);
-  const todays = session ? await db.select().from(setLogs).where(eq(setLogs.sessionId, session.id)).orderBy(asc(setLogs.setNumber)).all() : [];
+  const custom = templateId === CUSTOM;
+  const [planned, session] = await Promise.all([custom ? null : resolveTemplate(db, templateId, date), findSession(db, date, templateId)]);
+  const slots = planned ?? customSlots(session);
+  const [todays, checks] = session
+    ? await Promise.all([
+        db.select().from(setLogs).where(eq(setLogs.sessionId, session.id)).orderBy(asc(setLogs.setNumber)).all(),
+        db.select().from(exerciseChecks).where(eq(exerciseChecks.sessionId, session.id)).all(),
+      ])
+    : [[], []];
+  const checked = new Set(checks.map((c) => c.exerciseId));
   const sets = setsFor(plan, date);
   const deload = weekType(plan, date) === "deload";
   const inUse = new Set(slots.map((s) => s.exercise.id));
@@ -147,9 +211,10 @@ export async function workoutView(db: Db, date: ISODate, templateId: string): Pr
       const last = await lastSessionSets(db, s.exercise.id, date);
       const rule = { repMax: s.repMax, increment: s.exercise.increment, deload };
       const logged = todays
-        .filter((l) => l.position === s.position && l.exerciseId === s.exercise.id)
+        // A custom workout's list can be edited, so its sets follow the exercise rather than the position.
+        .filter((l) => l.exerciseId === s.exercise.id && (custom || l.position === s.position))
         .map((l) => ({ id: l.id, setNumber: l.setNumber, weight: l.weightLb, reps: l.reps, loggedAt: l.loggedAt }));
-      const done = logged.length >= sets;
+      const done = logged.length >= sets || checked.has(s.exercise.id);
       const after = done ? nextSuggestion(logged, rule) : null;
       return {
         position: s.position,
@@ -162,20 +227,23 @@ export async function workoutView(db: Db, date: ISODate, templateId: string): Pr
         compound: s.exercise.compound,
         restSeconds: restSeconds(s.exercise.compound),
         swapped: s.swapped,
+        checked: checked.has(s.exercise.id),
         last,
         suggestion: nextSuggestion(last, rule),
         logged,
         done,
         nextTime: after?.goUp ? after.weight : null,
         // Exercises already in today's workout are left out so a swap never doubles one up.
-        swapOptions: [...exercises.values()]
-          .filter((e) => e.group === s.exercise.group && !inUse.has(e.id))
-          .map((e) => ({ id: e.id, name: e.name, equipment: e.equipment, image: exerciseImage(e, 0) })),
+        swapOptions: custom
+          ? []
+          : [...exercises.values()]
+              .filter((e) => e.group === s.exercise.group && !inUse.has(e.id))
+              .map((e) => ({ id: e.id, name: e.name, equipment: e.equipment, image: exerciseImage(e, 0) })),
       };
     }),
   );
 
-  return { templateId, name: template.name, kind: template.kind, date, sets, deload, startedAt: session?.startedAt ?? null, endedAt: session?.endedAt ?? null, exercises: views };
+  return { templateId, name: workoutName(templateId), kind: custom ? CUSTOM : plan.templates[templateId]!.kind, custom, date, sets, deload, startedAt: session?.startedAt ?? null, endedAt: session?.endedAt ?? null, exercises: views };
 }
 
 export async function goUps(db: Db, date: ISODate, templateId: string): Promise<string[]> {

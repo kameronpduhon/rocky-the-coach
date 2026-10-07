@@ -12,7 +12,7 @@ import { rampStepGoal } from "~/domain/steps";
 import type { ISODate } from "~/domain/types";
 import { sevenDayAverage, weeklyChange } from "~/domain/weight";
 import { logWaist, waistLogsAll, weighInsBetween } from "./body.server";
-import { datesWithSets, dayResults } from "./history.server";
+import { datesWithWorkouts, dayResults } from "./history.server";
 import { ensureWeekPlan, lastEaten, restMeal, restedSlugs } from "./meal-plan.server";
 import { movesBetween } from "./schedule.server";
 import { baseTargetsFor, setTargetsFrom } from "./targets.server";
@@ -100,7 +100,7 @@ export async function checkInData(db: Db, monday: ISODate): Promise<CheckInData>
     { kcal: base.kcal, stepGoal: base.stepGoal },
   );
 
-  const [setDates, moves] = await Promise.all([datesWithSets(db, monday, sunday), movesBetween(db, monday, sunday)]);
+  const [setDates, moves] = await Promise.all([datesWithWorkouts(db, monday, sunday), movesBetween(db, monday, sunday)]);
   let workoutsDone = 0;
   let workoutsPlanned = 0;
   let optionalDone = 0;

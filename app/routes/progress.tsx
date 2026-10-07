@@ -142,7 +142,8 @@ export default function Progress({ loaderData }: Route.ComponentProps) {
                 <div className="min-w-0 flex-1">
                   <div className="text-[16px] font-semibold">{w.name}</div>
                   <div className="tabular mt-px text-[14px] text-label-2">
-                    {fmt(w.date, { weekday: "short", month: "short", day: "numeric" })} · {w.sets} set{w.sets === 1 ? "" : "s"}
+                    {fmt(w.date, { weekday: "short", month: "short", day: "numeric" })} ·{" "}
+                    {w.sets > 0 ? `${w.sets} set${w.sets === 1 ? "" : "s"}` : w.checks > 0 ? `${w.checks} exercise${w.checks === 1 ? "" : "s"}, no numbers` : "Done, no numbers"}
                   </div>
                 </div>
                 <span className="flex-none text-label-4">

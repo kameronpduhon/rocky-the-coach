@@ -5,7 +5,7 @@ import { scheduleMoves } from "~/db/schema";
 import { swapWorkouts, templateFor, type Moves } from "~/domain/calendar";
 import { addDays, weekStart } from "~/domain/dates";
 import type { ISODate } from "~/domain/types";
-import { datesWithSets } from "./history.server";
+import { datesWithWorkouts } from "./history.server";
 
 export async function movesBetween(db: Db, from: ISODate, to: ISODate): Promise<Moves> {
   const rows = await db.select().from(scheduleMoves).where(between(scheduleMoves.date, from, to)).all();
@@ -32,7 +32,7 @@ export function weekSchedule(monday: ISODate, moves: Moves, setDates: Set<ISODat
 export async function moveWorkout(db: Db, a: ISODate, b: ISODate): Promise<string | null> {
   if (a === b || weekStart(a) !== weekStart(b)) return "Pick another day this week.";
   const [first, last] = a < b ? [a, b] : [b, a];
-  const [moves, setDates] = await Promise.all([movesBetween(db, first, last), datesWithSets(db, first, last)]);
+  const [moves, setDates] = await Promise.all([movesBetween(db, first, last), datesWithWorkouts(db, first, last)]);
   if (templateFor(plan, a, moves) === null && templateFor(plan, b, moves) === null) return "Neither day has a workout.";
   if (setDates.has(a) || setDates.has(b)) return "That workout is already logged.";
   const moved = swapWorkouts(plan, moves, a, b).filter((d) => !d.usual);

@@ -12,3 +12,6 @@ export function slotPool(slot: Slot): Pool {
   if (slot === 'lunch' || slot === 'dinner') return 'main';
   return slot;
 }
+
+/** The template id of a workout built from whatever was done that day instead of one from the plan. */
+export const CUSTOM_WORKOUT = 'custom';

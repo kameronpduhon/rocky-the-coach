@@ -11,6 +11,7 @@ import { Card, Icon, LargeTitle, Screen, SectionTitle } from "~/components/ui";
 import { messages } from "~/content";
 import { getDb } from "~/db/client";
 import { localDate, mealDate } from "~/domain/dates";
+import { CUSTOM_WORKOUT } from "~/domain/types";
 import { pickSituation, renderMessage } from "~/domain/messages";
 import { logWeighIn } from "~/server/body.server";
 import { loadDay } from "~/server/day.server";
@@ -165,8 +166,11 @@ export default function Today({ loaderData }: Route.ComponentProps) {
                     </Link>
                   ) : (
                     <>
-                      <Link to="/workout" className="btn-prominent flex h-[50px] flex-1 items-center justify-center rounded-full text-[17px] font-semibold">
-                        {day.loggedSetToday ? "Continue workout" : "Start workout"}
+                      <Link
+                        to={day.openTemplateId ? `/workout?template=${day.openTemplateId}` : "/workout"}
+                        className="btn-prominent flex h-[50px] flex-1 items-center justify-center rounded-full text-[17px] font-semibold"
+                      >
+                        {day.openTemplateId === CUSTOM_WORKOUT ? "Continue custom workout" : day.loggedSetToday ? "Continue workout" : "Start workout"}
                       </Link>
                       <Link to="/workout?plan=b" className="btn-secondary flex h-[50px] items-center justify-center rounded-full px-[18px] text-[16px] font-semibold">
                         Plan B
@@ -174,11 +178,19 @@ export default function Today({ loaderData }: Route.ComponentProps) {
                     </>
                   )}
                 </div>
-                {canMove && (
-                  <button type="button" onClick={() => setMoveOpen(true)} className="mt-1 flex h-11 items-center gap-1.5 self-start text-[15px] font-semibold text-label-2">
-                    <Icon name="swap" size={16} />
-                    Not today? Move it
-                  </button>
+                {!day.finishedTemplateId && day.openTemplateId !== CUSTOM_WORKOUT && (
+                  <div className="mt-1 flex flex-wrap gap-x-5">
+                    {canMove && (
+                      <button type="button" onClick={() => setMoveOpen(true)} className="flex h-11 items-center gap-1.5 text-[15px] font-semibold text-label-2">
+                        <Icon name="swap" size={16} />
+                        Not today? Move it
+                      </button>
+                    )}
+                    <Link to={`/workout?template=${CUSTOM_WORKOUT}`} className="flex h-11 items-center gap-1.5 text-[15px] font-semibold text-label-2">
+                      <Icon name="plus" size={16} />
+                      Did something else? Log it
+                    </Link>
+                  </div>
                 )}
               </div>
             </Card>
@@ -202,12 +214,29 @@ export default function Today({ loaderData }: Route.ComponentProps) {
                   </Link>
                 )}
               </div>
-              {canPull && canMove && (
-                <button type="button" onClick={() => setMoveOpen(true)} className="btn-secondary flex h-11 items-center gap-1.5 self-start rounded-full px-4 text-[15px] font-semibold">
-                  <Icon name="swap" size={16} />
-                  Train today instead
-                </button>
-              )}
+              <div className="flex flex-wrap gap-2">
+                {canPull && canMove && (
+                  <button type="button" onClick={() => setMoveOpen(true)} className="btn-secondary flex h-11 items-center gap-1.5 rounded-full px-4 text-[15px] font-semibold">
+                    <Icon name="swap" size={16} />
+                    Train today instead
+                  </button>
+                )}
+                <Link to={`/workout?template=${CUSTOM_WORKOUT}`} className="btn-secondary flex h-11 items-center gap-1.5 rounded-full px-4 text-[15px] font-semibold">
+                  {day.finishedTemplateId === CUSTOM_WORKOUT ? (
+                    <>
+                      <Icon name="check" size={16} strokeWidth={3} />
+                      Custom workout done
+                    </>
+                  ) : day.openTemplateId === CUSTOM_WORKOUT ? (
+                    "Continue custom workout"
+                  ) : (
+                    <>
+                      <Icon name="plus" size={16} />
+                      Log a workout
+                    </>
+                  )}
+                </Link>
+              </div>
             </Card>
           )}
         </div>

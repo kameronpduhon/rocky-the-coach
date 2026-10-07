@@ -8,9 +8,10 @@ import { plan } from "~/content";
 import { getDb } from "~/db/client";
 import { dayMode, optionalTemplateFor, templateFor, weekNumber, weekType } from "~/domain/calendar";
 import { addDays, isISODate, localDate, weekStart, weekday } from "~/domain/dates";
+import { CUSTOM_WORKOUT } from "~/domain/types";
 import { serverNow } from "~/server/clock.server";
 import { groceryList } from "~/server/groceries.server";
-import { datesWithSets } from "~/server/history.server";
+import { datesWithWorkouts } from "~/server/history.server";
 import { moveWorkout, movesBetween, weekSchedule } from "~/server/schedule.server";
 import { targetsFor } from "~/server/targets.server";
 import { resolveTemplate } from "~/server/workouts.server";
@@ -24,7 +25,7 @@ export async function loader(_args: Route.LoaderArgs) {
   const today = localDate(serverNow());
   const monday = weekStart(today);
   const [week, targets, groceries] = await Promise.all([
-    Promise.all([movesBetween(db, monday, addDays(monday, 6)), datesWithSets(db, monday, today)]).then(([moves, setDates]) => weekSchedule(monday, moves, setDates)),
+    Promise.all([movesBetween(db, monday, addDays(monday, 6)), datesWithWorkouts(db, monday, today)]).then(([moves, setDates]) => weekSchedule(monday, moves, setDates)),
     targetsFor(db, today),
     groceryList(db, monday, today, { rest: null, swaps: [] }),
   ]);
@@ -220,6 +221,15 @@ export default function Plan({ loaderData }: Route.ComponentProps) {
                       {d.templateId && d.today && (
                         <Link to="/workout" className="btn-prominent flex h-11 items-center rounded-full px-4 text-[15px] font-semibold">
                           {d.logged ? "Open workout" : "Start workout"}
+                        </Link>
+                      )}
+                      {(d.past || d.today) && (
+                        <Link
+                          to={`/workout?template=${CUSTOM_WORKOUT}&date=${d.date}&from=plan`}
+                          className="btn-secondary flex h-11 items-center gap-1.5 rounded-full px-4 text-[15px] font-semibold"
+                        >
+                          <Icon name="plus" size={16} />
+                          Log a different workout
                         </Link>
                       )}
                       {!d.logged && (

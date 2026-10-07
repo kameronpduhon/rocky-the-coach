@@ -8,7 +8,7 @@ import { addDays, formatClock, localMinutes, parseTime, weekStart, weekday } fro
 import type { DayMode, ISODate, Slot, WeekType } from "~/domain/types";
 import { stepsFor, weighInEntry } from "./body.server";
 import { checkInDone, checkInWindow } from "./checkin.server";
-import { datesWithSets, dayResults } from "./history.server";
+import { datesWithWorkouts, dayResults } from "./history.server";
 import { plannedForDate } from "./meal-plan.server";
 import { logsForDate, type MealLog } from "./meals.server";
 import { targetsFor, type Targets } from "./targets.server";
@@ -55,6 +55,8 @@ export interface DaySummary {
   loggedSetToday: boolean;
   /** The workout ended most recently today, so Today stops offering to continue it. */
   finishedTemplateId: string | null;
+  /** The workout started most recently today and not finished, so Continue opens it. */
+  openTemplateId: string | null;
   onPlan: boolean;
   streak: number;
   missedTwice: boolean;
@@ -82,7 +84,7 @@ export async function loadDay(db: Db, date: ISODate, now: Date): Promise<DaySumm
     db.select().from(mealState).all(),
     usualTemplateId ? goUps(db, date, usualTemplateId) : Promise.resolve([]),
     db.select().from(workoutSessions).where(eq(workoutSessions.date, date)).all(),
-    datesWithSets(db, addDays(date, -14), date),
+    datesWithWorkouts(db, addDays(date, -14), date),
     dayResults(db, addDays(date, -60), addDays(date, -1)),
     openWeek !== null ? checkInDone(db, openWeek) : Promise.resolve(true),
     mondayAfterNoon ? checkInDone(db, addDays(monday, -7)) : Promise.resolve(true),
@@ -141,6 +143,7 @@ export async function loadDay(db: Db, date: ISODate, now: Date): Promise<DaySumm
     sessionStarted: sessions.length > 0,
     loggedSetToday: setDates.has(date),
     finishedTemplateId: sessions.filter((s) => s.endedAt).sort((a, b) => b.endedAt!.localeCompare(a.endedAt!))[0]?.templateId ?? null,
+    openTemplateId: sessions.filter((s) => !s.endedAt).sort((a, b) => b.startedAt.localeCompare(a.startedAt))[0]?.templateId ?? null,
     onPlan,
     streak: streakFrom(history, date, onPlan),
     missedTwice: missedTwoInARow(date, setDates, moves),

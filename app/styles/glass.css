@@ -26,6 +26,7 @@
      step up a level (white on light gray, #2C2C2E on #1C1C1E) so lists still read as cards. */
   .sheet-panel {
     background: var(--sheet-bg);
+    --surface: var(--sheet-bg);
     --card: var(--sheet-card);
     border: 0.5px solid var(--glass-border);
     box-shadow: inset 0 1px 0 var(--glass-highlight), var(--glass-shadow);

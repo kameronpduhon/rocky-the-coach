@@ -56,8 +56,20 @@ export const workoutSessions = sqliteTable(
     templateId: text("template_id").notNull(),
     startedAt: text("started_at").notNull(),
     endedAt: text("ended_at"),
+    /** JSON array of exercise ids, for a workout built on the spot rather than taken from the plan. */
+    exercises: text("exercises"),
   },
   (t) => [index("workout_sessions_date").on(t.date)],
+);
+
+/** Exercises done without logging weights or reps. */
+export const exerciseChecks = sqliteTable(
+  "exercise_checks",
+  {
+    sessionId: integer("session_id").notNull(),
+    exerciseId: text("exercise_id").notNull(),
+  },
+  (t) => [primaryKey({ columns: [t.sessionId, t.exerciseId] })],
 );
 
 export const setLogs = sqliteTable(

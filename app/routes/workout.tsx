@@ -2,17 +2,32 @@ import { env } from "cloudflare:workers";
 import { useEffect, useMemo, useRef, useState } from "react";
 import { Form, redirect, useRevalidator } from "react-router";
 import type { Route } from "./+types/workout";
+import { ExercisePicker } from "~/components/ExercisePicker";
 import { Segmented } from "~/components/Segmented";
 import { Sheet } from "~/components/Sheet";
 import { BackButton, BarSpacer, Card, FloatingBar, Icon } from "~/components/ui";
-import { exercises, plan } from "~/content";
+import { exerciseImage, exercises, plan } from "~/content";
 import { getDb } from "~/db/client";
 import { optionalTemplateFor, templateFor } from "~/domain/calendar";
 import { isISODate, localDate } from "~/domain/dates";
 import { send } from "~/lib/offline-queue";
 import { serverNow } from "~/server/clock.server";
 import { movesBetween } from "~/server/schedule.server";
-import { deleteSet, endSession, logSet, resolveTemplate, swapExercise, updateSet, workoutView, type ExerciseView } from "~/server/workouts.server";
+import {
+  checkExercise,
+  CUSTOM,
+  deleteSet,
+  endSession,
+  isWorkout,
+  logSet,
+  resolveTemplate,
+  setCustomExercises,
+  swapExercise,
+  updateSet,
+  workoutSlots,
+  workoutView,
+  type ExerciseView,
+} from "~/server/workouts.server";
 
 export const handle = { hideTabBar: true };
 
@@ -34,9 +49,14 @@ export async function loader({ request }: Route.LoaderArgs) {
   const moves = await movesBetween(db, date, date);
   const templateId =
     url.searchParams.get("plan") === "b" ? plan.planB : url.searchParams.get("template") ?? templateFor(plan, date, moves) ?? optionalTemplateFor(plan, date);
-  if (!templateId || !plan.templates[templateId]) throw redirect("/");
+  if (!templateId || !isWorkout(templateId)) throw redirect("/");
   const from = url.searchParams.get("from") ?? (date === today ? "today" : "plan");
-  return { view: await workoutView(db, date, templateId), now: now.toISOString(), live: date === today, from, back: backTo(from) };
+  // Every exercise, for picking what went into a custom workout.
+  const catalog =
+    templateId === CUSTOM
+      ? [...exercises.values()].map((e) => ({ id: e.id, name: e.name, group: e.group, equipment: e.equipment, image: exerciseImage(e, 0) })).sort((a, b) => a.name.localeCompare(b.name))
+      : [];
+  return { view: await workoutView(db, date, templateId), catalog, now: now.toISOString(), live: date === today, from, back: backTo(from) };
 }
 
 export async function action({ request }: Route.ActionArgs) {
@@ -47,10 +67,9 @@ export async function action({ request }: Route.ActionArgs) {
   const date = form.get("date") ? String(form.get("date")) : today;
   if (!isISODate(date) || date > today) return { error: "That day hasn't happened yet." };
   const templateId = String(form.get("templateId"));
-  const template = plan.templates[templateId];
-  if (!template) return { error: "Unknown workout." };
+  if (!isWorkout(templateId)) return { error: "Unknown workout." };
   const position = Number(form.get("position"));
-  const validPosition = Number.isInteger(position) && position >= 0 && position < template.exercises.length;
+  const validPosition = async () => Number.isInteger(position) && position >= 0 && position < (await workoutSlots(db, date, templateId)).length;
   switch (form.get("intent")) {
     case "log-set": {
       const weight = Number(form.get("weight"));
@@ -61,7 +80,7 @@ export async function action({ request }: Route.ActionArgs) {
       if (!form.get("reps") || !form.get("weight") || !Number.isFinite(weight) || weight < 0 || !Number.isInteger(reps) || reps < 0 || !exercises.has(exerciseId)) {
         return { error: "Enter weight and reps." };
       }
-      if (!validPosition || !Number.isInteger(setNumber) || setNumber < 1 || !clientId) return { error: "That set doesn't fit this workout." };
+      if (!(await validPosition()) || !Number.isInteger(setNumber) || setNumber < 1 || !clientId) return { error: "That set doesn't fit this workout." };
       await logSet(db, { date, templateId, position, exerciseId, setNumber, weightLb: weight, reps, clientId }, now);
       return { ok: true };
     }
@@ -83,10 +102,22 @@ export async function action({ request }: Route.ActionArgs) {
     }
     case "swap": {
       const to = exercises.get(String(form.get("to")));
-      if (!to || !validPosition) return { error: "Unknown exercise." };
+      if (!to || templateId === CUSTOM || !(await validPosition())) return { error: "Unknown exercise." };
       const current = (await resolveTemplate(db, templateId, date))[position]!;
       if (to.group !== current.exercise.group) return { error: "Pick an exercise for the same muscle." };
       await swapExercise(db, date, templateId, position, to.id, form.get("always") === "true");
+      return { ok: true };
+    }
+    case "check": {
+      const exerciseId = String(form.get("exerciseId"));
+      if (!exercises.has(exerciseId)) return { error: "Unknown exercise." };
+      await checkExercise(db, date, templateId, exerciseId, form.get("done") === "true", now);
+      return { ok: true };
+    }
+    case "set-exercises": {
+      const ids = String(form.get("exercises") ?? "").split(",").filter((id) => exercises.has(id));
+      if (templateId !== CUSTOM) return { error: "Only a custom workout's exercises can be picked." };
+      await setCustomExercises(db, date, ids, now);
       return { ok: true };
     }
     case "end": {
@@ -156,14 +187,17 @@ export default function Workout({ loaderData }: Route.ComponentProps) {
   const [pending, setPending] = useState<PendingSet[]>([]);
   // Edited or deleted sets by id, shown until the reload lands. Null is a deleted set.
   const [edits, setEdits] = useState<Record<number, { weight: number; reps: number } | null>>({});
+  // Exercises checked off or un-checked without numbers, by exercise id, until the reload lands.
+  const [checks, setChecks] = useState<Record<string, boolean>>({});
   const view = useMemo(() => {
     const v = loaderData.view;
     const exercises = v.exercises.map((e) => ({
       ...e,
+      checked: checks[e.id] ?? e.checked,
       logged: e.logged.flatMap((l) => (l.id in edits ? (edits[l.id] ? [{ ...l, ...edits[l.id] }] : []) : [l])),
     }));
     return { ...v, exercises };
-  }, [loaderData.view, edits]);
+  }, [loaderData.view, edits, checks]);
   const revalidator = useRevalidator();
   // The server clock's offset from this phone's, so a rest timer started here counts down on the same clock.
   const skew = useRef(0);
@@ -171,20 +205,27 @@ export default function Workout({ loaderData }: Route.ComponentProps) {
     skew.current = Date.parse(loaderData.now) - Date.now();
   }, [loaderData.now]);
   const firstOpen = view.exercises.findIndex((e) => !e.done);
-  const [current, setCurrent] = useState(firstOpen === -1 ? view.exercises.length - 1 : firstOpen);
+  const [picked, setCurrent] = useState(firstOpen === -1 ? view.exercises.length - 1 : firstOpen);
+  // A custom workout starts empty and its list can change, so the index is kept in range.
+  const current = Math.max(0, Math.min(picked, view.exercises.length - 1));
   const [swapOpen, setSwapOpen] = useState(false);
+  const [pickerOpen, setPickerOpen] = useState(false);
   const [restUntil, setRestUntil] = useState<number | null>(() => {
     const latest = view.exercises.flatMap((e) => e.logged.map((l) => ({ at: Date.parse(l.loggedAt), rest: e.restSeconds }))).sort((a, b) => b.at - a.at)[0];
     return latest && live && !view.endedAt ? latest.at + latest.rest * 1000 : null;
   });
-  const ex = view.exercises[current]!;
+  const ex = view.exercises[current];
 
   useEffect(() => {
     setPending([]);
     setEdits({});
+    setChecks({});
   }, [loaderData.view]);
 
-  const doneByPosition = new Map(view.exercises.map((e) => [e.position, pending.filter((p) => p.position === e.position).length + e.logged.length >= view.sets]));
+  const doneByPosition = new Map(
+    view.exercises.map((e) => [e.position, e.checked || pending.filter((p) => p.position === e.position).length + e.logged.length >= view.sets]),
+  );
+  const nothingLogged = pending.length === 0 && view.exercises.every((e) => e.logged.length === 0 && !e.checked);
   const done = view.exercises.filter((e) => doneByPosition.get(e.position) && e.position !== ex.position);
   const upNext = view.exercises.filter((e) => !doneByPosition.get(e.position) && e.position !== ex.position);
   const allDone = view.exercises.every((e) => doneByPosition.get(e.position));
@@ -197,21 +238,57 @@ export default function Workout({ loaderData }: Route.ComponentProps) {
     if (sent) revalidator.revalidate();
   }
 
+  function moveOn(e: ExerciseView) {
+    const next = view.exercises.findIndex((x, i) => i > current && !doneByPosition.get(x.position));
+    const wrap = view.exercises.findIndex((x) => !doneByPosition.get(x.position) && x.position !== e.position);
+    if (next !== -1) setCurrent(next);
+    else if (wrap !== -1) setCurrent(wrap);
+  }
+
   function logSetNow(e: ExerciseView, setNumber: number, weight: number, reps: number) {
     setPending((p) => [...p, { position: e.position, setNumber, weight, reps }]);
     if (live) setRestUntil(Date.now() + skew.current + e.restSeconds * 1000);
-    if (setNumber >= view.sets) {
-      const next = view.exercises.findIndex((x, i) => i > current && !doneByPosition.get(x.position));
-      const wrap = view.exercises.findIndex((x) => !doneByPosition.get(x.position) && x.position !== e.position);
-      if (next !== -1) setCurrent(next);
-      else if (wrap !== -1) setCurrent(wrap);
-    }
+    if (setNumber >= view.sets) moveOn(e);
     void post({ intent: "log-set", position: String(e.position), exerciseId: e.id, setNumber: String(setNumber), weight: String(weight), reps: String(reps), clientId: crypto.randomUUID() });
   }
 
   function editSet(id: number, change: { weight: number; reps: number } | null) {
     setEdits((all) => ({ ...all, [id]: change }));
     void post(change ? { intent: "edit-set", id: String(id), weight: String(change.weight), reps: String(change.reps) } : { intent: "delete-set", id: String(id) });
+  }
+
+  function checkNow(e: ExerciseView, done: boolean) {
+    setChecks((all) => ({ ...all, [e.id]: done }));
+    if (done) moveOn(e);
+    void post({ intent: "check", exerciseId: e.id, done: String(done) });
+  }
+
+  function pickExercises(ids: string[]) {
+    setPickerOpen(false);
+    void post({ intent: "set-exercises", exercises: ids.join(",") });
+  }
+
+  const dayLabel = live ? "Today" : DAY_FMT.format(new Date(`${view.date}T12:00:00Z`));
+  const locked = new Set(view.exercises.filter((e) => e.logged.length > 0 || e.checked).map((e) => e.id));
+
+  if (!ex) {
+    return (
+      <main className="mx-auto flex min-h-dvh max-w-[760px] flex-col gap-4 px-4 pb-8 pt-[max(54px,env(safe-area-inset-top))]">
+        <BackButton to={loaderData.back} label={loaderData.back === "/" ? "Back to Today" : "Back"} />
+        <header className="px-1">
+          <div className="text-[15px] font-semibold text-label-2">{dayLabel}</div>
+          <h1 className="mt-0.5 text-[34px] font-bold leading-tight">What did you do?</h1>
+          <p className="mt-1 text-[15px] leading-snug text-label-2">Check every exercise. Add weights and reps next, or skip them.</p>
+        </header>
+        <ExercisePicker
+          catalog={loaderData.catalog}
+          initial={[]}
+          locked={locked}
+          saveLabel={(n) => (n === 0 ? "Pick what you did" : revalidator.state !== "idle" ? "Saving..." : `Continue with ${n} exercise${n === 1 ? "" : "s"}`)}
+          onSave={pickExercises}
+        />
+      </main>
+    );
   }
 
   return (
@@ -237,9 +314,13 @@ export default function Workout({ loaderData }: Route.ComponentProps) {
             DAY_FMT.format(new Date(`${view.date}T12:00:00Z`))
           )}
         </div>
-        <button type="button" onClick={() => setSwapOpen(true)} className="glass-on-image absolute bottom-4 right-4 flex h-[46px] items-center gap-1.5 rounded-full px-4 text-[15px] font-semibold">
+        <button
+          type="button"
+          onClick={() => (view.custom ? setPickerOpen(true) : setSwapOpen(true))}
+          className="glass-on-image absolute bottom-4 right-4 flex h-[46px] items-center gap-1.5 rounded-full px-4 text-[15px] font-semibold"
+        >
           <Icon name="swap" size={16} />
-          Swap
+          {view.custom ? "Edit exercises" : "Swap"}
         </button>
       </div>
 
@@ -271,7 +352,7 @@ export default function Workout({ loaderData }: Route.ComponentProps) {
           </div>
         </header>
 
-        <SetCard key={ex.id} ex={ex} sets={view.sets} pending={pending.filter((p) => p.position === ex.position)} onLog={(n, w, r) => logSetNow(ex, n, w, r)} onEdit={editSet} />
+        <SetCard key={ex.id} ex={ex} sets={view.sets} pending={pending.filter((p) => p.position === ex.position)} onLog={(n, w, r) => logSetNow(ex, n, w, r)} onEdit={editSet} onCheck={(done) => checkNow(ex, done)} />
 
         {done.length > 0 && (
           <Card className="overflow-hidden" aria-label="Done">
@@ -288,7 +369,7 @@ export default function Workout({ loaderData }: Route.ComponentProps) {
                   <div className="min-w-0 flex-1">
                     <div className="text-[15px] font-semibold text-label-2">{e.name} · done</div>
                     <div className="tabular mt-0.5 text-[14px] font-semibold text-steps-text">
-                      {setsText(sets)}
+                      {sets.length > 0 ? setsText(sets) : "No numbers"}
                       {e.nextTime !== null && (
                         <>
                           . <span className="whitespace-nowrap">Next time {e.nextTime} lb</span>
@@ -337,7 +418,7 @@ export default function Workout({ loaderData }: Route.ComponentProps) {
           <input type="hidden" name="date" value={view.date} />
           <input type="hidden" name="from" value={loaderData.from} />
           <button type="submit" className="btn-secondary h-[52px] w-full rounded-full text-[16px] font-semibold">
-            {!live ? "Done" : allDone ? "Finish workout" : "End workout"}
+            {nothingLogged ? "Mark done, skip the numbers" : !live ? "Done" : allDone ? "Finish workout" : "End workout"}
           </button>
         </Form>
       </main>
@@ -345,6 +426,16 @@ export default function Workout({ loaderData }: Route.ComponentProps) {
       {/* Always reserved so the page does not jump when the rest bar comes and goes. */}
       <BarSpacer />
       {live && <RestBar serverIso={loaderData.now} restUntil={restUntil} onSkip={() => setRestUntil(null)} />}
+
+      <Sheet open={pickerOpen} onClose={() => setPickerOpen(false)} title="Edit exercises">
+        <ExercisePicker
+          catalog={loaderData.catalog}
+          initial={view.exercises.map((e) => e.id)}
+          locked={locked}
+          saveLabel={(n) => `Save ${n} exercise${n === 1 ? "" : "s"}`}
+          onSave={pickExercises}
+        />
+      </Sheet>
 
       <Sheet open={swapOpen} onClose={() => setSwapOpen(false)} title="Swap exercise">
         <SwapList
@@ -373,12 +464,14 @@ function SetCard({
   pending,
   onLog,
   onEdit,
+  onCheck,
 }: {
   ex: ExerciseView;
   sets: number;
   pending: Omit<PendingSet, "position">[];
   onLog: (setNumber: number, weight: number, reps: number) => void;
   onEdit: (id: number, change: { weight: number; reps: number } | null) => void;
+  onCheck: (done: boolean) => void;
 }) {
   const rows = useMemo(() => {
     const done = new Map<number, { weight: number; reps: number; id?: number }>();
@@ -551,6 +644,23 @@ function SetCard({
         ),
       )}
       {ex.logged.length > 0 && !editing && <p className="text-[13px] text-label-2">Tap a logged set to fix its weight or reps.</p>}
+      {ex.logged.length === 0 &&
+        pending.length === 0 &&
+        (ex.checked ? (
+          <div className="flex items-center justify-between gap-3 rounded-[14px] bg-fill px-3.5 py-2 text-[15px]">
+            <span className="flex items-center gap-2 font-semibold text-steps-text">
+              <Icon name="check" size={16} strokeWidth={3} />
+              Done, no numbers
+            </span>
+            <button type="button" onClick={() => onCheck(false)} className="h-10 px-2 font-semibold text-label-2">
+              Undo
+            </button>
+          </div>
+        ) : (
+          <button type="button" onClick={() => onCheck(true)} className="btn-secondary h-11 self-start rounded-full px-4 text-[15px] font-semibold">
+            Did it, skip the numbers
+          </button>
+        ))}
       {error && (
         <p role="alert" className="text-[14px] font-semibold text-calories">
           {error}

@@ -100,6 +100,7 @@ const PATHS: Record<string, ReactNode> = {
   chevron: <path d="M9 6l6 6-6 6" />,
   check: <path d="M5 12.5l4.5 4.5L19 7.5" />,
   swap: <path d="M7 7h12l-3-3M17 17H5l3 3" />,
+  plus: <path d="M12 5v14M5 12h14" />,
   plate: (
     <>
       <circle cx="12" cy="13" r="7" />

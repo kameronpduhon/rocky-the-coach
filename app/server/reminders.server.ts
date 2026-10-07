@@ -8,7 +8,7 @@ import { dueReminders, reminderDef, type ReminderKind } from "~/domain/reminders
 import type { Slot } from "~/domain/types";
 import { stepsFor, weighInFor } from "./body.server";
 import { checkInDone } from "./checkin.server";
-import { datesWithSets } from "./history.server";
+import { datesWithWorkouts } from "./history.server";
 import { logsForDate } from "./meals.server";
 import { sendToAll, type PushMessage } from "./push.server";
 import { movesBetween } from "./schedule.server";
@@ -40,7 +40,7 @@ export async function runReminders(db: Db, now: Date, send: Sender = sendToAll):
     stepsFor(db, date),
     targetsFor(db, date),
     db.select().from(workoutSessions).where(eq(workoutSessions.date, date)).all(),
-    datesWithSets(db, date, date),
+    datesWithWorkouts(db, date, date),
     reminderSettings(db),
     db.select().from(notificationsSent).where(eq(notificationsSent.date, date)).all(),
     wd === 0 ? checkInDone(db, weekStart(date)) : Promise.resolve(true),

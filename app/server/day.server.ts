@@ -3,7 +3,7 @@ import { exerciseImage, exercises, plan, type MealWithMacros } from "~/content";
 import type { Db } from "~/db/client";
 import { mealState, workoutSessions } from "~/db/schema";
 import { isOnPlan, streak as streakFrom } from "~/domain/adherence";
-import { dayMode, isRelaxedDay, isTrainingDay, optionalTemplateFor, setsFor, templateFor, weekNumber, weekType } from "~/domain/calendar";
+import { dayMode, isRelaxedDay, isTrainingDay, optionalTemplateFor, setsFor, templateFor, weekNumber, weekType, type Moves } from "~/domain/calendar";
 import { addDays, formatClock, localMinutes, parseTime, weekStart, weekday } from "~/domain/dates";
 import type { DayMode, ISODate, Slot, WeekType } from "~/domain/types";
 import { stepsFor, weighInEntry } from "./body.server";
@@ -12,6 +12,7 @@ import { datesWithSets, dayResults } from "./history.server";
 import { plannedForDate } from "./meal-plan.server";
 import { logsForDate, type MealLog } from "./meals.server";
 import { targetsFor, type Targets } from "./targets.server";
+import { movesBetween, weekSchedule, type ScheduleDay } from "./schedule.server";
 import { goUps } from "./workouts.server";
 
 export interface SlotView {
@@ -60,27 +61,35 @@ export interface DaySummary {
   nextSlot: Slot | null;
   checkInDue: boolean;
   checkInSkipped: boolean;
+  /** This week's days with their workouts, for moving one onto or off today. */
+  week: ScheduleDay[];
 }
 
 export async function loadDay(db: Db, date: ISODate, now: Date): Promise<DaySummary> {
-  const templateId = templateFor(plan, date);
+  // Moved workouts are rare, so the usual one's progression loads alongside everything else and only a moved day
+  // pays a second round trip for its own.
+  const usualTemplateId = templateFor(plan, date);
+  const monday = weekStart(date);
   const openWeek = checkInWindow(now);
   const mondayAfterNoon = weekday(date) === 1 && localMinutes(now) >= 12 * 60;
   // One flat batch: each await is a round trip to D1, so nothing here waits on anything else.
-  const [targets, slots, logs, steps, weighInRow, photos, trainingGoUps, sessions, setDates, history, checkInDoneOpen, checkInDoneLast] = await Promise.all([
+  const [targets, slots, logs, steps, weighInRow, photos, usualGoUps, sessions, setDates, history, checkInDoneOpen, checkInDoneLast, moves] = await Promise.all([
     targetsFor(db, date),
     plannedForDate(db, date),
     logsForDate(db, date),
     stepsFor(db, date),
     weighInEntry(db, date),
     db.select().from(mealState).all(),
-    templateId ? goUps(db, date, templateId) : Promise.resolve([]),
+    usualTemplateId ? goUps(db, date, usualTemplateId) : Promise.resolve([]),
     db.select().from(workoutSessions).where(eq(workoutSessions.date, date)).all(),
     datesWithSets(db, addDays(date, -14), date),
     dayResults(db, addDays(date, -60), addDays(date, -1)),
     openWeek !== null ? checkInDone(db, openWeek) : Promise.resolve(true),
-    mondayAfterNoon ? checkInDone(db, addDays(weekStart(date), -7)) : Promise.resolve(true),
+    mondayAfterNoon ? checkInDone(db, addDays(monday, -7)) : Promise.resolve(true),
+    movesBetween(db, addDays(date, -14), addDays(monday, 6)),
   ]);
+  const templateId = templateFor(plan, date, moves);
+  const trainingGoUps = templateId === usualTemplateId ? usualGoUps : templateId ? await goUps(db, date, templateId) : [];
   const photoBySlug = new Map(photos.map((p) => [p.slug, p.photoKey]));
 
   const slotViews: SlotView[] = slots.map((s) => {
@@ -134,18 +143,19 @@ export async function loadDay(db: Db, date: ISODate, now: Date): Promise<DaySumm
     finishedTemplateId: sessions.filter((s) => s.endedAt).sort((a, b) => b.endedAt!.localeCompare(a.endedAt!))[0]?.templateId ?? null,
     onPlan,
     streak: streakFrom(history, date, onPlan),
-    missedTwice: missedTwoInARow(date, setDates),
+    missedTwice: missedTwoInARow(date, setDates, moves),
     nextSlot: slotViews.find((s) => s.logId === null)?.slot ?? null,
     checkInDue,
     checkInSkipped,
+    week: weekSchedule(monday, moves, setDates),
   };
 }
 
 /** The last two training days before today both had no sets, and nothing was logged since the first of them. */
-function missedTwoInARow(today: ISODate, setDates: Set<ISODate>): boolean {
+function missedTwoInARow(today: ISODate, setDates: Set<ISODate>, moves: Moves): boolean {
   const missed: ISODate[] = [];
   for (let d = addDays(today, -1); missed.length < 2 && d >= addDays(today, -14) && d >= plan.phaseStart; d = addDays(d, -1)) {
-    if (!isTrainingDay(plan, d)) continue;
+    if (!isTrainingDay(plan, d, moves)) continue;
     if (setDates.has(d)) return false;
     missed.push(d);
   }

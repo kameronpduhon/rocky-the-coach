@@ -6,6 +6,6 @@ it("creates every table", async () => {
   expect(results.map((r) => r.name)).toEqual([
     "batches", "check_ins", "exercise_overrides", "exercise_swaps", "grocery_checks", "login_attempts",
     "meal_logs", "meal_state", "notifications_sent", "planned_meals", "push_subscriptions", "reminder_settings",
-    "set_logs", "steps_daily", "targets", "waist_logs", "weigh_ins", "workout_sessions",
+    "schedule_moves", "set_logs", "steps_daily", "targets", "waist_logs", "weigh_ins", "workout_sessions",
   ]);
 });

@@ -78,6 +78,10 @@ export async function logSet(db: Db, input: SetInput, now: Date): Promise<void> 
     .onConflictDoNothing();
 }
 
+export async function updateSet(db: Db, id: number, weightLb: number, reps: number): Promise<void> {
+  await db.update(setLogs).set({ weightLb, reps }).where(eq(setLogs.id, id));
+}
+
 export async function deleteSet(db: Db, id: number): Promise<void> {
   await db.delete(setLogs).where(eq(setLogs.id, id));
 }

@@ -2,7 +2,7 @@ import { eq } from "drizzle-orm";
 import { plan } from "~/content";
 import type { Db } from "~/db/client";
 import { notificationsSent, workoutSessions } from "~/db/schema";
-import { isRelaxedDay } from "~/domain/calendar";
+import { isRelaxedDay, isTrainingDay } from "~/domain/calendar";
 import { localDate, localMinutes, weekStart, weekday } from "~/domain/dates";
 import { dueReminders, reminderDef, type ReminderKind } from "~/domain/reminders";
 import type { Slot } from "~/domain/types";
@@ -11,6 +11,7 @@ import { checkInDone } from "./checkin.server";
 import { datesWithSets } from "./history.server";
 import { logsForDate } from "./meals.server";
 import { sendToAll, type PushMessage } from "./push.server";
+import { movesBetween } from "./schedule.server";
 import { reminderSettings } from "./settings.server";
 import { targetsFor } from "./targets.server";
 
@@ -33,7 +34,7 @@ type Sender = (db: Db, message: PushMessage) => Promise<number>;
 export async function runReminders(db: Db, now: Date, send: Sender = sendToAll): Promise<ReminderKind[]> {
   const date = localDate(now);
   const wd = weekday(date);
-  const [logs, weighIn, steps, targets, sessions, setDates, settings, sentRows, checkedIn] = await Promise.all([
+  const [logs, weighIn, steps, targets, sessions, setDates, settings, sentRows, checkedIn, moves] = await Promise.all([
     logsForDate(db, date),
     weighInFor(db, date),
     stepsFor(db, date),
@@ -43,12 +44,14 @@ export async function runReminders(db: Db, now: Date, send: Sender = sendToAll):
     reminderSettings(db),
     db.select().from(notificationsSent).where(eq(notificationsSent.date, date)).all(),
     wd === 0 ? checkInDone(db, weekStart(date)) : Promise.resolve(true),
+    movesBetween(db, date, date),
   ]);
 
   let due = dueReminders(
     localMinutes(now),
     {
       weekday: wd,
+      trainingDay: isTrainingDay(plan, date, moves),
       weighedIn: weighIn !== null,
       loggedSlots: logs.filter((l) => l.slot).map((l) => l.slot as Slot),
       sessionStarted: sessions.length > 0,

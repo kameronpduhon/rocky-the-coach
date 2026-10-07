@@ -14,6 +14,7 @@ import { sevenDayAverage, weeklyChange } from "~/domain/weight";
 import { logWaist, waistLogsAll, weighInsBetween } from "./body.server";
 import { datesWithSets, dayResults } from "./history.server";
 import { ensureWeekPlan, lastEaten, restMeal, restedSlugs } from "./meal-plan.server";
+import { movesBetween } from "./schedule.server";
 import { baseTargetsFor, setTargetsFrom } from "./targets.server";
 
 /** The Monday of the week under review while the check-in is open (Sunday 5pm to Monday noon), else null. */
@@ -99,13 +100,13 @@ export async function checkInData(db: Db, monday: ISODate): Promise<CheckInData>
     { kcal: base.kcal, stepGoal: base.stepGoal },
   );
 
-  const setDates = await datesWithSets(db, monday, sunday);
+  const [setDates, moves] = await Promise.all([datesWithSets(db, monday, sunday), movesBetween(db, monday, sunday)]);
   let workoutsDone = 0;
   let workoutsPlanned = 0;
   let optionalDone = 0;
   for (let i = 0; i < 7; i++) {
     const d = addDays(monday, i);
-    if (isTrainingDay(plan, d)) {
+    if (isTrainingDay(plan, d, moves)) {
       workoutsPlanned++;
       if (setDates.has(d)) workoutsDone++;
     } else if (setDates.has(d)) optionalDone++;

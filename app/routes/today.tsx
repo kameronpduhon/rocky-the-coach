@@ -3,8 +3,10 @@ import { useState } from "react";
 import { Form, Link, useFetcher } from "react-router";
 import type { Route } from "./+types/today";
 import { MealRow } from "~/components/MealRow";
+import { MoveSheet } from "~/components/MoveSheet";
 import { Rings } from "~/components/Rings";
 import { Sheet } from "~/components/Sheet";
+import { WeighInSheet } from "~/components/WeighInSheet";
 import { Card, Icon, LargeTitle, Screen, SectionTitle } from "~/components/ui";
 import { messages } from "~/content";
 import { getDb } from "~/db/client";
@@ -82,6 +84,11 @@ const DATE_FMT = new Intl.DateTimeFormat("en-US", { weekday: "long", month: "sho
 export default function Today({ loaderData }: Route.ComponentProps) {
   const { day, message } = loaderData;
   const [offPlanOpen, setOffPlanOpen] = useState(false);
+  const [moveOpen, setMoveOpen] = useState(false);
+  const [editWeighIn, setEditWeighIn] = useState(false);
+  const todaySchedule = day.week.find((d) => d.date === day.date)!;
+  const canPull = day.week.some((d) => d.date !== day.date && d.templateId !== null && !d.logged);
+  const canMove = !day.sessionStarted && !day.loggedSetToday;
   const pct = (a: number, b: number) => (b > 0 ? a / b : 0);
   const dateLabel = DATE_FMT.format(new Date(`${day.date}T12:00:00Z`));
 
@@ -167,25 +174,39 @@ export default function Today({ loaderData }: Route.ComponentProps) {
                     </>
                   )}
                 </div>
+                {canMove && (
+                  <button type="button" onClick={() => setMoveOpen(true)} className="mt-1 flex h-11 items-center gap-1.5 self-start text-[15px] font-semibold text-label-2">
+                    <Icon name="swap" size={16} />
+                    Not today? Move it
+                  </button>
+                )}
               </div>
             </Card>
           ) : (
-            <Card className="flex items-center justify-between px-[18px] py-4">
-              <div>
-                <div className="text-[17px] font-semibold">Rest day</div>
-                <div className="text-[14px] text-label-2">{day.optional ? `Optional: ${day.optional.name}, 30 min` : "Walk, recover, eat on plan."}</div>
+            <Card className="flex flex-col gap-3 px-[18px] py-4">
+              <div className="flex items-center justify-between gap-3">
+                <div>
+                  <div className="text-[17px] font-semibold">Rest day</div>
+                  <div className="text-[14px] text-label-2">{day.optional ? `Optional: ${day.optional.name}, 30 min` : "Walk, recover, eat on plan."}</div>
+                </div>
+                {day.optional && (
+                  <Link to={`/workout?template=${day.optional.templateId}`} className="btn-secondary flex h-11 items-center gap-1.5 rounded-full px-4 text-[15px] font-semibold">
+                    {day.finishedTemplateId === day.optional.templateId ? (
+                      <>
+                        <Icon name="check" size={16} strokeWidth={3} />
+                        Done
+                      </>
+                    ) : (
+                      "Start"
+                    )}
+                  </Link>
+                )}
               </div>
-              {day.optional && (
-                <Link to={`/workout?template=${day.optional.templateId}`} className="btn-secondary flex h-11 items-center gap-1.5 rounded-full px-4 text-[15px] font-semibold">
-                  {day.finishedTemplateId === day.optional.templateId ? (
-                    <>
-                      <Icon name="check" size={16} strokeWidth={3} />
-                      Done
-                    </>
-                  ) : (
-                    "Start"
-                  )}
-                </Link>
+              {canPull && canMove && (
+                <button type="button" onClick={() => setMoveOpen(true)} className="btn-secondary flex h-11 items-center gap-1.5 self-start rounded-full px-4 text-[15px] font-semibold">
+                  <Icon name="swap" size={16} />
+                  Train today instead
+                </button>
               )}
             </Card>
           )}
@@ -228,15 +249,34 @@ export default function Today({ loaderData }: Route.ComponentProps) {
               <span>No off-plan dessert</span>
               <span className="text-label-2">{day.offPlanDessert ? "Missed" : day.minutes >= 21 * 60 ? "Done" : "Tonight"}</span>
             </div>
-            <div className="tabular flex justify-between border-t-[0.5px] border-separator pt-3 text-[15px]">
-              <span className="text-label-2">Weigh-in</span>
-              <span className="font-semibold">{day.weighIn !== null ? `${day.weighIn} lb${day.weighInTime ? ` · ${day.weighInTime}` : ""}` : "Not yet"}</span>
-            </div>
+            {day.weighIn !== null ? (
+              <button
+                type="button"
+                onClick={() => setEditWeighIn(true)}
+                className="tabular flex items-center justify-between border-t-[0.5px] border-separator pt-3 text-left text-[15px]"
+              >
+                <span className="text-label-2">Weigh-in</span>
+                <span className="flex items-center gap-1.5 font-semibold">
+                  {day.weighIn} lb{day.weighInTime ? ` · ${day.weighInTime}` : ""}
+                  <span className="sr-only">. Edit</span>
+                  <span aria-hidden="true" className="text-label-4">
+                    <Icon name="chevron" size={16} strokeWidth={2.4} />
+                  </span>
+                </span>
+              </button>
+            ) : (
+              <div className="tabular flex justify-between border-t-[0.5px] border-separator pt-3 text-[15px]">
+                <span className="text-label-2">Weigh-in</span>
+                <span className="font-semibold">Not yet</span>
+              </div>
+            )}
           </Card>
         </div>
       </div>
 
       <OffPlanSheet open={offPlanOpen} onClose={() => setOffPlanOpen(false)} />
+      <MoveSheet open={moveOpen} onClose={() => setMoveOpen(false)} anchor={todaySchedule} week={day.week} today={day.date} />
+      <WeighInSheet entry={editWeighIn && day.weighIn !== null ? { date: day.date, weight: day.weighIn } : null} onClose={() => setEditWeighIn(false)} />
     </Screen>
   );
 }

@@ -16,6 +16,8 @@ export type ReminderKind =
 export interface ReminderFacts {
   /** 0 = Sunday */
   weekday: number;
+  /** A workout is scheduled today, moved workouts included. */
+  trainingDay: boolean;
   weighedIn: boolean;
   loggedSlots: Slot[];
   sessionStarted: boolean;
@@ -35,15 +37,14 @@ interface ReminderDef {
 }
 
 const EVERY_DAY = [0, 1, 2, 3, 4, 5, 6];
-const TRAINING = [1, 3, 5];
 
 export const DEFAULT_REMINDERS: ReminderDef[] = [
   { kind: 'weigh-in', time: '07:30', days: EVERY_DAY, when: (f) => !f.weighedIn, title: 'Weigh-in', body: 'Step on the scale. Five seconds.' },
   { kind: 'breakfast', time: '08:00', days: EVERY_DAY, when: (f) => !f.loggedSlots.includes('breakfast'), title: 'Breakfast', body: 'Breakfast is on the plan. Log it when you eat.' },
-  { kind: 'lift', time: '11:30', days: TRAINING, when: (f) => !f.sessionStarted, title: 'Lift at noon', body: "Today's session is ready. 45 minutes." },
+  { kind: 'lift', time: '11:30', days: EVERY_DAY, when: (f) => f.trainingDay && !f.sessionStarted, title: 'Lift at noon', body: "Today's session is ready. 45 minutes." },
   { kind: 'lunch', time: '14:30', days: EVERY_DAY, when: (f) => !f.loggedSlots.includes('lunch'), title: 'Lunch', body: 'Lunch time. Your scale amounts are ready.' },
   { kind: 'snack', time: '15:45', days: EVERY_DAY, when: (f) => !f.loggedSlots.includes('snack'), title: 'Snack', body: 'Planned snack, nothing else until dinner.' },
-  { kind: 'plan-b', time: '17:00', days: TRAINING, when: (f) => !f.loggedSetToday, title: 'Plan B tonight', body: 'Missed the gym? 25 minutes at home still counts.' },
+  { kind: 'plan-b', time: '17:00', days: EVERY_DAY, when: (f) => f.trainingDay && !f.loggedSetToday, title: 'Plan B tonight', body: 'Missed the gym? 25 minutes at home still counts.' },
   { kind: 'steps', time: '18:00', days: EVERY_DAY, when: (f) => f.steps < 0.6 * f.stepGoal, title: 'Steps', body: 'Two 15-minute walks gets you there.' },
   { kind: 'dinner', time: '19:00', days: EVERY_DAY, when: (f) => !f.loggedSlots.includes('dinner'), title: 'Dinner', body: 'Dinner is on the plan. Log it when you eat.' },
   { kind: 'kitchen-closed', time: '20:30', days: EVERY_DAY, when: () => true, title: "Kitchen's closed", body: 'Dessert is done. See you at breakfast.' },

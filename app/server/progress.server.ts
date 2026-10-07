@@ -1,4 +1,4 @@
-import { asc, eq } from "drizzle-orm";
+import { asc, count, desc, eq } from "drizzle-orm";
 import { exerciseImage, exercises, plan } from "~/content";
 import type { Db } from "~/db/client";
 import { setLogs, workoutSessions } from "~/db/schema";
@@ -9,6 +9,7 @@ import type { ISODate } from "~/domain/types";
 import { sevenDayAverage } from "~/domain/weight";
 import { waistLogsAll, weighInsBetween } from "./body.server";
 import { datesWithSets, dayResults } from "./history.server";
+import { movesBetween } from "./schedule.server";
 import { targetsFor } from "./targets.server";
 
 /** Progress photos every 4 weeks: the first round on the Sunday that ends week 4. */
@@ -35,11 +36,14 @@ export interface ProgressData {
   stepGoal: number;
   strength: { id: string; name: string; image: string; from: number; to: number }[];
   nextPhoto: ISODate;
+  /** Newest first, for fixing a wrong entry. */
+  recentWeighIns: { date: ISODate; weight: number }[];
+  recentWorkouts: { date: ISODate; templateId: string; name: string; sets: number }[];
 }
 
 export async function progressData(db: Db, today: ISODate): Promise<ProgressData> {
   const start = plan.phaseStart;
-  const [weighInRows, waists, results, [todayResult], setDates, last7, sets, targets] = await Promise.all([
+  const [weighInRows, waists, results, [todayResult], setDates, last7, sets, targets, moves, sessions] = await Promise.all([
     weighInsBetween(db, addDays(start, -7), today),
     waistLogsAll(db),
     today > start ? dayResults(db, start, addDays(today, -1)) : Promise.resolve([]),
@@ -53,6 +57,15 @@ export async function progressData(db: Db, today: ISODate): Promise<ProgressData
       .orderBy(asc(workoutSessions.date))
       .all(),
     targetsFor(db, today),
+    movesBetween(db, start, today),
+    db
+      .select({ date: workoutSessions.date, templateId: workoutSessions.templateId, sets: count(setLogs.id) })
+      .from(workoutSessions)
+      .innerJoin(setLogs, eq(setLogs.sessionId, workoutSessions.id))
+      .groupBy(workoutSessions.id)
+      .orderBy(desc(workoutSessions.date), desc(workoutSessions.startedAt))
+      .limit(8)
+      .all(),
   ]);
   const weighIns = weighInRows.map((w) => ({ date: w.date, weight: w.weightLb }));
   const byDate = new Map(weighIns.map((w) => [w.date, w.weight]));
@@ -80,7 +93,7 @@ export async function progressData(db: Db, today: ISODate): Promise<ProgressData
   let optionalDone = 0;
   for (let i = 0; i <= daysBetween(start, today); i++) {
     const d = addDays(start, i);
-    if (isTrainingDay(plan, d)) {
+    if (isTrainingDay(plan, d, moves)) {
       if (d < today || setDates.has(d)) workoutsPlanned++;
       if (setDates.has(d)) workoutsDone++;
     } else if (setDates.has(d)) optionalDone++;
@@ -118,5 +131,9 @@ export async function progressData(db: Db, today: ISODate): Promise<ProgressData
     stepGoal: targets.stepGoal,
     strength,
     nextPhoto: nextPhotoDate(today),
+    recentWeighIns: weighIns.slice(-10).reverse(),
+    recentWorkouts: sessions
+      .filter((s) => plan.templates[s.templateId])
+      .map((s) => ({ date: s.date, templateId: s.templateId, name: plan.templates[s.templateId]!.name, sets: s.sets })),
   };
 }

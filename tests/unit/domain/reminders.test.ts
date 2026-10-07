@@ -3,6 +3,7 @@ import { DEFAULT_REMINDERS, dueReminders, type ReminderFacts } from '~/domain/re
 
 const facts: ReminderFacts = {
   weekday: 1,
+  trainingDay: true,
   weighedIn: false,
   loggedSlots: [],
   sessionStarted: false,
@@ -32,7 +33,8 @@ describe('dueReminders', () => {
 
   it('only sends training reminders on training days', () => {
     expect(dueReminders(11 * 60 + 30, facts, settings, [])).toContain('lift');
-    expect(dueReminders(11 * 60 + 30, { ...facts, weekday: 2 }, settings, [])).not.toContain('lift');
+    expect(dueReminders(11 * 60 + 30, { ...facts, weekday: 2, trainingDay: false }, settings, [])).not.toContain('lift');
+    expect(dueReminders(17 * 60, { ...facts, weekday: 2, trainingDay: false }, settings, [])).not.toContain('plan-b');
     expect(dueReminders(17 * 60, facts, settings, [])).toContain('plan-b');
     expect(dueReminders(17 * 60, { ...facts, loggedSetToday: true }, settings, [])).not.toContain('plan-b');
   });

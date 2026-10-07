@@ -8,10 +8,11 @@ import { BackButton, BarSpacer, Card, FloatingBar, Icon } from "~/components/ui"
 import { exercises, plan } from "~/content";
 import { getDb } from "~/db/client";
 import { optionalTemplateFor, templateFor } from "~/domain/calendar";
-import { localDate } from "~/domain/dates";
+import { isISODate, localDate } from "~/domain/dates";
 import { send } from "~/lib/offline-queue";
 import { serverNow } from "~/server/clock.server";
-import { endSession, logSet, resolveTemplate, swapExercise, workoutView, type ExerciseView } from "~/server/workouts.server";
+import { movesBetween } from "~/server/schedule.server";
+import { deleteSet, endSession, logSet, resolveTemplate, swapExercise, updateSet, workoutView, type ExerciseView } from "~/server/workouts.server";
 
 export const handle = { hideTabBar: true };
 
@@ -19,21 +20,32 @@ export function meta({ loaderData }: Route.MetaArgs) {
   return [{ title: `${loaderData?.view.name ?? "Workout"} · Rocky` }];
 }
 
+const BACK = { today: "/", plan: "/plan", progress: "/progress" } as const;
+const backTo = (from: unknown) => BACK[from as keyof typeof BACK] ?? "/";
+
 export async function loader({ request }: Route.LoaderArgs) {
   const url = new URL(request.url);
   const now = serverNow();
-  const date = localDate(now);
+  const db = getDb(env.DB);
+  const today = localDate(now);
+  // A past date opens that day's workout to log it late or fix a set.
+  const asked = url.searchParams.get("date");
+  const date = isISODate(asked) && asked < today ? asked : today;
+  const moves = await movesBetween(db, date, date);
   const templateId =
-    url.searchParams.get("plan") === "b" ? plan.planB : url.searchParams.get("template") ?? templateFor(plan, date) ?? optionalTemplateFor(plan, date);
+    url.searchParams.get("plan") === "b" ? plan.planB : url.searchParams.get("template") ?? templateFor(plan, date, moves) ?? optionalTemplateFor(plan, date);
   if (!templateId || !plan.templates[templateId]) throw redirect("/");
-  return { view: await workoutView(getDb(env.DB), date, templateId), now: now.toISOString() };
+  const from = url.searchParams.get("from") ?? (date === today ? "today" : "plan");
+  return { view: await workoutView(db, date, templateId), now: now.toISOString(), live: date === today, from, back: backTo(from) };
 }
 
 export async function action({ request }: Route.ActionArgs) {
   const form = await request.formData();
   const db = getDb(env.DB);
   const now = serverNow();
-  const date = localDate(now);
+  const today = localDate(now);
+  const date = form.get("date") ? String(form.get("date")) : today;
+  if (!isISODate(date) || date > today) return { error: "That day hasn't happened yet." };
   const templateId = String(form.get("templateId"));
   const template = plan.templates[templateId];
   if (!template) return { error: "Unknown workout." };
@@ -53,6 +65,22 @@ export async function action({ request }: Route.ActionArgs) {
       await logSet(db, { date, templateId, position, exerciseId, setNumber, weightLb: weight, reps, clientId }, now);
       return { ok: true };
     }
+    case "edit-set": {
+      const id = Number(form.get("id"));
+      const weight = Number(form.get("weight"));
+      const reps = Number(form.get("reps"));
+      if (!Number.isInteger(id) || !form.get("reps") || !form.get("weight") || !Number.isFinite(weight) || weight < 0 || !Number.isInteger(reps) || reps < 0) {
+        return { error: "Enter weight and reps." };
+      }
+      await updateSet(db, id, weight, reps);
+      return { ok: true };
+    }
+    case "delete-set": {
+      const id = Number(form.get("id"));
+      if (!Number.isInteger(id)) return { error: "Unknown set." };
+      await deleteSet(db, id);
+      return { ok: true };
+    }
     case "swap": {
       const to = exercises.get(String(form.get("to")));
       if (!to || !validPosition) return { error: "Unknown exercise." };
@@ -63,7 +91,7 @@ export async function action({ request }: Route.ActionArgs) {
     }
     case "end": {
       await endSession(db, date, templateId, now);
-      return redirect("/");
+      return redirect(backTo(form.get("from")));
     }
     default:
       return { error: "Unknown action" };
@@ -121,8 +149,21 @@ function RestBar({ serverIso, restUntil, onSkip }: { serverIso: string; restUnti
   );
 }
 
+const DAY_FMT = new Intl.DateTimeFormat("en-US", { weekday: "short", month: "short", day: "numeric", timeZone: "UTC" });
+
 export default function Workout({ loaderData }: Route.ComponentProps) {
-  const { view } = loaderData;
+  const { live } = loaderData;
+  const [pending, setPending] = useState<PendingSet[]>([]);
+  // Edited or deleted sets by id, shown until the reload lands. Null is a deleted set.
+  const [edits, setEdits] = useState<Record<number, { weight: number; reps: number } | null>>({});
+  const view = useMemo(() => {
+    const v = loaderData.view;
+    const exercises = v.exercises.map((e) => ({
+      ...e,
+      logged: e.logged.flatMap((l) => (l.id in edits ? (edits[l.id] ? [{ ...l, ...edits[l.id] }] : []) : [l])),
+    }));
+    return { ...v, exercises };
+  }, [loaderData.view, edits]);
   const revalidator = useRevalidator();
   // The server clock's offset from this phone's, so a rest timer started here counts down on the same clock.
   const skew = useRef(0);
@@ -132,16 +173,18 @@ export default function Workout({ loaderData }: Route.ComponentProps) {
   const firstOpen = view.exercises.findIndex((e) => !e.done);
   const [current, setCurrent] = useState(firstOpen === -1 ? view.exercises.length - 1 : firstOpen);
   const [swapOpen, setSwapOpen] = useState(false);
-  const [pending, setPending] = useState<PendingSet[]>([]);
   const [restUntil, setRestUntil] = useState<number | null>(() => {
     const latest = view.exercises.flatMap((e) => e.logged.map((l) => ({ at: Date.parse(l.loggedAt), rest: e.restSeconds }))).sort((a, b) => b.at - a.at)[0];
-    return latest && !view.endedAt ? latest.at + latest.rest * 1000 : null;
+    return latest && live && !view.endedAt ? latest.at + latest.rest * 1000 : null;
   });
   const ex = view.exercises[current]!;
 
-  useEffect(() => setPending([]), [view]);
+  useEffect(() => {
+    setPending([]);
+    setEdits({});
+  }, [loaderData.view]);
 
-  const doneByPosition = new Map(view.exercises.map((e) => [e.position, e.done || pending.filter((p) => p.position === e.position).length + e.logged.length >= view.sets]));
+  const doneByPosition = new Map(view.exercises.map((e) => [e.position, pending.filter((p) => p.position === e.position).length + e.logged.length >= view.sets]));
   const done = view.exercises.filter((e) => doneByPosition.get(e.position) && e.position !== ex.position);
   const upNext = view.exercises.filter((e) => !doneByPosition.get(e.position) && e.position !== ex.position);
   const allDone = view.exercises.every((e) => doneByPosition.get(e.position));
@@ -149,14 +192,14 @@ export default function Workout({ loaderData }: Route.ComponentProps) {
   async function post(fields: Record<string, string>) {
     // The .data endpoint runs only the action. Posting to /workout would also run the loader and render the whole
     // page as HTML, and the revalidate below loads it again anyway.
-    const sent = await send("/workout.data", { templateId: view.templateId, ...fields });
+    const sent = await send("/workout.data", { templateId: view.templateId, date: view.date, ...fields });
     // Offline, the queue keeps the change and PendingSync revalidates once it lands.
     if (sent) revalidator.revalidate();
   }
 
   function logSetNow(e: ExerciseView, setNumber: number, weight: number, reps: number) {
     setPending((p) => [...p, { position: e.position, setNumber, weight, reps }]);
-    setRestUntil(Date.now() + skew.current + e.restSeconds * 1000);
+    if (live) setRestUntil(Date.now() + skew.current + e.restSeconds * 1000);
     if (setNumber >= view.sets) {
       const next = view.exercises.findIndex((x, i) => i > current && !doneByPosition.get(x.position));
       const wrap = view.exercises.findIndex((x) => !doneByPosition.get(x.position) && x.position !== e.position);
@@ -164,6 +207,11 @@ export default function Workout({ loaderData }: Route.ComponentProps) {
       else if (wrap !== -1) setCurrent(wrap);
     }
     void post({ intent: "log-set", position: String(e.position), exerciseId: e.id, setNumber: String(setNumber), weight: String(weight), reps: String(reps), clientId: crypto.randomUUID() });
+  }
+
+  function editSet(id: number, change: { weight: number; reps: number } | null) {
+    setEdits((all) => ({ ...all, [id]: change }));
+    void post(change ? { intent: "edit-set", id: String(id), weight: String(change.weight), reps: String(change.reps) } : { intent: "delete-set", id: String(id) });
   }
 
   return (
@@ -177,11 +225,17 @@ export default function Workout({ loaderData }: Route.ComponentProps) {
           <img key={`${ex.id}-1`} src={ex.images[1]} alt="" className="frame-b absolute inset-0 h-full w-full object-cover" />
         </div>
         <div className="absolute left-4 top-[max(54px,env(safe-area-inset-top))]">
-          <BackButton to="/" label="Back to Today" onImage size={46} />
+          <BackButton to={loaderData.back} label={loaderData.back === "/" ? "Back to Today" : "Back"} onImage size={46} />
         </div>
-        <div role="timer" className="glass-on-image tabular absolute right-4 top-[max(54px,env(safe-area-inset-top))] flex h-[46px] items-center rounded-full px-4 text-[16px] font-semibold">
-          <span className="sr-only">Workout time </span>
-          <Elapsed serverIso={loaderData.now} startedAt={view.startedAt} endedAt={view.endedAt} />
+        <div role={live ? "timer" : undefined} className="glass-on-image tabular absolute right-4 top-[max(54px,env(safe-area-inset-top))] flex h-[46px] items-center rounded-full px-4 text-[16px] font-semibold">
+          {live ? (
+            <>
+              <span className="sr-only">Workout time </span>
+              <Elapsed serverIso={loaderData.now} startedAt={view.startedAt} endedAt={view.endedAt} />
+            </>
+          ) : (
+            DAY_FMT.format(new Date(`${view.date}T12:00:00Z`))
+          )}
         </div>
         <button type="button" onClick={() => setSwapOpen(true)} className="glass-on-image absolute bottom-4 right-4 flex h-[46px] items-center gap-1.5 rounded-full px-4 text-[15px] font-semibold">
           <Icon name="swap" size={16} />
@@ -217,7 +271,7 @@ export default function Workout({ loaderData }: Route.ComponentProps) {
           </div>
         </header>
 
-        <SetCard key={ex.id} ex={ex} sets={view.sets} pending={pending.filter((p) => p.position === ex.position)} onLog={(n, w, r) => logSetNow(ex, n, w, r)} />
+        <SetCard key={ex.id} ex={ex} sets={view.sets} pending={pending.filter((p) => p.position === ex.position)} onLog={(n, w, r) => logSetNow(ex, n, w, r)} onEdit={editSet} />
 
         {done.length > 0 && (
           <Card className="overflow-hidden" aria-label="Done">
@@ -280,15 +334,17 @@ export default function Workout({ loaderData }: Route.ComponentProps) {
         <Form method="post" action={`/workout?template=${view.templateId}`}>
           <input type="hidden" name="intent" value="end" />
           <input type="hidden" name="templateId" value={view.templateId} />
+          <input type="hidden" name="date" value={view.date} />
+          <input type="hidden" name="from" value={loaderData.from} />
           <button type="submit" className="btn-secondary h-[52px] w-full rounded-full text-[16px] font-semibold">
-            {allDone ? "Finish workout" : "End workout"}
+            {!live ? "Done" : allDone ? "Finish workout" : "End workout"}
           </button>
         </Form>
       </main>
 
       {/* Always reserved so the page does not jump when the rest bar comes and goes. */}
       <BarSpacer />
-      <RestBar serverIso={loaderData.now} restUntil={restUntil} onSkip={() => setRestUntil(null)} />
+      {live && <RestBar serverIso={loaderData.now} restUntil={restUntil} onSkip={() => setRestUntil(null)} />}
 
       <Sheet open={swapOpen} onClose={() => setSwapOpen(false)} title="Swap exercise">
         <SwapList
@@ -305,9 +361,27 @@ export default function Workout({ loaderData }: Route.ComponentProps) {
   );
 }
 
-function SetCard({ ex, sets, pending, onLog }: { ex: ExerciseView; sets: number; pending: Omit<PendingSet, "position">[]; onLog: (setNumber: number, weight: number, reps: number) => void }) {
+const validSet = (weight: string, reps: string) => {
+  const w = Number(weight);
+  const n = Number(reps);
+  return weight.trim() !== "" && reps.trim() !== "" && Number.isFinite(w) && w >= 0 && Number.isInteger(n) && n >= 0 ? { weight: w, reps: n } : null;
+};
+
+function SetCard({
+  ex,
+  sets,
+  pending,
+  onLog,
+  onEdit,
+}: {
+  ex: ExerciseView;
+  sets: number;
+  pending: Omit<PendingSet, "position">[];
+  onLog: (setNumber: number, weight: number, reps: number) => void;
+  onEdit: (id: number, change: { weight: number; reps: number } | null) => void;
+}) {
   const rows = useMemo(() => {
-    const done = new Map<number, { weight: number; reps: number }>();
+    const done = new Map<number, { weight: number; reps: number; id?: number }>();
     for (const l of ex.logged) done.set(l.setNumber, l);
     for (const p of pending) done.set(p.setNumber, p);
     return Array.from({ length: sets }, (_, i) => ({ setNumber: i + 1, done: done.get(i + 1) ?? null }));
@@ -319,6 +393,7 @@ function SetCard({ ex, sets, pending, onLog }: { ex: ExerciseView; sets: number;
   const [weight, setWeight] = useState(String(todayWeight ?? ex.suggestion.weight ?? (bodyWeight ? 0 : "")));
   const [reps, setReps] = useState("");
   const [error, setError] = useState<string | null>(null);
+  const [editing, setEditing] = useState<{ id: number; weight: string; reps: string } | null>(null);
 
   return (
     <Card className="flex flex-col gap-3.5 p-[18px]" aria-label="Sets">
@@ -339,38 +414,96 @@ function SetCard({ ex, sets, pending, onLog }: { ex: ExerciseView; sets: number;
         <span />
       </div>
       {rows.map((r) =>
-        r.done ? (
-          <div key={r.setNumber} className="tabular grid grid-cols-[40px_minmax(0,1fr)_minmax(0,1fr)_50px] items-center gap-2.5">
-            <span className="text-[17px] font-bold text-label-2">
-              <span className="sr-only">Set </span>
-              {r.setNumber}
-            </span>
-            <div className="flex h-[50px] items-center rounded-[14px] bg-fill px-3.5 text-[19px] font-semibold">
-              {r.done.weight}
-              <span className="sr-only"> pounds</span>
+        r.done && editing && r.done.id === editing.id ? (
+          <div key={r.setNumber} className="flex flex-col gap-2">
+            <form
+              className="tabular grid grid-cols-[40px_minmax(0,1fr)_minmax(0,1fr)_50px] items-center gap-2.5"
+              onSubmit={(e) => {
+                e.preventDefault();
+                const set = validSet(editing.weight, editing.reps);
+                if (!set) {
+                  setError("Enter weight and reps.");
+                  return;
+                }
+                setError(null);
+                setEditing(null);
+                // The next set's weight came from this one, so it follows the fix.
+                if (weight === String(r.done!.weight)) setWeight(String(set.weight));
+                onEdit(editing.id, set);
+              }}
+            >
+              <span className="text-[17px] font-bold">{r.setNumber}</span>
+              <label className="flex">
+                <span className="sr-only">Set {r.setNumber} weight in pounds</span>
+                <input
+                  value={editing.weight}
+                  onChange={(e) => setEditing({ ...editing, weight: e.target.value })}
+                  inputMode="decimal"
+                  enterKeyHint="next"
+                  autoFocus
+                  className="tabular h-[50px] w-full rounded-[14px] border-2 border-label bg-fill px-3 text-[19px] font-semibold text-label outline-none"
+                />
+              </label>
+              <label className="flex">
+                <span className="sr-only">Set {r.setNumber} reps</span>
+                <input
+                  value={editing.reps}
+                  onChange={(e) => setEditing({ ...editing, reps: e.target.value })}
+                  inputMode="numeric"
+                  enterKeyHint="done"
+                  className="tabular h-[50px] w-full rounded-[14px] bg-fill px-3.5 text-[19px] font-semibold text-label outline-none focus:ring-2 focus:ring-label"
+                />
+              </label>
+              <button type="submit" aria-label={`Save set ${r.setNumber}`} className="btn-prominent flex size-[50px] items-center justify-center rounded-full">
+                <Icon name="check" strokeWidth={3} />
+              </button>
+            </form>
+            <div className="flex justify-end gap-2">
+              <button type="button" onClick={() => (setEditing(null), setError(null))} className="btn-secondary h-11 rounded-full px-4 text-[15px] font-semibold">
+                Cancel
+              </button>
+              <button
+                type="button"
+                onClick={() => {
+                  setEditing(null);
+                  setError(null);
+                  onEdit(editing.id, null);
+                }}
+                className="btn-secondary h-11 rounded-full px-4 text-[15px] font-semibold text-calories"
+              >
+                Delete set
+              </button>
             </div>
-            <div className="flex h-[50px] items-center rounded-[14px] bg-fill px-3.5 text-[19px] font-semibold">
-              {r.done.reps}
-              <span className="sr-only"> reps</span>
-            </div>
-            <span role="img" aria-label="Logged" className="flex size-[50px] items-center justify-center rounded-full bg-steps text-black">
+          </div>
+        ) : r.done ? (
+          <button
+            key={r.setNumber}
+            type="button"
+            disabled={r.done.id === undefined}
+            onClick={() => r.done?.id !== undefined && setEditing({ id: r.done.id, weight: String(r.done.weight), reps: String(r.done.reps) })}
+            aria-label={`Set ${r.setNumber}, ${r.done.weight} pounds, ${r.done.reps} reps. Edit`}
+            className="tabular grid w-full grid-cols-[40px_minmax(0,1fr)_minmax(0,1fr)_50px] items-center gap-2.5 text-left"
+          >
+            <span className="text-[17px] font-bold text-label-2">{r.setNumber}</span>
+            <span className="flex h-[50px] items-center rounded-[14px] bg-fill px-3.5 text-[19px] font-semibold">{r.done.weight}</span>
+            <span className="flex h-[50px] items-center rounded-[14px] bg-fill px-3.5 text-[19px] font-semibold">{r.done.reps}</span>
+            <span className="flex size-[50px] items-center justify-center rounded-full bg-steps text-black">
               <Icon name="check" strokeWidth={3.2} />
             </span>
-          </div>
+          </button>
         ) : r.setNumber === nextSet ? (
           <form
             key={r.setNumber}
             className="tabular grid grid-cols-[40px_minmax(0,1fr)_minmax(0,1fr)_50px] items-center gap-2.5"
             onSubmit={(e) => {
               e.preventDefault();
-              const w = Number(weight);
-              const n = Number(reps);
-              if (weight.trim() === "" || reps.trim() === "" || !Number.isFinite(w) || w < 0 || !Number.isInteger(n) || n < 0) {
+              const set = validSet(weight, reps);
+              if (!set) {
                 setError("Enter weight and reps.");
                 return;
               }
               setError(null);
-              onLog(r.setNumber, w, n);
+              onLog(r.setNumber, set.weight, set.reps);
               setReps("");
             }}
           >
@@ -417,6 +550,7 @@ function SetCard({ ex, sets, pending, onLog }: { ex: ExerciseView; sets: number;
           </div>
         ),
       )}
+      {ex.logged.length > 0 && !editing && <p className="text-[13px] text-label-2">Tap a logged set to fix its weight or reps.</p>}
       {error && (
         <p role="alert" className="text-[14px] font-semibold text-calories">
           {error}

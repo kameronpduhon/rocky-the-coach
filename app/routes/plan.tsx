@@ -1,14 +1,17 @@
 import { env } from "cloudflare:workers";
 import { useState } from "react";
 import { Link } from "react-router";
+import { MoveSheet } from "~/components/MoveSheet";
 import type { Route } from "./+types/plan";
 import { Card, Icon, LargeTitle, Screen, SectionTitle } from "~/components/ui";
 import { plan } from "~/content";
 import { getDb } from "~/db/client";
 import { dayMode, optionalTemplateFor, templateFor, weekNumber, weekType } from "~/domain/calendar";
-import { addDays, localDate, weekStart, weekday } from "~/domain/dates";
+import { addDays, isISODate, localDate, weekStart, weekday } from "~/domain/dates";
 import { serverNow } from "~/server/clock.server";
 import { groceryList } from "~/server/groceries.server";
+import { datesWithSets } from "~/server/history.server";
+import { moveWorkout, movesBetween, weekSchedule } from "~/server/schedule.server";
 import { targetsFor } from "~/server/targets.server";
 import { resolveTemplate } from "~/server/workouts.server";
 
@@ -20,26 +23,27 @@ export async function loader(_args: Route.LoaderArgs) {
   const db = getDb(env.DB);
   const today = localDate(serverNow());
   const monday = weekStart(today);
-  const [days, targets, groceries] = await Promise.all([
-    Promise.all(
-      Array.from({ length: 7 }, async (_, i) => {
-        const date = addDays(monday, i);
-        const templateId = templateFor(plan, date);
-        const optionalId = optionalTemplateFor(plan, date);
-        const shown = templateId ?? optionalId;
-        return {
-          date,
-          today: date === today,
-          name: templateId ? plan.templates[templateId]!.name : null,
-          optional: optionalId ? plan.templates[optionalId]!.name : null,
-          mode: dayMode(date),
-          exercises: shown ? (await resolveTemplate(db, shown, date)).map((s) => ({ name: s.exercise.name, reps: `${s.repMin} to ${s.repMax}` })) : [],
-        };
-      }),
-    ),
+  const [week, targets, groceries] = await Promise.all([
+    Promise.all([movesBetween(db, monday, addDays(monday, 6)), datesWithSets(db, monday, today)]).then(([moves, setDates]) => weekSchedule(monday, moves, setDates)),
     targetsFor(db, today),
     groceryList(db, monday, today, { rest: null, swaps: [] }),
   ]);
+  const days = await Promise.all(
+    week.map(async (d) => {
+      const optionalId = d.templateId ? null : optionalTemplateFor(plan, d.date);
+      const shown = d.templateId ?? optionalId;
+      return {
+        ...d,
+        today: d.date === today,
+        past: d.date < today,
+        moved: d.templateId !== templateFor(plan, d.date),
+        optionalId,
+        optional: optionalId ? plan.templates[optionalId]!.name : null,
+        mode: dayMode(d.date),
+        exercises: shown ? (await resolveTemplate(db, shown, d.date)).map((s) => ({ name: s.exercise.name, reps: `${s.repMin} to ${s.repMax}` })) : [],
+      };
+    }),
+  );
   const current = weekNumber(plan, today);
   const lastWeek = Math.max(...Object.keys(plan.weekTypes).map(Number), 13);
   return {
@@ -49,9 +53,21 @@ export async function loader(_args: Route.LoaderArgs) {
     weeks: Array.from({ length: lastWeek }, (_, i) => ({ n: i + 1, type: weekType(plan, addDays(plan.phaseStart, i * 7)) })),
     targets,
     days,
+    week,
+    today,
     monday,
     groceryCount: groceries.count,
   };
+}
+
+export async function action({ request }: Route.ActionArgs) {
+  const form = await request.formData();
+  if (form.get("intent") !== "move") return { error: "Unknown action" };
+  const a = form.get("a");
+  const b = form.get("b");
+  if (!isISODate(a) || !isISODate(b)) return { error: "Pick a day this week." };
+  const error = await moveWorkout(getDb(env.DB), a, b);
+  return error ? { error } : { ok: true };
 }
 
 const DOW = ["SUN", "MON", "TUE", "WED", "THU", "FRI", "SAT"];
@@ -71,8 +87,10 @@ function weekFill(n: number, current: number, type: string) {
 }
 
 export default function Plan({ loaderData }: Route.ComponentProps) {
-  const { current, lastWeek, phaseStart, weeks, targets, days, monday, groceryCount } = loaderData;
+  const { current, lastWeek, phaseStart, weeks, targets, days, week, today, monday, groceryCount } = loaderData;
   const [open, setOpen] = useState<string | null>(null);
+  const [moving, setMoving] = useState<string | null>(null);
+  const movingDay = week.find((d) => d.date === moving);
   const left = Math.max(0, lastWeek - current);
   const deload = weeks.find((w) => w.type === "deload")?.n;
   const maintenance = weeks.find((w) => w.type === "maintenance")?.n;
@@ -132,18 +150,19 @@ export default function Plan({ loaderData }: Route.ComponentProps) {
           {days.map((d) => {
             const dow = weekday(d.date);
             const isSunday = dow === 0;
-            const expanded = open === d.date && d.exercises.length > 0;
+            const expanded = open === d.date;
+            const workoutId = d.templateId ?? (d.past ? d.optionalId : null);
             const sub = d.name
-              ? d.today
-                ? `Today · ${d.exercises.length} exercises`
-                : `${d.exercises.length} exercises · ~45 min`
+              ? [d.moved && "Moved", d.logged ? "Logged" : d.today && "Today", `${d.exercises.length} exercises`, !d.logged && !d.today && "~45 min"].filter(Boolean).join(" · ")
               : d.optional
                 ? `${d.optional}, 30 min`
                 : isSunday
                   ? `Weekend mode · ${d.today ? "check-in tonight" : "check-in at 5pm"}`
                   : d.mode === "weekend"
                     ? "Weekend mode · meat-first whole foods"
-                    : "";
+                    : d.moved
+                      ? "Workout moved"
+                      : "";
             const body = (
               <>
                 <div
@@ -172,28 +191,53 @@ export default function Plan({ loaderData }: Route.ComponentProps) {
                   <Link to="/check-in" className={cls}>
                     {body}
                   </Link>
-                ) : d.exercises.length > 0 ? (
+                ) : (
                   <button type="button" onClick={() => setOpen(open === d.date ? null : d.date)} className={cls} aria-expanded={expanded}>
                     {body}
                   </button>
-                ) : (
-                  <div className={cls}>{body}</div>
                 )}
                 {expanded && (
-                  <ol className="flex flex-col pb-2 pl-[74px] pr-4">
-                    {d.exercises.map((e) => (
-                      <li key={e.name} className="flex items-baseline justify-between gap-3 border-t-[0.5px] border-separator py-2.5 text-[15px]">
-                        <span>{e.name}</span>
-                        <span className="tabular flex-none text-[14px] text-label-2">{e.reps}</span>
-                      </li>
-                    ))}
-                  </ol>
+                  <div className="flex flex-col pb-3 pl-[74px] pr-4">
+                    {d.exercises.length > 0 && (
+                      <ol className="flex flex-col">
+                        {d.exercises.map((e) => (
+                          <li key={e.name} className="flex items-baseline justify-between gap-3 border-t-[0.5px] border-separator py-2.5 text-[15px]">
+                            <span>{e.name}</span>
+                            <span className="tabular flex-none text-[14px] text-label-2">{e.reps}</span>
+                          </li>
+                        ))}
+                      </ol>
+                    )}
+                    <div className="flex flex-wrap gap-2 border-t-[0.5px] border-separator pt-3">
+                      {workoutId && !d.today && d.past && (
+                        <Link
+                          to={`/workout?date=${d.date}&template=${workoutId}&from=plan`}
+                          className="btn-prominent flex h-11 items-center rounded-full px-4 text-[15px] font-semibold"
+                        >
+                          {d.logged ? "View or fix sets" : d.templateId ? "Log workout" : `Log ${d.optional}`}
+                        </Link>
+                      )}
+                      {d.templateId && d.today && (
+                        <Link to="/workout" className="btn-prominent flex h-11 items-center rounded-full px-4 text-[15px] font-semibold">
+                          {d.logged ? "Open workout" : "Start workout"}
+                        </Link>
+                      )}
+                      {!d.logged && (
+                        <button type="button" onClick={() => setMoving(d.date)} className="btn-secondary flex h-11 items-center gap-1.5 rounded-full px-4 text-[15px] font-semibold">
+                          <Icon name="swap" size={16} />
+                          {d.templateId ? "Move to another day" : "Train this day"}
+                        </button>
+                      )}
+                    </div>
+                  </div>
                 )}
               </div>
             );
           })}
         </Card>
       </section>
+
+      {movingDay && <MoveSheet open onClose={() => setMoving(null)} anchor={movingDay} week={week} today={today} />}
 
       <Link to="/groceries" className="flex min-h-[60px] items-center justify-between gap-3 rounded-[26px] bg-card px-[18px] py-4">
         <span>

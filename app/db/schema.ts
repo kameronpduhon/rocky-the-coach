@@ -97,6 +97,12 @@ export const exerciseSwaps = sqliteTable(
   (t) => [primaryKey({ columns: [t.date, t.templateId, t.position] })],
 );
 
+/** A day whose workout differs from the usual weekday plan. A null template makes it a rest day. */
+export const scheduleMoves = sqliteTable("schedule_moves", {
+  date: text("date").primaryKey(),
+  templateId: text("template_id"),
+});
+
 export const weighIns = sqliteTable("weigh_ins", {
   date: text("date").primaryKey(),
   weightLb: real("weight_lb").notNull(),

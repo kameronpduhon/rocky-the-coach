@@ -33,6 +33,11 @@ function toUTC(d: ISODate): number {
   return Date.UTC(y, m - 1, day);
 }
 
+/** A real calendar date in YYYY-MM-DD form. */
+export function isISODate(s: unknown): s is ISODate {
+  return typeof s === 'string' && /^\d{4}-\d{2}-\d{2}$/.test(s) && addDays(s, 0) === s;
+}
+
 export function addDays(d: ISODate, n: number): ISODate {
   return new Date(toUTC(d) + n * 86_400_000).toISOString().slice(0, 10);
 }

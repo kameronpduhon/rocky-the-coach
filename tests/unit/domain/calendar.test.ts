@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { dayMode, isRelaxedDay, isTrainingDay, setsFor, templateFor, weekNumber, weekType, type PlanCalendar } from '~/domain/calendar';
+import { dayMode, isRelaxedDay, isTrainingDay, setsFor, swapWorkouts, templateFor, weekNumber, weekType, type PlanCalendar } from '~/domain/calendar';
 
 const plan: PlanCalendar = {
   phaseStart: '2026-10-05',
@@ -52,5 +52,21 @@ describe('calendar', () => {
   it('knows relaxed days', () => {
     expect(isRelaxedDay(plan, '2026-11-26')).toBe(true);
     expect(isRelaxedDay(plan, '2026-11-27')).toBe(false);
+  });
+
+  it('lets a moved workout override the weekday plan', () => {
+    const moves = { '2026-10-13': 'wed-legs-shoulders', '2026-10-14': null };
+    expect(templateFor(plan, '2026-10-13', moves)).toBe('wed-legs-shoulders');
+    expect(isTrainingDay(plan, '2026-10-14', moves)).toBe(false);
+    expect(templateFor(plan, '2026-10-16', moves)).toBe('fri-chest-shoulders-arms');
+  });
+
+  it('swaps two days and marks the ones back on their usual workout', () => {
+    expect(swapWorkouts(plan, {}, '2026-10-14', '2026-10-13')).toEqual([
+      { date: '2026-10-14', templateId: null, usual: false },
+      { date: '2026-10-13', templateId: 'wed-legs-shoulders', usual: false },
+    ]);
+    const moved = { '2026-10-13': 'wed-legs-shoulders', '2026-10-14': null };
+    expect(swapWorkouts(plan, moved, '2026-10-13', '2026-10-14').every((d) => d.usual)).toBe(true);
   });
 });

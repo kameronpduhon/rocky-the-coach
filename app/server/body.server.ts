@@ -10,6 +10,15 @@ export async function logWeighIn(db: Db, date: ISODate, weightLb: number, now: D
     .onConflictDoUpdate({ target: weighIns.date, set: { weightLb, loggedAt: now.toISOString() } });
 }
 
+/** Corrects a weigh-in, or adds a missed one. An existing entry keeps the time it was first logged. */
+export async function setWeighIn(db: Db, date: ISODate, weightLb: number, now: Date): Promise<void> {
+  await db.insert(weighIns).values({ date, weightLb, loggedAt: now.toISOString() }).onConflictDoUpdate({ target: weighIns.date, set: { weightLb } });
+}
+
+export async function deleteWeighIn(db: Db, date: ISODate): Promise<void> {
+  await db.delete(weighIns).where(eq(weighIns.date, date));
+}
+
 export async function weighInFor(db: Db, date: ISODate): Promise<number | null> {
   return (await db.select().from(weighIns).where(eq(weighIns.date, date)).get())?.weightLb ?? null;
 }

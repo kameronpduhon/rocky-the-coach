@@ -18,7 +18,8 @@ describe("dayResults", () => {
     await onPlanDay("2026-10-06");
     await upsertSteps(db(), "2026-10-07", 9000, new Date());
     await onPlanDay("2026-10-08");
-    await logOffPlan(db(), "2026-10-08", { name: "Cookies", category: "dessert", kcal: 400, proteinG: 4, relaxed: false }, new Date());
+    // The third dessert of the week spoils the day; the first two are the allowance.
+    for (let i = 0; i < 3; i++) await logOffPlan(db(), "2026-10-08", { name: "Cookies", category: "dessert", kcal: 400, proteinG: 4, relaxed: false }, new Date());
     const results = await dayResults(db(), "2026-10-06", "2026-10-08");
     expect(results.map((r) => [r.date, r.onPlan])).toEqual([
       ["2026-10-06", true],

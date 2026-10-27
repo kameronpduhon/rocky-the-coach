@@ -1,0 +1,47 @@
+import { addDays, formatClock, localDate, localMinutes, TZ } from "~/domain/dates";
+import { DEFAULT_REMINDERS, REMINDER_LABEL, type ReminderKind } from "~/domain/reminders";
+import type { Row } from "~/sync/tables";
+
+const DAY_NAMES = ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"];
+const MONTH_DAY = new Intl.DateTimeFormat("en-US", { month: "short", day: "numeric", timeZone: TZ });
+
+export function daysLabel(days: number[]): string {
+  if (days.length === 7) return "Every day";
+  if (days.length === 1) return days[0] === 0 ? "Sundays" : `${DAY_NAMES[days[0]]}s`;
+  return days.map((d) => DAY_NAMES[d]).join(", ");
+}
+
+export interface ReminderRow {
+  kind: ReminderKind;
+  label: string;
+  days: string;
+  enabled: boolean;
+  time: string;
+}
+
+/** Every reminder in plan order. A saved row overrides its default; a reminder never saved is on at its default time. */
+export function reminderRows(rows: Row[]): ReminderRow[] {
+  return DEFAULT_REMINDERS.map((d) => {
+    const saved = rows.find((r) => r.kind === d.kind);
+    return { kind: d.kind, label: REMINDER_LABEL[d.kind], days: daysLabel(d.days), enabled: saved ? Boolean(saved.enabled) : true, time: (saved?.time as string | undefined) ?? d.time };
+  });
+}
+
+export function voiceOf(rows: Row[]): "corner" | "plain" {
+  return rows.find((r) => r.id === "me")?.voice === "plain" ? "plain" : "corner";
+}
+
+/** When the steps Shortcut last delivered, from the newest steps row. */
+export function lastReceived(rows: Row[], now: Date): string | null {
+  const latest = rows
+    .map((r) => r.updated_at)
+    .filter((v): v is string => typeof v === "string" && v.length > 0)
+    .sort()
+    .at(-1);
+  if (!latest) return null;
+  const at = new Date(latest);
+  const day = localDate(at);
+  const today = localDate(now);
+  const when = day === today ? "today" : day === addDays(today, -1) ? "yesterday" : MONTH_DAY.format(at);
+  return `Last received ${when} at ${formatClock(localMinutes(at))}.`;
+}

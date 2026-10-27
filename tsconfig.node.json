@@ -4,8 +4,10 @@
     "vite.config.ts",
     "vitest.config.ts",
     "drizzle.config.ts",
+    "drizzle.core.config.ts",
     "scripts/**/*.ts",
-    "app/domain/**/*.ts"
+    "app/domain/**/*.ts",
+    "app/server/password.ts"
   ],
   "compilerOptions": {
     "composite": true,

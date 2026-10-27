@@ -1,3 +1,4 @@
+import { sql } from "drizzle-orm";
 import { index, integer, primaryKey, real, sqliteTable, text } from "drizzle-orm/sqlite-core";
 
 const bool = (name: string) => integer(name, { mode: "boolean" });
@@ -184,3 +185,35 @@ export const groceryChecks = sqliteTable(
   },
   (t) => [primaryKey({ columns: [t.weekStart, t.foodId] })],
 );
+
+/** Every write to a synced table, appended by triggers (drizzle/0005_sync_triggers.sql). Pull reads it. */
+export const changes = sqliteTable("changes", {
+  version: integer("version").primaryKey({ autoIncrement: true }),
+  tableName: text("table_name").notNull(),
+  rowKey: text("row_key").notNull(),
+  op: text("op").notNull(),
+  at: text("at")
+    .notNull()
+    .default(sql`(strftime('%Y-%m-%dT%H:%M:%fZ', 'now'))`),
+});
+
+/** One row per installed app: the last mutation the server applied from it. */
+export const syncClients = sqliteTable("sync_clients", {
+  clientId: text("client_id").primaryKey(),
+  lastMutationId: integer("last_mutation_id").notNull(),
+});
+
+/** Personal settings that sync. One row, id "me". */
+export const profile = sqliteTable("profile", {
+  id: text("id").primaryKey(),
+  voice: text("voice").notNull().default("corner"),
+});
+
+/** Real tap latency (INP) reported from phones. */
+export const vitals = sqliteTable("vitals", {
+  id: integer("id").primaryKey({ autoIncrement: true }),
+  route: text("route").notNull(),
+  inpMs: integer("inp_ms").notNull(),
+  target: text("target"),
+  at: text("at").notNull(),
+});

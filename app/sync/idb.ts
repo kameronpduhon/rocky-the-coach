@@ -35,3 +35,11 @@ export function idbPersistence(userId: number): Persistence {
     },
   };
 }
+
+/** A different person signing in on this device removes the last person's saved copy and any unsent changes. */
+export async function forgetOtherPeople(userId: number): Promise<void> {
+  const dbs = (await indexedDB.databases?.().catch(() => [])) ?? [];
+  for (const { name } of dbs) {
+    if (name?.startsWith("rocky-sync-") && name !== `rocky-sync-${userId}`) indexedDB.deleteDatabase(name);
+  }
+}

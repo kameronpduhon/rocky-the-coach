@@ -123,4 +123,21 @@ describe("SyncClient", () => {
     await client.idle();
     expect(client.status().ready).toBe(true);
   });
+
+  it("does nothing once stopped, so a tab that lost the lock cannot write", async () => {
+    const transport: Transport = {
+      push: vi.fn(async () => ({ ok: true, status: 200, result: { lastMutationId: 0, rejected: [] } })),
+      pull: vi.fn(async () => ({ ok: true, status: 200, result: { version: 1, lastMutationId: 0, snapshot: true, puts: {}, dels: {} } })),
+    };
+    const persistence = memoryPersistence();
+    const client = new SyncClient({ transport, persistence, context: ctx });
+    await client.start();
+    await client.idle();
+    client.stop();
+    const before = persistence.saved;
+    expect(await client.mutate("setVoice", { voice: "plain" })).toBe(false);
+    await client.sync();
+    expect(transport.push).not.toHaveBeenCalled();
+    expect(persistence.saved).toBe(before);
+  });
 });

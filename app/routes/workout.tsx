@@ -1,5 +1,6 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import { Form, redirect, useRevalidator } from "react-router";
+import { pageTitle } from "~/brand";
 import type { Route } from "./+types/workout";
 import { ExercisePicker } from "~/components/ExercisePicker";
 import { Segmented } from "~/components/Segmented";
@@ -31,7 +32,7 @@ import {
 export const handle = { hideTabBar: true };
 
 export function meta({ loaderData }: Route.MetaArgs) {
-  return [{ title: `${loaderData?.view.name ?? "Workout"} · Rocky` }];
+  return [{ title: pageTitle(loaderData?.view.name ?? "Workout") }];
 }
 
 const BACK = { today: "/", plan: "/plan", progress: "/progress" } as const;

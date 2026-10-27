@@ -1,5 +1,6 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import { Link, useRouteLoaderData } from "react-router";
+import { COACH_NAME, pageTitle } from "~/brand";
 import { MoveSheet } from "~/components/MoveSheet";
 import { Sheet } from "~/components/Sheet";
 import { Icon } from "~/components/ui";
@@ -16,7 +17,7 @@ import { WeekStrip } from "~/ui/WeekStrip";
 import type { loader as layoutLoader } from "./app-layout";
 
 export function meta() {
-  return [{ title: "Today · Rocky" }];
+  return [{ title: pageTitle("Today") }];
 }
 
 /** Re-reads the clock every 30 s, so the poster moves on when a meal's window closes. */
@@ -150,7 +151,7 @@ function TodayWithPlan({ m }: { m: PlanToday }) {
         )}
       </div>
 
-      <RockyCard label={m.voice === "plain" ? "Rocky" : "Rocky, in your corner"}>{m.message}</RockyCard>
+      <RockyCard label={m.voice === "plain" ? COACH_NAME : `${COACH_NAME}, in your corner`}>{m.message}</RockyCard>
 
       <Fuel m={m} eatenAtOpen={eatenAtOpen.current} onAteElse={() => setOffPlanOpen(true)} />
 

@@ -1771,13 +1771,13 @@ npm run typecheck && npm test
 
 Expected: all green. Fix only the failing files, then re-run those files only.
 
-- [ ] **Step 2: Push the branch and check the build.**
+- [ ] **Step 2: Push the branch.**
 
 ```bash
 git push -u origin v2/f2-data-layer
 ```
 
-The Workers Builds check on the branch must go green. Branch builds now run `npm run build` and `npx wrangler versions upload`, set in the dashboard on 2026-10-27. If it fails, read the log in the Cloudflare dashboard (Workers > rocky > Deployments > the build) before changing anything.
+Cloudflare no longer builds preview branches (turned off on 2026-10-27), so the PR has no Workers Builds check. The production build runs when the PR merges to main. Watch that one go green.
 
 - [ ] **Step 3: Production migration (Kameron runs these).** Print this block and wait:
 

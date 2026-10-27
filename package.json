@@ -13,8 +13,10 @@
     "test": "vitest run",
     "test:watch": "vitest",
     "db:generate": "drizzle-kit generate",
-    "db:migrate:local": "wrangler d1 migrations apply rocky-db --local",
-    "db:migrate:remote": "wrangler d1 migrations apply rocky-db --remote",
+    "db:generate:core": "drizzle-kit generate --config drizzle.core.config.ts",
+    "db:migrate:local": "wrangler d1 migrations apply rocky-db --local && wrangler d1 migrations apply rocky-db-catherine --local && wrangler d1 migrations apply rocky-core --local",
+    "db:migrate:remote": "wrangler d1 migrations apply rocky-db --remote && wrangler d1 migrations apply rocky-db-catherine --remote && wrangler d1 migrations apply rocky-core --remote",
+    "user": "tsx scripts/user.ts",
     "seed:demo": "tsx scripts/seed-demo.ts"
   },
   "dependencies": {

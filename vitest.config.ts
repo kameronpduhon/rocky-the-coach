@@ -6,6 +6,7 @@ const alias = { "~": path.resolve(import.meta.dirname, "app") };
 
 export default defineConfig(async () => {
   const migrations = await readD1Migrations(path.join(import.meta.dirname, "drizzle"));
+  const coreMigrations = await readD1Migrations(path.join(import.meta.dirname, "drizzle-core"));
   return {
     test: {
       projects: [
@@ -21,6 +22,8 @@ export default defineConfig(async () => {
               miniflare: {
                 bindings: {
                   TEST_MIGRATIONS: migrations,
+                  TEST_CORE_MIGRATIONS: coreMigrations,
+                  TEST_USER_DB: "DB",
                   APP_PASSWORD: "test-password",
                   SESSION_SECRET: "test-session-secret",
                   INGEST_TOKEN: "test-ingest-token",

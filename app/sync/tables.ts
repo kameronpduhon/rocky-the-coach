@@ -31,13 +31,19 @@ const byClientId: Pick<TableDef, "keySql" | "key" | "conflict"> = {
   conflict: ["client_id"],
 };
 
+/**
+ * Bumped whenever a table's row key changes. A phone holding a copy saved under another number drops it (keeping its
+ * waiting changes) and takes a full snapshot, so no row is left behind under its old key.
+ */
+export const SYNC_SCHEMA = 2;
+
 export const SYNCED: TableDef[] = [
   { name: "meal_state", ...cols("slug") },
   { name: "planned_meals", ...cols("date", "slot") },
   { name: "meal_logs", ...byClientId },
   { name: "batches", ...byId },
-  { name: "workout_sessions", ...byId },
-  { name: "exercise_checks", ...cols("session_id", "exercise_id") },
+  { name: "workout_sessions", ...byClientId },
+  { name: "exercise_checks", ...cols("session_key", "exercise_id") },
   { name: "set_logs", ...byClientId },
   { name: "exercise_overrides", ...cols("template_id", "position") },
   { name: "exercise_swaps", ...cols("date", "template_id", "position") },
@@ -50,6 +56,7 @@ export const SYNCED: TableDef[] = [
   { name: "reminder_settings", ...cols("kind") },
   { name: "grocery_checks", ...cols("week_start", "food_id") },
   { name: "profile", ...cols("id") },
+  { name: "exercise_notes", ...cols("exercise_id") },
 ];
 
 const BY_NAME = new Map(SYNCED.map((d) => [d.name, d]));

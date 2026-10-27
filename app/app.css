@@ -3,7 +3,31 @@
 @import "./styles/glass.css";
 
 @theme inline {
-  --font-sans: -apple-system, BlinkMacSystemFont, "SF Pro Text", system-ui, sans-serif;
+  --font-sans: "Barlow", system-ui, sans-serif;
+  --font-display: "Anton", Impact, sans-serif;
+  --font-num: "Barlow Semi Condensed", "Barlow", sans-serif;
+
+  --color-paper: var(--paper);
+  --color-raised: var(--raised);
+  --color-well: var(--well);
+  --color-field: var(--field);
+  --color-ink: var(--ink);
+  --color-ink-2: var(--ink-2);
+  --color-ink-3: var(--ink-3);
+  --color-muted: var(--muted);
+  --color-rule: var(--rule);
+  --color-border: var(--border);
+  --color-underline: var(--underline);
+  --color-red: var(--red);
+  --color-on-red: var(--on-red);
+  --color-brass-tag: var(--brass-tag);
+  --color-brass-on: var(--brass-on);
+  --color-brass-border: var(--brass-border);
+  --color-brass-fill: var(--brass-fill);
+  --color-coral: var(--coral);
+  --color-on-ink-2: var(--on-ink-2);
+
+  /* v1 names, until each screen is rebuilt. */
   --color-bg: var(--bg);
   --color-card: var(--card);
   --color-fill: var(--fill);
@@ -23,8 +47,8 @@
 
 html,
 body {
-  background: var(--bg);
-  color: var(--label);
+  background: var(--paper);
+  color: var(--ink);
   -webkit-font-smoothing: antialiased;
   -webkit-tap-highlight-color: transparent;
 }
@@ -45,6 +69,14 @@ html {
     opacity: 0.55;
     transition: none;
   }
+  :focus-visible {
+    outline: 2.5px solid var(--red);
+    outline-offset: 2px;
+  }
+  ::selection {
+    background: var(--ink);
+    color: var(--paper);
+  }
 }
 
 /* Shows only when a screen is still loading after 150 ms, so fast taps never flash it. */
@@ -57,7 +89,9 @@ html {
   animation: nav-progress 3s cubic-bezier(0.1, 0.7, 0.3, 1) 150ms both;
 }
 
+/* Every number: condensed, fixed-width digits so columns and timers do not jitter. */
 .tabular {
+  font-family: var(--font-num);
   font-variant-numeric: tabular-nums;
 }
 
@@ -69,6 +103,15 @@ html {
 .frame-b {
   animation: frame-swap 3s infinite;
 }
+
 @media (prefers-reduced-motion: reduce) {
   .frame-b { animation: none; }
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+    scroll-behavior: auto !important;
+  }
 }

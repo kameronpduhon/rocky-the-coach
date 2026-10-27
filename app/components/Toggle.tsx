@@ -1,9 +1,11 @@
-/** iOS-style switch. The button is a full 44 px target; the 52 x 32 track sits inside it. */
+/** The Settings mock's switch: ink when on, an outline when off. The button is a full 44 px target. */
 export function Toggle({ on, label, onChange }: { on: boolean; label: string; onChange?: (on: boolean) => void }) {
   return (
-    <button type="button" role="switch" aria-checked={on} aria-label={label} onClick={() => onChange?.(!on)} className="flex h-11 w-[52px] flex-none items-center">
-      <span className={`flex h-8 w-[52px] rounded-full p-0.5 transition-colors ${on ? "justify-end bg-steps" : "justify-start bg-[var(--toggle-off)]"}`}>
-        <span className="size-7 rounded-full bg-white shadow-[0_2px_6px_rgba(0,0,0,0.3)]" />
+    <button type="button" role="switch" aria-checked={on} aria-label={label} onClick={() => onChange?.(!on)} className="flex h-11 w-[50px] flex-none items-center">
+      <span
+        className={`flex h-[30px] w-[50px] rounded-full ${on ? "justify-end bg-ink p-[3px]" : "justify-start border-[1.5px] border-border p-[2px]"}`}
+      >
+        <span className={`rounded-full ${on ? "size-6 bg-paper" : "size-[23px] bg-border"}`} />
       </span>
     </button>
   );

@@ -34,7 +34,7 @@ export function MoveSheet({ open, onClose, anchor, week, today }: { open: boolea
       {options.length === 0 ? (
         <p className="px-1 text-[15px] text-label-2">No workouts left to move this week.</p>
       ) : (
-        <div className="overflow-hidden rounded-[26px] bg-card">
+        <div className="overflow-hidden rounded-[6px] bg-card">
           {options.map((d) => (
             <button
               key={d.date}

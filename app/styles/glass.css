@@ -1,50 +1,31 @@
+/* The v1 glass classes, now solid: paper with an ink border, per the Corner look. The class names stay until the
+   v1 screens that use them are rebuilt. */
 @layer components {
-  .glass {
-    background: var(--glass-fill);
-    backdrop-filter: blur(24px) saturate(180%);
-    -webkit-backdrop-filter: blur(24px) saturate(180%);
-    border: 0.5px solid var(--glass-border);
-    box-shadow: inset 0 1px 0 var(--glass-highlight), var(--glass-shadow);
-  }
-  .glass-bar {
-    background: var(--glass-fill-strong);
-    backdrop-filter: blur(28px) saturate(180%);
-    -webkit-backdrop-filter: blur(28px) saturate(180%);
-    border: 0.5px solid var(--glass-border);
-    box-shadow: inset 0 1px 0 var(--glass-highlight), inset 0 -1px 0 rgba(255, 255, 255, 0.06), var(--glass-shadow);
-  }
-  /* Over photos: always the dark recipe so white icons read on any image */
+  .glass,
   .glass-on-image {
-    color: #ffffff;
-    background: rgba(30, 30, 32, 0.35);
-    backdrop-filter: blur(24px) saturate(180%);
-    -webkit-backdrop-filter: blur(24px) saturate(180%);
-    border: 0.5px solid rgba(255, 255, 255, 0.3);
-    box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.35), 0 8px 24px rgba(0, 0, 0, 0.35);
+    background: var(--paper);
+    color: var(--ink);
+    border: 1.5px solid var(--ink);
   }
-  /* Sheets are solid: a translucent panel lets a photo behind it pull captions under 4.5:1. Cards inside
-     step up a level (white on light gray, #2C2C2E on #1C1C1E) so lists still read as cards. */
   .sheet-panel {
-    background: var(--sheet-bg);
-    --surface: var(--sheet-bg);
-    --card: var(--sheet-card);
-    border: 0.5px solid var(--glass-border);
-    box-shadow: inset 0 1px 0 var(--glass-highlight), var(--glass-shadow);
+    background: var(--paper);
+    --surface: var(--paper);
+    --card: var(--raised);
+    border-top: 2px solid var(--ink);
   }
   .segment-on {
-    background: var(--segment-selected);
-    border: 0.5px solid var(--segment-selected-border);
-    box-shadow: inset 0 1px 0 var(--glass-highlight), var(--segment-selected-shadow);
+    background: var(--ink);
+    color: var(--paper);
   }
-  /* In-content secondary action: a solid neutral control on a solid surface. Glass is only for what floats.
-     --label on --fill is about 14:1 dark and 16:1 light. */
+  /* Outline ink: the secondary action. */
   .btn-secondary {
-    background: var(--fill);
-    color: var(--label);
+    background: transparent;
+    color: var(--ink);
+    border: 1.5px solid var(--ink);
   }
+  /* The primary action, the only red fill. */
   .btn-prominent {
-    background: var(--prominent-fill);
-    color: var(--prominent-label);
-    box-shadow: inset 0 1px 0 var(--glass-highlight), var(--glass-shadow);
+    background: var(--red);
+    color: var(--on-red);
   }
 }

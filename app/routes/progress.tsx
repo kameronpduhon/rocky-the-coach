@@ -72,7 +72,7 @@ export default function Progress({ loaderData }: Route.ComponentProps) {
             Daily weigh-in
           </span>
         </div>
-        <p className="text-[14px] leading-[1.45] text-label-2">Daily numbers bounce with water and salt. The blue line is the one that counts.</p>
+        <p className="text-[14px] leading-[1.45] text-label-2">Daily numbers bounce with water and salt. The dark line is the one that counts.</p>
       </Card>
 
       <section aria-label="Body and adherence" className="grid grid-cols-2 gap-2.5">

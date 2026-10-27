@@ -127,11 +127,11 @@ export default function MealScreen({ loaderData }: Route.ComponentProps) {
     <div className="relative mx-auto min-h-dvh max-w-[760px] pb-12">
       <div className="relative h-[320px]">
         <MealPhoto photoKey={photoKey} alt={meal.name} className="h-full w-full" hero />
-        <div className="absolute left-4 top-[max(54px,env(safe-area-inset-top))]">
+        <div className="absolute left-4 top-[max(16px,env(safe-area-inset-top))]">
           <BackButton to={fromLibrary ? "/library" : "/"} label={fromLibrary ? "Back to Library" : "Back to Today"} onImage={photoKey !== null} />
         </div>
         {slot && (
-          <button type="button" onClick={() => setSwapOpen(true)} className={`${photoKey ? "glass-on-image" : "glass"} absolute right-4 top-[max(54px,env(safe-area-inset-top))] flex h-11 items-center gap-1.5 rounded-full px-4 text-[15px] font-semibold`}>
+          <button type="button" onClick={() => setSwapOpen(true)} className={`${photoKey ? "glass-on-image" : "glass"} absolute right-4 top-[max(16px,env(safe-area-inset-top))] flex h-11 items-center gap-1.5 rounded-full px-4 text-[15px] font-semibold`}>
             <Icon name="swap" size={16} />
             Swap
           </button>
@@ -209,7 +209,7 @@ export default function MealScreen({ loaderData }: Route.ComponentProps) {
               <div className="flex items-center gap-2">
               <input type="hidden" name="intent" value="batch" />
               <input type="hidden" name="portions" value={portions} />
-              <div className="flex h-[52px] flex-1 items-center gap-2 rounded-[14px] bg-fill px-3.5">
+              <div className="flex h-[52px] flex-1 items-center gap-2 rounded-[6px] bg-fill px-3.5">
                 <input id="cooked" name="cookedWeight" inputMode="numeric" placeholder="0" required className="tabular w-full min-w-0 bg-transparent text-[20px] font-semibold outline-none" />
                 <span className="font-semibold text-label-2">g</span>
               </div>
@@ -297,7 +297,7 @@ function SwapSheet({ open, onClose, slot, options }: { open: boolean; onClose: (
         onChange={(v) => setAlways(v === "always")}
       />
       <p className="mt-2 px-1 text-[13px] text-label-2">{always ? "The current meal rests for 4 weeks." : "Only today's plan changes."}</p>
-      <div className="mt-3 overflow-hidden rounded-[20px] bg-card">
+      <div className="mt-3 overflow-hidden rounded-[6px] bg-card">
         {options.map((m) => (
           <button
             key={m.slug}

@@ -195,7 +195,7 @@ function ReminderRow({ kind, enabled, time, days }: { kind: ReminderKind; enable
         value={at}
         disabled={!on}
         onChange={(e) => e.target.value && save(on, e.target.value)}
-        className="tabular h-11 w-[96px] flex-none rounded-[14px] bg-fill px-2 text-center text-[15px] font-semibold text-label outline-none disabled:text-label-on-fill [&::-webkit-calendar-picker-indicator]:hidden"
+        className="tabular h-11 w-[96px] flex-none rounded-[6px] bg-fill px-2 text-center text-[15px] font-semibold text-label outline-none disabled:text-label-on-fill [&::-webkit-calendar-picker-indicator]:hidden"
       />
       <Toggle on={on} label={`${REMINDER_LABEL[kind]} reminder`} onChange={(next) => save(next, at)} />
     </div>

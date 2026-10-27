@@ -1,6 +1,16 @@
 import { isRouteErrorResponse, Links, Meta, Outlet, Scripts, ScrollRestoration } from "react-router";
 import type { Route } from "./+types/root";
 import "./app.css";
+// Latin subsets only. The service worker caches /assets/ on first use, so these work offline after one visit.
+import "@fontsource/anton/latin-400.css";
+import "@fontsource/barlow/latin-400.css";
+import "@fontsource/barlow/latin-500.css";
+import "@fontsource/barlow/latin-600.css";
+import "@fontsource/barlow/latin-700.css";
+import "@fontsource/barlow-semi-condensed/latin-600.css";
+import "@fontsource/barlow-semi-condensed/latin-700.css";
+import barlowWoff2 from "@fontsource/barlow/files/barlow-latin-400-normal.woff2?url";
+import numWoff2 from "@fontsource/barlow-semi-condensed/files/barlow-semi-condensed-latin-700-normal.woff2?url";
 import { authenticate } from "~/server/auth.server";
 import { runAsUser } from "~/server/current-user.server";
 
@@ -14,9 +24,13 @@ export const middleware: Route.MiddlewareFunction[] = [
   },
 ];
 
+const preloadFont = (href: string) => ({ rel: "preload", href, as: "font", type: "font/woff2", crossOrigin: "anonymous" as const });
+
 export const links: Route.LinksFunction = () => [
   { rel: "manifest", href: "/manifest.webmanifest" },
   { rel: "apple-touch-icon", href: "/icons/apple-touch-icon.png" },
+  preloadFont(barlowWoff2),
+  preloadFont(numWoff2),
 ];
 
 export function meta() {
@@ -29,10 +43,10 @@ export function Layout({ children }: { children: React.ReactNode }) {
       <head>
         <meta charSet="utf-8" />
         <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
-        <meta name="theme-color" content="#000000" media="(prefers-color-scheme: dark)" />
-        <meta name="theme-color" content="#f2f2f7" media="(prefers-color-scheme: light)" />
+        <meta name="theme-color" content="#f3eee4" />
         <meta name="apple-mobile-web-app-capable" content="yes" />
-        <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
+        {/* "default" draws a dark clock. "black-translucent" drew it white, which vanishes on paper. */}
+        <meta name="apple-mobile-web-app-status-bar-style" content="default" />
         <meta name="apple-mobile-web-app-title" content="Rocky" />
         <Meta />
         <Links />

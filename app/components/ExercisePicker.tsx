@@ -52,7 +52,7 @@ export function ExercisePicker({
       {groups.map((g) => (
         <section key={g.group} aria-label={g.label} className="flex flex-col gap-1.5">
           <h3 className="px-1 pt-1 text-[13px] font-semibold uppercase tracking-wide text-label-2">{g.label}</h3>
-          <div className="overflow-hidden rounded-[22px] bg-card">
+          <div className="overflow-hidden rounded-[6px] bg-card">
             {g.list.map((e) => {
               const on = chosen.includes(e.id) || locked.has(e.id);
               return (

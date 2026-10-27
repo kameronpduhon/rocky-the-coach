@@ -2,7 +2,7 @@ import type { ComponentProps, ReactNode } from "react";
 import { Link } from "react-router";
 
 export function Screen({ children }: { children: ReactNode }) {
-  return <main className="mx-auto flex w-full max-w-[760px] flex-col gap-[18px] px-4 pb-12 pt-[54px]">{children}</main>;
+  return <main className="mx-auto flex w-full max-w-[760px] flex-col gap-[18px] px-4 pb-12 pt-[max(16px,env(safe-area-inset-top))]">{children}</main>;
 }
 
 /**
@@ -10,15 +10,17 @@ export function Screen({ children }: { children: ReactNode }) {
  * page flow, the same height as the bar plus its inset, so the last row always scrolls fully clear at any width.
  */
 export function BarSpacer({ className = "" }: { className?: string }) {
-  return <div aria-hidden="true" className={`h-[calc(66px+max(28px,env(safe-area-inset-bottom)))] flex-none ${className}`} />;
+  return <div aria-hidden="true" className={`h-[calc(70px+max(14px,env(safe-area-inset-bottom)))] flex-none ${className}`} />;
 }
 
-/** The floating glass action bar at the bottom of a pushed screen, with its spacer unless the caller places one. */
+/** The docked action bar at the bottom of a pushed screen (the gym mock's), with its spacer unless the caller places one. */
 export function FloatingBar({ children, className = "", spacer = true }: { children: ReactNode; className?: string; spacer?: boolean }) {
   return (
     <>
       {spacer && <BarSpacer />}
-      <div className={`glass-bar fixed inset-x-4 bottom-[max(28px,env(safe-area-inset-bottom))] z-20 mx-auto max-w-[728px] rounded-[34px] p-1.5 ${className}`}>{children}</div>
+      <div className="fixed inset-x-0 bottom-0 z-20 border-t-2 border-ink bg-paper px-4 pt-3.5 pb-[max(14px,env(safe-area-inset-bottom))]">
+        <div className={`mx-auto max-w-[728px] ${className}`}>{children}</div>
+      </div>
     </>
   );
 }
@@ -37,7 +39,7 @@ export function LargeTitle({ eyebrow, title, right }: { eyebrow?: string; title:
 
 export function Card({ children, className = "", ...rest }: ComponentProps<"section">) {
   return (
-    <section {...rest} className={`rounded-[26px] bg-card ${className}`}>
+    <section {...rest} className={`rounded-[6px] bg-card ${className}`}>
       {children}
     </section>
   );
@@ -46,7 +48,7 @@ export function Card({ children, className = "", ...rest }: ComponentProps<"sect
 /** A 20 px radius figure tile: label, big value, one line under it. Green marks a good value or change. */
 export function Tile({ label, value, sub, valueGood, subGood }: { label: string; value: string; sub: string; valueGood?: boolean; subGood?: boolean }) {
   return (
-    <div className="rounded-[20px] bg-card p-4">
+    <div className="rounded-[6px] bg-card p-4">
       <div className="text-[13px] font-semibold">{label}</div>
       <div className={`tabular mt-1 text-[24px] font-bold ${valueGood ? "text-steps-text" : ""}`}>{value}</div>
       <div className={`tabular mt-px text-[14px] ${subGood ? "font-semibold text-steps-text" : "text-label-2"}`}>{sub}</div>

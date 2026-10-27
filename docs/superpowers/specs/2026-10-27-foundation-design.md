@@ -28,7 +28,7 @@ Where this spec and the mocks disagree on looks, the mocks win. Where they disag
 - Users: Kameron and Catherine, one household. Not a product: no signup, billing, or onboarding funnel.
 - Platform: stays an installed PWA on Cloudflare (Workers, D1, R2). No native app, no Apple developer account.
 - Light mode only. No dark theme in this project.
-- Rebuild in place: same repo, Worker, and database. All v1 history is kept. The app works fully after every rollout step.
+- Rebuild in place: same repo and Worker. Kameron's existing database becomes his, untouched. Catherine and the shared logins get their own databases. All v1 history is kept. The app works fully after every rollout step.
 - Catherine has no plan yet. She gets an account and a "plan on the way" Today; her plan is written later in its own session.
 - Sign-in is name plus password, one password each.
 - Shared: the meal library, exercises, food data, meal photos. Personal: everything about a person's days.
@@ -36,48 +36,67 @@ Where this spec and the mocks disagree on looks, the mocks win. Where they disag
 
 ## 1. Accounts and ownership
 
-### Tables
+Amended 2026-10-27, before planning: each person gets their own D1 database instead of a `user_id` column on every table. Isolation then comes from the setup, not from a filter in every query, and no existing row is rewritten.
 
-- `households`: `id`, `name`.
-- `users`: `id`, `household_id`, `name` (unique, case-insensitive), `password_hash`, `password_salt`, `ingest_token` (unique), `voice` (`corner` | `plain`, default `corner`), `created_at`.
-- `plans`: `user_id` (primary key), `plan_json` (the shape of today's `content/plan.json`), `updated_at`. Seeded for Kameron from `content/plan.json`. No row for Catherine.
+### Databases
 
-### Ownership
+| Binding | Database | Holds |
+|---|---|---|
+| `DB` | `rocky-db` (existing) | Kameron's data, unchanged |
+| `DB_CATHERINE` | `rocky-db-catherine` (new) | Catherine's data. Same schema and migrations as `rocky-db` |
+| `CORE` | `rocky-core` (new) | `households`, `users`, `login_attempts` |
 
-Every personal table gets `user_id INTEGER NOT NULL REFERENCES users(id)`:
+- Person databases share one migrations folder (`drizzle/`) and are migrated one after the other. Core has its own (`drizzle-core/`).
+- Core `users`:
+    - `id`, `household_id`, `name`, `name_key` (lowercase, unique)
+    - `password_hash` (format `pbkdf2$<iterations>$<salt>$<hash>`), `ingest_token` (unique)
+    - `db_binding` (`DB` or `DB_CATHERINE`), `plan_key`, `created_at`
+- The core migration seeds one household with Kameron (`DB`, plan `kameron`) and Catherine (`DB_CATHERINE`, no plan). Both start with no password.
+- Personal settings that sync (voice) live in each person database, not in core.
 
-`meal_state`, `planned_meals`, `meal_logs`, `batches`, `workout_sessions`, `exercise_checks`, `set_logs`, `exercise_overrides`, `exercise_swaps`, `schedule_moves`, `weigh_ins`, `waist_logs`, `steps_daily`, `targets`, `check_ins`, `push_subscriptions`, `reminder_settings`, `notifications_sent`, `grocery_checks`.
+### Plans
 
-- Every unique index and primary key that is unique per day or per item gains `user_id` as its leading column. For example, one weigh-in per `(user_id, date)`, and one meal log per `(user_id, date, slot)`.
-- `client_id` columns stay globally unique.
-- `login_attempts` stays global.
-- The migration creates the household and both users, then sets `user_id` on every existing row to Kameron's id. No existing row changes otherwise.
+- A plan is repo content, like meals.
+- `users.plan_key` names it. `kameron` is today's `content/plan.json`.
+- Catherine's `plan_key` is null until her plan is written.
+- Any screen or job that needs a plan checks `plan_key` first.
+- Making every plan read per person is done when her plan arrives, not in this project.
 
-### Code changes
+### Finding the signed-in person's data
 
-- Every server function that reads or writes a personal table takes a `userId` and filters by it.
-- A request's `userId` comes only from the session, never from form fields or query strings.
-- Code that imports `content/plan.json` reads the signed-in user's plan through one `getPlan(db, userId)` function instead.
-- When `getPlan` returns null, screens that need a plan show their "plan on the way" state.
+- Root middleware resolves the user from the session and runs the request inside an `AsyncLocalStorage` scope.
+- `userDb()` returns the Drizzle client for that user's database, and replaces the 23 `getDb(env.DB)` call sites.
+- Outside a request scope (cron, the steps ingest), code picks the database from the user row explicitly.
+- A user comes only from the session or the ingest token, never from form fields or query strings.
+- In tests, a `TEST_USER_DB` variable (empty in production) lets loaders run without the middleware.
 
 ### Sign-in
 
 - `POST /login` takes `name` and `password`.
 - Passwords are hashed with PBKDF2-SHA256 (100,000 iterations, the Workers maximum) and a 16-byte random salt, using `crypto.subtle`. Comparison is constant-time.
 - The session cookie stores `userId` and lasts 400 days, as in v1.
-- The 5-failures-in-15-minutes lockout stays.
-- `APP_PASSWORD` is removed from `wrangler.jsonc` `required` once both users can sign in.
+- An existing v1 cookie (`signedIn`) is upgraded to Kameron's `userId` on his next request, so he is not signed out.
+- The 5-failures-in-15-minutes lockout stays, now in core.
+- `APP_PASSWORD` leaves the code and `wrangler.jsonc`. The secret is deleted after both sign-ins are verified.
 
 ### Commands
 
-- `npm run user:set-password -- <name>` prompts for a password and writes the hash, locally or with `--remote`.
-- `npm run user:token -- <name>` prints (or with `--rotate`, replaces) that user's ingest token.
+- `npm run user -- set-password <name> [--remote]` prompts for a password without echoing it and writes the hash.
+- `npm run user -- token <name> [--rotate] [--remote]` prints, or replaces, that user's ingest token.
 - Kameron runs both against production.
 
 ### Steps ingest
 
-- `/api/ingest/steps` resolves the user from the bearer token, looked up in `users.ingest_token`.
+- `/api/ingest/steps` resolves the user from the bearer token, looked up in `users.ingest_token`, and writes to that user's database.
 - `INGEST_TOKEN` stays valid as an alias for Kameron until his Shortcut is switched over. It is then removed.
+
+### Without a plan
+
+Until Catherine's plan exists:
+- Plan, Progress, Workout, Meal, Check-in and Groceries redirect her to Today.
+- Today shows "Your plan is on the way" with weigh-in and steps.
+- Library and Settings work.
+- The reminder cron skips users without a plan.
 
 ## 2. Local-first data layer
 
@@ -112,13 +131,13 @@ Writes from v1 screens (workout, meal, check-in, plan, progress, library) keep u
 
 ### Changes log
 
-- New table `changes`: `version INTEGER PRIMARY KEY AUTOINCREMENT`, `user_id`, `table_name`, `row_key`, `op` (`put` | `del`).
-- SQLite triggers write it. There is one `AFTER INSERT`, `AFTER UPDATE`, and `AFTER DELETE` trigger per personal table, plus on `users` and `plans` for the user's own row.
+- New table `changes` in each person database: `version INTEGER PRIMARY KEY AUTOINCREMENT`, `table_name`, `row_key`, `op` (`put` | `del`).
+- SQLite triggers write it. There is one `AFTER INSERT`, `AFTER UPDATE`, and `AFTER DELETE` trigger per synced table.
 - Because triggers write the log, writes from v1 server actions, cron jobs, and the steps ingest are logged without code changes.
 
 ### Client bookkeeping
 
-- New table `sync_clients`: `client_id` (primary key, one per installed app), `user_id`, `last_mutation_id`.
+- New table `sync_clients` in each person database: `client_id` (primary key, one per installed app), `last_mutation_id`.
 
 ### Protocol
 
@@ -131,7 +150,7 @@ Writes from v1 screens (workout, meal, check-in, plan, progress, library) keep u
 `GET /api/pull?since=<version>&clientId=` returns `{ version, lastMutationId, puts: { table: rows[] }, dels: { table: keys[] } }`.
 
 - `since=0` returns a full snapshot of the user's rows.
-- Otherwise the server returns the current row for each distinct `(table, key)` in `changes` after `since`, for that user only.
+- Otherwise the server returns the current row for each distinct `(table, key)` in `changes` after `since`, from the signed-in user's database.
 - The server prunes `changes` older than 30 days. A client whose `since` is older than the oldest kept version gets a full snapshot.
 
 ### Client store
@@ -317,10 +336,9 @@ Settings contains:
 Each step is deployed on its own, and the app works fully after each one.
 
 1. **Accounts and ownership.**
-    - Migration: `households`, `users`, `plans`, `user_id` everywhere, re-keyed unique indexes.
-    - Name-plus-password login, `getPlan`, per-user ingest tokens.
-    - Before the remote migration, take a manual backup on top of D1 Time Travel.
-    - Kameron runs the remote migration and both `user:set-password` commands.
+    - New `rocky-core` and `rocky-db-catherine` databases, core migration with the seeded users.
+    - Name-plus-password login, `userDb()`, per-user ingest tokens, the no-plan redirects, per-person cron.
+    - Kameron creates both databases, runs their remote migrations and both `set-password` commands. His own database is not migrated in this step.
 2. **Data layer.**
     - `changes` and triggers, `sync_clients`, `/api/push`, `/api/pull`.
     - The client store, persistence, and the pull loop.
@@ -367,7 +385,7 @@ Each step is deployed on its own, and the app works fully after each one.
     - Catherine's pull never contains Kameron's rows, and the reverse.
     - A push cannot write the other user's rows.
     - The ingest token maps to the right user.
-- The ownership migration on a copy of production data: row counts are unchanged and every row has Kameron's `user_id`.
+- Kameron's request scope reads only `DB`, Catherine's only `DB_CATHERINE`. The legacy v1 cookie resolves to Kameron.
 - Login: the right password, a wrong password, lockout.
 
 **Process.** One full-suite run before the PR.

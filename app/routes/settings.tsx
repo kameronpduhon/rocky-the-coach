@@ -10,6 +10,7 @@ import { runBackup } from "~/server/backup.server";
 import { serverNow } from "~/server/clock.server";
 import { sendToAll } from "~/server/push.server";
 import { reminderSettings, saveReminder } from "~/server/settings.server";
+import { useSyncStatus } from "~/sync/react";
 
 export const handle = { hideTabBar: true };
 
@@ -52,6 +53,18 @@ export async function action({ request }: Route.ActionArgs) {
   if (!DEFAULT_REMINDERS.some((r) => r.kind === kind) || !/^([01]\d|2[0-3]):[0-5]\d$/.test(time)) return { error: "Bad reminder" };
   await saveReminder(userDb(), { kind, enabled: form.get("enabled") === "true", time });
   return { ok: true };
+}
+
+function SyncLine() {
+  const s = useSyncStatus();
+  if (!s) return null;
+  const when = s.lastSyncedAt ? new Date(s.lastSyncedAt).toLocaleTimeString([], { hour: "numeric", minute: "2-digit" }) : null;
+  const text = !s.online
+    ? `Sync: offline, ${s.waiting} change${s.waiting === 1 ? "" : "s"} waiting`
+    : s.waiting
+      ? `Sync: sending ${s.waiting} change${s.waiting === 1 ? "" : "s"}`
+      : `Sync: up to date${when ? `, ${when}` : ""}`;
+  return <p className="px-1 text-[13px] text-label-2">{text}</p>;
 }
 
 export default function Settings({ loaderData }: Route.ComponentProps) {
@@ -119,6 +132,8 @@ export default function Settings({ loaderData }: Route.ComponentProps) {
       </section>
 
       <BackupSection />
+
+      <SyncLine />
 
       <Card className="overflow-hidden">
         <Form method="post" action="/logout">

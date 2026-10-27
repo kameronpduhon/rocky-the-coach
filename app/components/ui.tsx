@@ -103,6 +103,8 @@ const PATHS: Record<string, ReactNode> = {
   check: <path d="M5 12.5l4.5 4.5L19 7.5" />,
   swap: <path d="M7 7h12l-3-3M17 17H5l3 3" />,
   plus: <path d="M12 5v14M5 12h14" />,
+  close: <path d="M6 6l12 12M18 6L6 18" />,
+  pin: <path d="M12 17v5M8 3h8l-1 7 3 3H6l3-3z" />,
   plate: (
     <>
       <circle cx="12" cy="13" r="7" />

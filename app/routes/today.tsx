@@ -1,9 +1,10 @@
-import { useEffect, useMemo, useRef, useState } from "react";
+import { useMemo, useRef, useState } from "react";
 import { Link, useRouteLoaderData } from "react-router";
 import { MoveSheet } from "~/components/MoveSheet";
 import { Sheet } from "~/components/Sheet";
 import { Icon } from "~/components/ui";
 import { CUSTOM_WORKOUT } from "~/domain/types";
+import { useNow } from "~/lib/use-now";
 import { useMutate, useStoreVersion, useSyncClient, useSyncStatus } from "~/sync/react";
 import { buildToday, mealHeadline, scaleList, SLOT_LABEL, type NoPlanToday, type PlanToday, type SlotModel } from "~/today/model";
 import { btn } from "~/ui/button";
@@ -19,22 +20,12 @@ export function meta() {
   return [{ title: "Today · Rocky" }];
 }
 
-/** Re-reads the clock every 30 s, so the poster moves on when a meal's window closes. */
-function useNow(): Date {
-  const [now, setNow] = useState(() => new Date());
-  useEffect(() => {
-    const t = window.setInterval(() => setNow(new Date()), 30_000);
-    return () => window.clearInterval(t);
-  }, []);
-  return now;
-}
-
 export default function Today() {
   const layout = useRouteLoaderData<typeof layoutLoader>("routes/app-layout");
   const client = useSyncClient();
   const ready = useSyncStatus()?.ready ?? false;
   const version = useStoreVersion();
-  const minute = Math.floor(useNow().getTime() / 60_000);
+  const minute = Math.floor(useNow(30_000).getTime() / 60_000);
   const model = useMemo(
     () => (client && ready && layout ? buildToday((t) => client.store.rows(t), new Date(minute * 60_000), layout.hasPlan) : null),
     [client, ready, layout, version, minute],

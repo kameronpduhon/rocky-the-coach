@@ -12,6 +12,8 @@ export async function runScheduled(env: Env, cron: string, now: Date): Promise<v
     if (cron === BACKUP_CRON) {
       for (const person of people) {
         console.log(`[cron] backup written to ${await runBackup(env[person.dbBinding], env.MEDIA, now, person.name.toLowerCase())}`);
+        // Pull falls back to a full snapshot for anyone whose last pull is older than what is kept.
+        await env[person.dbBinding].prepare("DELETE FROM changes WHERE at < ?").bind(new Date(now.getTime() - 30 * 86_400_000).toISOString()).run();
       }
       console.log(`[cron] backup written to ${await runBackup(env.CORE, env.MEDIA, now, "core")}`);
       return;

@@ -1,3 +1,4 @@
+import { useEffect } from "react";
 import { Outlet, redirect, useMatches, useNavigation } from "react-router";
 import type { Route } from "./+types/app-layout";
 import { PendingSync } from "~/components/PendingSync";
@@ -7,6 +8,9 @@ import { SyncProvider } from "~/sync/react";
 
 // Screens that only make sense with a plan. Library and Settings work for everyone.
 const PLAN_ONLY = /^\/(plan|progress|workout|meal|check-in|groceries)(\/|\.data|$)/;
+
+// onINP can't be unregistered, so a second effect run (StrictMode in dev) would report every tap twice.
+let reportingInp = false;
 
 export const middleware: Route.MiddlewareFunction[] = [
   async ({ request }, next) => {
@@ -22,6 +26,17 @@ export async function loader() {
 export default function AppLayout({ loaderData }: Route.ComponentProps) {
   const hideTabBar = useMatches().some((m) => (m.handle as { hideTabBar?: boolean } | undefined)?.hideTabBar);
   const loading = useNavigation().state === "loading";
+  useEffect(() => {
+    if (reportingInp) return;
+    reportingInp = true;
+    // Real tap latency from this phone, sent once per page view when the browser reports it (Safari 26.2+).
+    void import("web-vitals/attribution").then(({ onINP }) =>
+      onINP((m) => {
+        const body = JSON.stringify({ route: location.pathname, inp: Math.round(m.value), target: m.attribution.interactionTarget.slice(0, 200) || undefined });
+        navigator.sendBeacon("/api/vitals", new Blob([body], { type: "application/json" }));
+      }),
+    );
+  }, []);
   return (
     <SyncProvider userId={loaderData.userId}>
       <div className={hideTabBar ? "" : "min-[900px]:pl-60"}>

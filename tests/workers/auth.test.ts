@@ -28,6 +28,11 @@ describe("authenticate", () => {
     expect(res?.headers.get("Location")).toBe("/login");
   });
 
+  it("answers signed-out API calls with 401 instead of a redirect", async () => {
+    const res = await thrown(authenticate(new Request("http://localhost/api/sync/pull?since=0&clientId=abcdefgh")));
+    expect(res?.status).toBe(401);
+  });
+
   it("lets public paths through without a user", async () => {
     expect(await authenticate(new Request("http://localhost/login"))).toBeNull();
     expect(await authenticate(new Request("http://localhost/login.data"))).toBeNull();

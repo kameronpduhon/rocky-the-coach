@@ -6,7 +6,7 @@ const PUBLIC_PATHS = [/^\/login$/, /^\/api\/ingest\//];
 
 export type Auth = { user: User; setCookie?: string } | null;
 
-/** The signed-in user for a request. Public paths give null; anything else without a valid session redirects to /login. */
+/** The signed-in user for a request. Public paths give null; anything else without a valid session redirects to /login (API paths get a 401). */
 export async function authenticate(request: Request): Promise<Auth> {
   const pathname = new URL(request.url).pathname.replace(/\.data$/, "");
   if (PUBLIC_PATHS.some((re) => re.test(pathname))) return null;
@@ -23,6 +23,8 @@ export async function authenticate(request: Request): Promise<Auth> {
       return { user, setCookie: await commitSession(session) };
     }
   }
+  // API callers use fetch(), which would follow the redirect and read the login page as data.
+  if (pathname.startsWith("/api/")) throw new Response(null, { status: 401 });
   throw redirect("/login");
 }
 

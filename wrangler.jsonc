@@ -2,6 +2,7 @@
 	"$schema": "node_modules/wrangler/config-schema.json",
 	"name": "rocky",
 	"compatibility_date": "2026-10-01",
+	"compatibility_flags": ["nodejs_als"],
 	"main": "./workers/app.ts",
 	"routes": [{ "pattern": "kampduh.com", "custom_domain": true }],
 	// D1's primary runs in Atlanta, and Today makes several queries per tap. Running the Worker beside it turns each
@@ -9,11 +10,16 @@
 	// traffic than one user sends, so the region is pinned (GCP us-east1, South Carolina, is the nearest to ATL).
 	"placement": { "region": "gcp:us-east1" },
 	"d1_databases": [
-		{ "binding": "DB", "database_name": "rocky-db", "database_id": "0b2f0bdb-8153-484e-9acc-3cd60c2613e0", "migrations_dir": "drizzle" }
+		{ "binding": "DB", "database_name": "rocky-db", "database_id": "0b2f0bdb-8153-484e-9acc-3cd60c2613e0", "migrations_dir": "drizzle" },
+		// Catherine's data. Same schema as rocky-db, so the same migrations folder.
+		{ "binding": "DB_CATHERINE", "database_name": "rocky-db-catherine", "database_id": "73ecfbed-045a-41e4-a9e9-7f6a2740cfbc", "migrations_dir": "drizzle" },
+		// The household, logins and login lockouts. Never holds anyone's day-to-day data.
+		{ "binding": "CORE", "database_name": "rocky-core", "database_id": "41ebf04c-4f6c-4027-9567-1cbf483fdbca", "migrations_dir": "drizzle-core" }
 	],
 	"r2_buckets": [{ "binding": "MEDIA", "bucket_name": "rocky-media" }],
-	// Dev-only clock pin, overridden from .dev.vars. Empty here, and production builds never read it.
-	"vars": { "DEV_NOW": "" },
+	// DEV_NOW: dev-only clock pin, overridden from .dev.vars. TEST_USER_DB: lets tests call loaders without the auth
+	// middleware. Both are empty here, and production never sets them.
+	"vars": { "DEV_NOW": "", "TEST_USER_DB": "" },
 	"secrets": {
 		"required": ["APP_PASSWORD", "SESSION_SECRET", "INGEST_TOKEN", "VAPID_PUBLIC_KEY", "VAPID_PRIVATE_KEY"]
 	},

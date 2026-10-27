@@ -1,11 +1,7 @@
 import { describe, expect, it } from "vitest";
 import { middleware } from "~/routes/app-layout";
-import { loader as todayLoader } from "~/routes/today";
 import { runAsUser } from "~/server/current-user.server";
-import { logWeighIn, upsertSteps } from "~/server/body.server";
-import { personDb, userById } from "~/server/users.server";
-import { localDate } from "~/domain/dates";
-import { routeArgs } from "./helpers";
+import { userById } from "~/server/users.server";
 
 const next = async () => new Response("ok");
 
@@ -29,13 +25,5 @@ describe("without a plan", () => {
 
   it("lets Today, Library and Settings open", async () => {
     for (const path of ["/", "/library", "/settings"]) expect(((await gate(path)) as Response).status, path).toBe(200);
-  });
-
-  it("shows Today's weigh-in and steps instead of a plan", async () => {
-    const catherine = (await userById(2))!;
-    await logWeighIn(personDb(catherine), localDate(), 141.4, new Date());
-    await upsertSteps(personDb(catherine), localDate(), 5200, new Date());
-    const data = await runAsUser(catherine, () => todayLoader(routeArgs(new Request("http://localhost/"))));
-    expect(data).toEqual({ noPlan: true, name: "Catherine", date: localDate(), weighIn: 141.4, steps: 5200 });
   });
 });

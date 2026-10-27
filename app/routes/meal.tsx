@@ -127,11 +127,11 @@ export default function MealScreen({ loaderData }: Route.ComponentProps) {
     <div className="relative mx-auto min-h-dvh max-w-[760px] pb-12">
       <div className="relative h-[320px]">
         <MealPhoto photoKey={photoKey} alt={meal.name} className="h-full w-full" hero />
-        <div className="absolute left-4 top-[max(54px,env(safe-area-inset-top))]">
+        <div className="absolute left-4 top-[max(16px,env(safe-area-inset-top))]">
           <BackButton to={fromLibrary ? "/library" : "/"} label={fromLibrary ? "Back to Library" : "Back to Today"} onImage={photoKey !== null} />
         </div>
         {slot && (
-          <button type="button" onClick={() => setSwapOpen(true)} className={`${photoKey ? "glass-on-image" : "glass"} absolute right-4 top-[max(54px,env(safe-area-inset-top))] flex h-11 items-center gap-1.5 rounded-full px-4 text-[15px] font-semibold`}>
+          <button type="button" onClick={() => setSwapOpen(true)} className={`${photoKey ? "glass-on-image" : "glass"} absolute right-4 top-[max(16px,env(safe-area-inset-top))] flex h-11 items-center gap-1.5 rounded-full px-4 text-[15px] font-semibold`}>
             <Icon name="swap" size={16} />
             Swap
           </button>

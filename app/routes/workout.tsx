@@ -272,7 +272,7 @@ export default function Workout({ loaderData }: Route.ComponentProps) {
 
   if (!ex) {
     return (
-      <main className="mx-auto flex min-h-dvh max-w-[760px] flex-col gap-4 px-4 pb-8 pt-[max(54px,env(safe-area-inset-top))]">
+      <main className="mx-auto flex min-h-dvh max-w-[760px] flex-col gap-4 px-4 pb-8 pt-[max(16px,env(safe-area-inset-top))]">
         <BackButton to={loaderData.back} label={loaderData.back === "/" ? "Back to Today" : "Back"} />
         <header className="px-1">
           <div className="text-[15px] font-semibold text-label-2">{dayLabel}</div>
@@ -300,10 +300,10 @@ export default function Workout({ loaderData }: Route.ComponentProps) {
           <img key={`${ex.id}-0`} src={ex.images[0]} alt={`${ex.name}, start and end position`} className="absolute inset-0 h-full w-full object-cover" />
           <img key={`${ex.id}-1`} src={ex.images[1]} alt="" className="frame-b absolute inset-0 h-full w-full object-cover" />
         </div>
-        <div className="absolute left-4 top-[max(54px,env(safe-area-inset-top))]">
+        <div className="absolute left-4 top-[max(16px,env(safe-area-inset-top))]">
           <BackButton to={loaderData.back} label={loaderData.back === "/" ? "Back to Today" : "Back"} onImage size={46} />
         </div>
-        <div role={live ? "timer" : undefined} className="glass-on-image tabular absolute right-4 top-[max(54px,env(safe-area-inset-top))] flex h-[46px] items-center rounded-full px-4 text-[16px] font-semibold">
+        <div role={live ? "timer" : undefined} className="glass-on-image tabular absolute right-4 top-[max(16px,env(safe-area-inset-top))] flex h-[46px] items-center rounded-full px-4 text-[16px] font-semibold">
           {live ? (
             <>
               <span className="sr-only">Workout time </span>

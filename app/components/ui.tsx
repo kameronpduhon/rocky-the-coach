@@ -2,7 +2,7 @@ import type { ComponentProps, ReactNode } from "react";
 import { Link } from "react-router";
 
 export function Screen({ children }: { children: ReactNode }) {
-  return <main className="mx-auto flex w-full max-w-[760px] flex-col gap-[18px] px-4 pb-12 pt-[54px]">{children}</main>;
+  return <main className="mx-auto flex w-full max-w-[760px] flex-col gap-[18px] px-4 pb-12 pt-[max(16px,env(safe-area-inset-top))]">{children}</main>;
 }
 
 /**

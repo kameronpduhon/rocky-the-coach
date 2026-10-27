@@ -1,4 +1,5 @@
 import { useFetcher } from "react-router";
+import { pageTitle } from "~/brand";
 import type { Route } from "./+types/groceries";
 import { BackButton, Card, Icon, LargeTitle, Screen, SectionTitle } from "~/components/ui";
 import { foods } from "~/content";
@@ -11,7 +12,7 @@ import { groceryList, setGroceryCheck } from "~/server/groceries.server";
 export const handle = { hideTabBar: true };
 
 export function meta() {
-  return [{ title: "Groceries · Rocky" }];
+  return [{ title: pageTitle("Groceries") }];
 }
 
 const ISO = /^\d{4}-\d{2}-\d{2}$/;

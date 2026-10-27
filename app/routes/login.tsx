@@ -1,4 +1,5 @@
 import { data, Form, redirect, useNavigation } from "react-router";
+import { APP_NAME, pageTitle } from "~/brand";
 import type { Route } from "./+types/login";
 import { clientIp } from "~/server/auth.server";
 import { verifyPassword } from "~/server/password";
@@ -7,7 +8,7 @@ import { credentialsFor, isLockedOut, recordFailure } from "~/server/users.serve
 import { btn } from "~/ui/button";
 
 export function meta() {
-  return [{ title: "Sign in · Rocky" }];
+  return [{ title: pageTitle("Sign in") }];
 }
 
 export async function action({ request }: Route.ActionArgs) {
@@ -34,7 +35,7 @@ export default function Login({ actionData }: Route.ComponentProps) {
   const busy = useNavigation().state !== "idle";
   return (
     <main className="mx-auto flex min-h-dvh w-full max-w-[400px] flex-col justify-center gap-8 px-5 py-12">
-      <h1 className="font-display text-[68px] uppercase leading-[0.92]">Rocky.</h1>
+      <h1 className="font-display text-[68px] uppercase leading-[0.92]">{APP_NAME}.</h1>
       <Form method="post" reloadDocument className="flex flex-col gap-3">
         <label htmlFor="name" className="text-[13px] font-semibold text-ink-3">
           Name

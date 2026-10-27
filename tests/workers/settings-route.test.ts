@@ -1,6 +1,6 @@
 import { env } from "cloudflare:test";
 import { describe, expect, it } from "vitest";
-import { action } from "~/routes/settings";
+import { action, loader } from "~/routes/settings";
 import { post, routeArgs } from "./helpers";
 
 describe("settings actions", () => {
@@ -14,7 +14,12 @@ describe("settings actions", () => {
     expect(await env.MEDIA.get(res.backup)).not.toBeNull();
   });
 
-  it("still saves reminder changes", async () => {
-    expect(await action(routeArgs(post("http://localhost/settings", { kind: "weigh-in", enabled: "true", time: "06:45" })))).toEqual({ ok: true });
+  it("leaves reminder changes to the store", async () => {
+    expect(await action(routeArgs(post("http://localhost/settings", { kind: "weigh-in", enabled: "true", time: "06:45" })))).toEqual({ error: "Unknown action" });
+  });
+
+  it("names the other person and gives the ingest address", async () => {
+    const data = await loader(routeArgs(new Request("http://localhost/settings")));
+    expect(data).toMatchObject({ name: "Kameron", otherName: "Catherine", hasPlan: true, ingestUrl: "http://localhost/api/ingest/steps" });
   });
 });

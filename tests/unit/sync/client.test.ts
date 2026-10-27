@@ -77,6 +77,50 @@ describe("SyncClient", () => {
     await client.start();
     await client.mutate("setVoice", { voice: "plain" });
     await client.idle();
-    expect(client.status().rejected).toEqual(["That date is in the future."]);
+    expect(client.status().rejected).toEqual(["Voice setting didn't save. That date is in the future."]);
+  });
+
+  it("refuses a change the rules turn down, without queueing it", async () => {
+    const transport: Transport = {
+      push: vi.fn(async () => ({ ok: true, status: 200, result: { lastMutationId: 0, rejected: [] } })),
+      pull: vi.fn(async () => ({ ok: true, status: 200, result: { version: 1, lastMutationId: 0, snapshot: true, puts: {}, dels: {} } })),
+    };
+    const client = new SyncClient({ transport, persistence: memoryPersistence(), context: ctx });
+    await client.start();
+    expect(await client.mutate("logWeighIn", { date: "2026-12-25", weightLb: 205 })).toBe(false);
+    expect(client.status().waiting).toBe(0);
+    expect(client.status().rejected).toEqual(["Weigh-in didn't save. That date is in the future."]);
+  });
+
+  it("sends at most 500 changes per push and keeps going", async () => {
+    const sizes: number[] = [];
+    let serverLast = 0;
+    const transport: Transport = {
+      push: vi.fn(async (body) => {
+        sizes.push(body.mutations.length);
+        serverLast = body.mutations.at(-1)!.id;
+        return { ok: true, status: 200, result: { lastMutationId: serverLast, rejected: [] } };
+      }),
+      pull: vi.fn(async () => ({ ok: true, status: 200, result: { version: 1, lastMutationId: serverLast, snapshot: true, puts: {}, dels: {} } })),
+    };
+    const persistence = memoryPersistence();
+    persistence.saved = { clientId: "c-1", version: 0, nextMutationId: 601, base: {}, pending: Array.from({ length: 600 }, (_, i) => ({ id: i + 1, name: "setVoice", args: { voice: "plain" } })) };
+    const client = new SyncClient({ transport, persistence, context: ctx });
+    await client.start();
+    await client.idle();
+    expect(sizes).toEqual([500, 100]);
+    expect(client.status().waiting).toBe(0);
+  });
+
+  it("is ready once a saved copy loads or the first pull lands", async () => {
+    const transport: Transport = {
+      push: vi.fn(),
+      pull: vi.fn(async () => ({ ok: true, status: 200, result: { version: 1, lastMutationId: 0, snapshot: true, puts: {}, dels: {} } })),
+    };
+    const client = new SyncClient({ transport, persistence: memoryPersistence(), context: ctx });
+    expect(client.status().ready).toBe(false);
+    await client.start();
+    await client.idle();
+    expect(client.status().ready).toBe(true);
   });
 });

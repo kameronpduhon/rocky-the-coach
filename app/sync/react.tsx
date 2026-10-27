@@ -1,7 +1,9 @@
-import { createContext, useContext, useEffect, useState, useSyncExternalStore } from "react";
+import { createContext, useCallback, useContext, useEffect, useState, useSyncExternalStore } from "react";
+import { useLocation } from "react-router";
 import { localDate } from "~/domain/dates";
 import { SyncClient } from "./client";
 import { idbPersistence } from "./idb";
+import type { MutationName } from "./mutators";
 import type { Row } from "./tables";
 
 const SyncContext = createContext<SyncClient | null>(null);
@@ -42,6 +44,11 @@ export function SyncProvider({ userId, children }: { userId: number; children: R
       window.removeEventListener("online", resync);
     };
   }, [userId]);
+  // Pull on every navigation, so a v1 screen's server action (a set, a swap) shows on the next screen at once.
+  const { key } = useLocation();
+  useEffect(() => {
+    void client?.sync();
+  }, [client, key]);
   return <SyncContext.Provider value={client}>{children}</SyncContext.Provider>;
 }
 
@@ -67,4 +74,20 @@ export function useSyncStatus() {
     () => client?.status() ?? null,
     () => null,
   );
+}
+
+/** Goes up whenever the store changes. Memoise derived screen data on it. */
+export function useStoreVersion(): number {
+  const client = useSyncClient();
+  return useSyncExternalStore(
+    (fn) => client?.store.subscribe(fn) ?? (() => undefined),
+    () => client?.store.changeCount ?? 0,
+    () => 0,
+  );
+}
+
+/** Runs a named change on the phone now and queues it for the server. Resolves false if the rules refused it. */
+export function useMutate(): (name: MutationName, args: unknown) => Promise<boolean> {
+  const client = useSyncClient();
+  return useCallback((name, args) => (client ? client.mutate(name, args) : Promise.resolve(false)), [client]);
 }

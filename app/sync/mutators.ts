@@ -148,3 +148,21 @@ export async function runMutation(tx: Tx, name: string, args: unknown, ctx: Muta
   if (!parsed.success) throw new MutationRejected(parsed.error.issues[0]?.message ?? "Bad input");
   await def.run(tx, parsed.data as never, ctx);
 }
+
+export const MUTATION_LABELS: Record<MutationName, string> = {
+  logWeighIn: "Weigh-in",
+  editWeighIn: "Weigh-in change",
+  deleteWeighIn: "Weigh-in removal",
+  logMeal: "Meal",
+  unlogMeal: "Meal undo",
+  logOffPlan: "Off-plan item",
+  deleteOffPlan: "Off-plan removal",
+  setReminder: "Reminder",
+  setVoice: "Voice setting",
+};
+
+/** The one line a screen shows for a change that did not save. */
+export function describeRejection(name: string, message: string): string {
+  const label = Object.hasOwn(MUTATION_LABELS, name) ? MUTATION_LABELS[name as MutationName] : "A change";
+  return `${label} didn't save. ${message}`;
+}

@@ -4,7 +4,8 @@ import type { Db } from "~/db/client";
 import { exerciseChecks, mealLogs, setLogs, workoutSessions } from "~/db/schema";
 import { isOnPlan } from "~/domain/adherence";
 import { isRelaxedDay } from "~/domain/calendar";
-import { addDays, daysBetween } from "~/domain/dates";
+import { addDays, daysBetween, weekStart } from "~/domain/dates";
+import { overAllowanceDates } from "~/domain/habits";
 import type { ISODate } from "~/domain/types";
 import { stepsBetween } from "./body.server";
 import { allTargets, resolveTargets, type Targets } from "./targets.server";
@@ -21,13 +22,12 @@ export interface DayResult {
 }
 
 export async function dayResults(db: Db, from: ISODate, to: ISODate): Promise<DayResult[]> {
-  const [food, steps, targetRows] = await Promise.all([
+  const [food, steps, targetRows, desserts] = await Promise.all([
     db
       .select({
         date: mealLogs.date,
         kcal: sql<number>`coalesce(sum(${mealLogs.kcal}), 0)`,
         protein: sql<number>`coalesce(sum(${mealLogs.proteinG}), 0)`,
-        dessert: sql<number>`max(case when ${mealLogs.category} = 'dessert' and ${mealLogs.relaxed} = 0 then 1 else 0 end)`,
       })
       .from(mealLogs)
       .where(between(mealLogs.date, from, to))
@@ -35,7 +35,14 @@ export async function dayResults(db: Db, from: ISODate, to: ISODate): Promise<Da
       .all(),
     stepsBetween(db, from, to),
     allTargets(db),
+    db
+      .select({ date: mealLogs.date, at: mealLogs.loggedAt })
+      .from(mealLogs)
+      .where(and(eq(mealLogs.category, "dessert"), eq(mealLogs.relaxed, false), between(mealLogs.date, weekStart(from), to)))
+      .all(),
   ]);
+  // From the Monday of the first week, so the allowance counts desserts eaten before `from`.
+  const overAllowance = overAllowanceDates(desserts);
   const foodByDate = new Map(food.map((f) => [f.date, f]));
   const stepsByDate = new Map(steps.map((s) => [s.date, s.steps]));
 
@@ -47,7 +54,7 @@ export async function dayResults(db: Db, from: ISODate, to: ISODate): Promise<Da
     const facts = {
       proteinG: f?.protein ?? 0,
       steps: stepsByDate.get(date) ?? 0,
-      offPlanDessert: (f?.dessert ?? 0) === 1,
+      offPlanDessert: overAllowance.has(date),
       relaxedDay: isRelaxedDay(plan, date),
       proteinTarget: t.proteinG,
       stepGoal: t.stepGoal,

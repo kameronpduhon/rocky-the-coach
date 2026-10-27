@@ -2,8 +2,12 @@ import { useEffect } from "react";
 import { Outlet, redirect, useMatches, useNavigation } from "react-router";
 import type { Route } from "./+types/app-layout";
 import { PendingSync } from "~/components/PendingSync";
+import { SyncNotice } from "~/components/SyncNotice";
 import { TabBar } from "~/components/TabBar";
-import { currentUser } from "~/server/current-user.server";
+import { mealDate, weekStart } from "~/domain/dates";
+import { serverNow } from "~/server/clock.server";
+import { currentUser, userDb } from "~/server/current-user.server";
+import { ensureWeekPlan } from "~/server/meal-plan.server";
 import { SyncProvider } from "~/sync/react";
 
 // Screens that only make sense with a plan. Library and Settings work for everyone.
@@ -20,7 +24,10 @@ export const middleware: Route.MiddlewareFunction[] = [
 ];
 
 export async function loader() {
-  return { userId: currentUser().id };
+  const user = currentUser();
+  // Today reads this week's meals from the phone's copy, so they must exist in the database to sync down.
+  if (user.planKey) await ensureWeekPlan(userDb(), weekStart(mealDate(serverNow())));
+  return { userId: user.id, name: user.name, hasPlan: Boolean(user.planKey) };
 }
 
 export default function AppLayout({ loaderData }: Route.ComponentProps) {
@@ -42,6 +49,7 @@ export default function AppLayout({ loaderData }: Route.ComponentProps) {
       <div className={hideTabBar ? "" : "min-[900px]:pl-60"}>
         {loading && <div aria-hidden="true" className="nav-progress fixed inset-x-0 top-[env(safe-area-inset-top)] z-50 h-[3px] bg-protein" />}
         <PendingSync />
+        <SyncNotice />
         <Outlet />
         {!hideTabBar && <TabBar />}
       </div>

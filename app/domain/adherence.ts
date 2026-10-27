@@ -1,6 +1,7 @@
 import { addDays } from './dates';
 import type { ISODate } from './types';
 
+/** `offPlanDessert` means a dessert past the week's allowance that day (see habits.ts), not any dessert. */
 export interface DayFacts {
   proteinG: number;
   steps: number | null;

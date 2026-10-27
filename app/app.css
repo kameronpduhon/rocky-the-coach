@@ -104,6 +104,19 @@ html {
   animation: frame-swap 3s infinite;
 }
 
+/* The one motion moment: a check landing (a spring), and the protein bar filling. Only on change, never on load. */
+@keyframes check-land {
+  from { scale: 0.4; opacity: 0; }
+  to { scale: 1; opacity: 1; }
+}
+.check-land {
+  animation: check-land 420ms linear(0, 0.42 12%, 0.88 25%, 1.1 38%, 1.06 52%, 0.98 70%, 1) both;
+}
+.protein-fill {
+  transform-origin: left;
+  transition: transform 450ms cubic-bezier(0.2, 0.8, 0.2, 1);
+}
+
 @media (prefers-reduced-motion: reduce) {
   .frame-b { animation: none; }
   *,

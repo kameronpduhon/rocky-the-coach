@@ -1,437 +1,397 @@
-import { useState } from "react";
-import { Form, Link, useFetcher } from "react-router";
-import type { Route } from "./+types/today";
-import { MealRow } from "~/components/MealRow";
+import { useEffect, useMemo, useRef, useState } from "react";
+import { Link, useRouteLoaderData } from "react-router";
 import { MoveSheet } from "~/components/MoveSheet";
-import { Rings } from "~/components/Rings";
 import { Sheet } from "~/components/Sheet";
-import { WeighInSheet } from "~/components/WeighInSheet";
-import { Card, Icon, LargeTitle, Screen, SectionTitle } from "~/components/ui";
-import { messages } from "~/content";
-import { currentUser, userDb } from "~/server/current-user.server";
-import { localDate, mealDate } from "~/domain/dates";
+import { Icon } from "~/components/ui";
 import { CUSTOM_WORKOUT } from "~/domain/types";
-import { pickSituation, renderMessage } from "~/domain/messages";
-import { logWeighIn, stepsFor, weighInFor } from "~/server/body.server";
-import { loadDay } from "~/server/day.server";
-import { logOffPlan, type OffPlanCategory } from "~/server/meals.server";
-import { serverNow } from "~/server/clock.server";
+import { useMutate, useStoreVersion, useSyncClient, useSyncStatus } from "~/sync/react";
+import { buildToday, mealHeadline, scaleList, SLOT_LABEL, type NoPlanToday, type PlanToday, type SlotModel } from "~/today/model";
+import { btn } from "~/ui/button";
+import { Poster } from "~/ui/Poster";
+import { ProgressionCallout } from "~/ui/ProgressionCallout";
+import { ProteinBar } from "~/ui/ProteinBar";
+import { RockyCard } from "~/ui/RockyCard";
+import { SectionHead } from "~/ui/SectionHead";
+import { WeekStrip } from "~/ui/WeekStrip";
+import type { loader as layoutLoader } from "./app-layout";
 
 export function meta() {
   return [{ title: "Today · Rocky" }];
 }
 
-export async function loader(_args: Route.LoaderArgs) {
-  const now = serverNow();
-  const db = userDb();
-  const user = currentUser();
-  if (!user.planKey) {
-    const date = localDate(now);
-    return { noPlan: true as const, name: user.name, date, weighIn: await weighInFor(db, date), steps: await stepsFor(db, date) };
-  }
-  const day = await loadDay(db, mealDate(now), now);
-  const lunch = day.slots.find((s) => s.slot === "lunch")?.meal.name ?? "lunch";
-  const next = day.slots.find((s) => s.slot === day.nextSlot)?.meal.name ?? "breakfast tomorrow";
-  const situation = pickSituation({
-    minutes: day.minutes,
-    relaxedDay: day.relaxed,
-    trainingDay: day.training !== null,
-    sessionStarted: day.sessionStarted,
-    loggedSetToday: day.loggedSetToday,
-    missedTwice: day.missedTwice,
-    weighedIn: day.weighIn !== null,
-    proteinG: day.totals.proteinG,
-    proteinTarget: day.targets.proteinG,
-    steps: day.steps,
-    stepGoal: day.targets.stepGoal,
-    onPlan: day.onPlan,
-  });
-  const message = renderMessage(messages, situation, day.date, {
-    protein: day.totals.proteinG,
-    lunch: lunch.toLowerCase(),
-    workout: day.training?.name ?? "",
-    left: situation === "steps-behind" ? (day.targets.stepGoal - day.steps).toLocaleString() : Math.max(0, day.targets.proteinG - day.totals.proteinG),
-    streak: day.streak,
-    nextMeal: next.toLowerCase(),
-  });
-  return { day, message };
+/** Re-reads the clock every 30 s, so the poster moves on when a meal's window closes. */
+function useNow(): Date {
+  const [now, setNow] = useState(() => new Date());
+  useEffect(() => {
+    const t = window.setInterval(() => setNow(new Date()), 30_000);
+    return () => window.clearInterval(t);
+  }, []);
+  return now;
 }
 
-export async function action({ request }: Route.ActionArgs) {
-  const form = await request.formData();
-  const db = userDb();
-  const now = serverNow();
-  switch (form.get("intent")) {
-    case "weigh-in": {
-      const weight = Number(form.get("weight"));
-      if (!Number.isFinite(weight) || weight < 80 || weight > 500) return { error: "Enter your weight in pounds." };
-      await logWeighIn(db, localDate(now), Math.round(weight * 10) / 10, now);
-      return { ok: true };
-    }
-    case "off-plan": {
-      const name = String(form.get("name") ?? "").trim();
-      const kcal = Number(form.get("kcal"));
-      const protein = Number(form.get("protein") ?? 0);
-      const category = String(form.get("category")) as OffPlanCategory;
-      if (!name || !Number.isFinite(kcal) || kcal < 0 || !["meal", "snack", "dessert", "drink"].includes(category)) {
-        return { error: "Add a name, a category, and calories." };
-      }
-      await logOffPlan(db, mealDate(now), { name, category, kcal: Math.round(kcal), proteinG: Math.round(protein || 0), relaxed: form.get("relaxed") === "on" }, now);
-      return { ok: true };
-    }
-    default:
-      return { error: "Unknown action" };
-  }
+export default function Today() {
+  const layout = useRouteLoaderData<typeof layoutLoader>("routes/app-layout");
+  const client = useSyncClient();
+  const ready = useSyncStatus()?.ready ?? false;
+  const version = useStoreVersion();
+  const minute = Math.floor(useNow().getTime() / 60_000);
+  const model = useMemo(
+    () => (client && ready && layout ? buildToday((t) => client.store.rows(t), new Date(minute * 60_000), layout.hasPlan) : null),
+    [client, ready, layout, version, minute],
+  );
+  // The server and the first paint have no store yet. It loads from the phone in a few milliseconds.
+  if (!model) return <main aria-busy="true" className="min-h-dvh" />;
+  return model.hasPlan ? <TodayWithPlan m={model} /> : <PlanOnTheWay m={model} name={layout!.name} />;
 }
 
-const DATE_FMT = new Intl.DateTimeFormat("en-US", { weekday: "long", month: "short", day: "numeric", timeZone: "UTC" });
-
-export default function Today({ loaderData }: Route.ComponentProps) {
-  return loaderData.noPlan ? <PlanOnTheWay {...loaderData} /> : <TodayWithPlan loaderData={loaderData} />;
+function Page({ children }: { children: React.ReactNode }) {
+  return <main className="mx-auto flex w-full max-w-[560px] flex-col gap-8 px-5 pb-12 pt-[max(16px,env(safe-area-inset-top))]">{children}</main>;
 }
 
-function PlanOnTheWay({ name, date, weighIn, steps }: { name: string; date: string; weighIn: number | null; steps: number }) {
+function Header({ m }: { m: NoPlanToday | PlanToday }) {
   return (
-    <Screen>
-      <LargeTitle
-        eyebrow={DATE_FMT.format(new Date(`${date}T12:00:00Z`))}
-        title="Today"
-        right={
-          <Link to="/settings" aria-label="Settings" className="glass flex size-11 items-center justify-center rounded-full">
-            <Icon name="gear" />
-          </Link>
-        }
-      />
-      {weighIn === null ? <WeighInCard /> : <Card className="tabular px-[18px] py-4 text-[17px] font-semibold">Weigh-in {weighIn} lb</Card>}
-      <Card className="flex flex-col gap-1 px-[18px] py-4">
-        <h2 className="text-[17px] font-semibold">Your plan is on the way, {name}</h2>
-        <p className="text-[15px] leading-snug text-label-2">Weigh in each morning and keep your steps syncing. Your plan will start from real numbers.</p>
-      </Card>
-      <Card className="tabular px-[18px] py-4 text-[17px]">{steps.toLocaleString()} steps today</Card>
-    </Screen>
+    <header className="flex items-center justify-between gap-3 font-num text-[16px] font-bold tracking-[0.04em]">
+      <span className="whitespace-nowrap">{m.dateLabel}</span>
+      <div className="flex items-center gap-3">
+        {m.streak > 0 && (
+          <span className="flex items-center gap-1.5 whitespace-nowrap">
+            <span aria-hidden="true" className="size-3 rounded-[2px] bg-ink" />
+            {m.streak}-DAY STREAK
+          </span>
+        )}
+        <Link to="/settings" aria-label="Settings" className="flex size-11 items-center justify-center rounded-[6px] border-[1.5px] border-border">
+          <Icon name="gear" />
+        </Link>
+      </div>
+    </header>
   );
 }
 
-function TodayWithPlan({ loaderData }: { loaderData: Extract<Route.ComponentProps["loaderData"], { day: unknown }> }) {
-  const { day, message } = loaderData;
-  const [offPlanOpen, setOffPlanOpen] = useState(false);
+function WeighInRow({ date }: { date: string }) {
+  const mutate = useMutate();
+  const [value, setValue] = useState("");
+  const [error, setError] = useState<string | null>(null);
+  return (
+    <form
+      onSubmit={(e) => {
+        e.preventDefault();
+        const weight = Number(value);
+        if (!Number.isFinite(weight) || weight < 80 || weight > 500) return setError("Enter your weight in pounds.");
+        setError(null);
+        void mutate("logWeighIn", { date, weightLb: weight });
+      }}
+      className="flex flex-col gap-1.5 border-y border-rule py-3"
+    >
+      <div className="flex items-center gap-3">
+        <label htmlFor="weight" className="flex-1 text-[16px] font-bold">
+          Weigh in
+        </label>
+        <div className="flex h-11 w-[120px] items-center gap-1.5 rounded-[6px] border-[1.5px] border-border bg-field px-3 focus-within:outline-2 focus-within:outline-offset-2 focus-within:outline-red">
+          <input
+            id="weight"
+            value={value}
+            onChange={(e) => setValue(e.target.value)}
+            inputMode="decimal"
+            placeholder="0.0"
+            className="tabular w-full min-w-0 bg-transparent text-right text-[18px] font-bold outline-none"
+          />
+          <span className="text-[15px] text-ink-3">lb</span>
+        </div>
+        <button type="submit" className={`${btn.outline} h-11 px-4 text-[16px]`}>
+          Save
+        </button>
+      </div>
+      {error && <p className="text-[14px] text-ink-2">{error}</p>}
+    </form>
+  );
+}
+
+function PlanOnTheWay({ m, name }: { m: NoPlanToday; name: string }) {
+  return (
+    <Page>
+      <Header m={m} />
+      {m.weighIn ? (
+        <p className="tabular font-num text-[16px] font-semibold text-ink-3">
+          Weigh-in {m.weighIn.weight} lb · {m.weighIn.time}
+        </p>
+      ) : (
+        <WeighInRow date={m.date} />
+      )}
+      <Poster lines={["Your plan", "is on the way."]} meta={`Weigh in each morning and keep your steps syncing, ${name}. Your plan starts from real numbers.`} />
+      <p className="text-[16px] tabular-nums text-ink-2">{m.steps.toLocaleString()} steps today</p>
+    </Page>
+  );
+}
+
+function TodayWithPlan({ m }: { m: PlanToday }) {
+  const client = useSyncClient();
   const [moveOpen, setMoveOpen] = useState(false);
-  const [editWeighIn, setEditWeighIn] = useState(false);
-  const todaySchedule = day.week.find((d) => d.date === day.date)!;
-  const canPull = day.week.some((d) => d.date !== day.date && d.templateId !== null && !d.logged);
-  const canMove = !day.sessionStarted && !day.loggedSetToday;
-  const pct = (a: number, b: number) => (b > 0 ? a / b : 0);
-  const dateLabel = DATE_FMT.format(new Date(`${day.date}T12:00:00Z`));
+  const [offPlanOpen, setOffPlanOpen] = useState(false);
+  // Checks that were already there when the screen opened do not animate. Nothing moves on load.
+  const eatenAtOpen = useRef<Set<string> | null>(null);
+  eatenAtOpen.current ??= new Set(m.slots.filter((s) => s.logKey).map((s) => s.slot));
+  const anchor = m.schedule.find((d) => d.date === m.date)!;
 
   return (
-    <Screen>
-      <LargeTitle
-        eyebrow={`${dateLabel} · Week ${day.weekNumber}`}
-        title="Today"
-        right={
-          <div className="flex items-center gap-2">
-            <span className="tabular flex h-9 items-center rounded-full bg-card px-3.5 text-[14px] font-semibold text-label">{day.streak} day streak</span>
-            <Link to="/settings" aria-label="Settings" className="glass flex size-11 items-center justify-center rounded-full">
-              <Icon name="gear" />
-            </Link>
-          </div>
-        }
-      />
+    <Page>
+      <Header m={m} />
+      {!m.weighIn && <WeighInRow date={m.date} />}
+      <div className="flex flex-col gap-2">
+        <NextUpPoster m={m} />
+        {m.canMove && (
+          <button type="button" onClick={() => setMoveOpen(true)} className={btn.quiet}>
+            Change today's workout
+          </button>
+        )}
+        {m.optional && (
+          <Link to={`/workout?template=${m.optional.templateId}`} className={btn.quiet}>
+            Optional: {m.optional.name}, 30 min
+          </Link>
+        )}
+      </div>
 
-      {day.weighIn === null && <WeighInCard />}
-      {day.checkInDue && (
-        <Link to="/check-in" className="flex min-h-[60px] items-center justify-between gap-3 rounded-[6px] bg-card px-[18px] py-4">
-          <span>
-            <span className="block text-[17px] font-semibold">Sunday check-in</span>
-            <span className="block text-[14px] text-label-2">10 minutes to set up next week.</span>
-          </span>
-          <span className="flex-none text-label-4">
-            <Icon name="chevron" size={18} strokeWidth={2.4} />
-          </span>
+      <RockyCard label={m.voice === "plain" ? "Rocky" : "Rocky, in your corner"}>{m.message}</RockyCard>
+
+      <Fuel m={m} eatenAtOpen={eatenAtOpen.current} onAteElse={() => setOffPlanOpen(true)} />
+
+      <section aria-labelledby="week" className="flex flex-col gap-3">
+        <SectionHead id="week" note={`${m.countedSoFar} of ${m.daysSoFar} so far`}>
+          This week
+        </SectionHead>
+        <WeekStrip days={m.week} />
+        <p className="text-[16px] leading-[1.45] text-ink-2">
+          {m.countedLine}
+          {m.trendLine && ` ${m.trendLine}`}
+        </p>
+      </section>
+
+      <MoveSheet
+        open={moveOpen}
+        onClose={() => {
+          setMoveOpen(false);
+          void client?.sync();
+        }}
+        anchor={anchor}
+        week={m.schedule}
+        today={m.date}
+      >
+        <Link to={`/workout?template=${CUSTOM_WORKOUT}`} className={`${btn.outline} mt-4 h-11 w-full text-[16px]`}>
+          Do something else instead
         </Link>
-      )}
-      {day.checkInSkipped && <Card className="px-[18px] py-3.5 text-[15px] text-label-2">Check-in skipped. This week runs on last week's numbers.</Card>}
+      </MoveSheet>
+      <OffPlanSheet open={offPlanOpen} date={m.date} onClose={() => setOffPlanOpen(false)} />
+    </Page>
+  );
+}
 
-      <div className="flex flex-col gap-[18px] min-[900px]:grid min-[900px]:grid-cols-2 min-[900px]:items-start">
-        <div className="flex flex-col gap-[18px]">
-          <Card className="flex items-center gap-5 p-5">
-            <Rings values={[pct(day.totals.kcal, day.targets.kcal), pct(day.totals.proteinG, day.targets.proteinG), pct(day.steps, day.targets.stepGoal)]} />
-            <div className="tabular flex flex-col gap-2.5">
-              <Stat label="Calories" color="text-calories" value={day.totals.kcal.toLocaleString()} of={`/${day.targets.kcal.toLocaleString()}`} />
-              <Stat label="Protein" color="text-protein" value={String(day.totals.proteinG)} of={`/${day.targets.proteinG} g`} />
-              <Stat label="Steps" color="text-steps" value={day.steps.toLocaleString()} of={`/${day.targets.stepGoal.toLocaleString()}`} />
-            </div>
-          </Card>
-
-          <Card className="flex items-start gap-3 px-[18px] py-4">
-            <div aria-hidden="true" className="flex size-[34px] flex-none items-center justify-center rounded-full bg-fill text-[15px] font-bold">
-              R
-            </div>
-            <div>
-              <div className="text-[13px] font-semibold text-label-2">Rocky</div>
-              <p className="mt-[3px] text-[16px] leading-[1.4]">{message}</p>
-            </div>
-          </Card>
-
-          {day.training ? (
-            <Card className="overflow-hidden">
-              <div className="relative h-[180px] bg-fill">
-                <img src={day.training.heroImage} alt="" className="h-full w-full object-cover" />
-                <span className="glass-on-image absolute left-3 top-3 flex h-[30px] items-center rounded-full px-3 text-[13px] font-semibold">12 to 2pm · ~45 min</span>
-              </div>
-              <div className="flex flex-col gap-1 px-[18px] pb-[18px] pt-4">
-                <div className="text-[22px] font-bold">{day.training.name}</div>
-                <div className="text-[15px] text-label-2">
-                  {day.training.exerciseCount} exercises · {day.training.setCount} sets{day.weekType === "deload" ? " · deload week" : ""}
-                </div>
-                {day.training.goUps[0] && <div className="text-[15px] font-semibold text-steps-text">{day.training.goUps[0]}</div>}
-                <div className="mt-3 flex gap-2.5">
-                  {day.finishedTemplateId ? (
-                    <Link
-                      to={`/workout?template=${day.finishedTemplateId}`}
-                      className="btn-secondary flex h-[50px] flex-1 items-center justify-center gap-2 rounded-full text-[17px] font-semibold"
-                    >
-                      <Icon name="check" size={18} strokeWidth={3} />
-                      Workout done
-                    </Link>
-                  ) : (
-                    <>
-                      <Link
-                        to={day.openTemplateId ? `/workout?template=${day.openTemplateId}` : "/workout"}
-                        className="btn-prominent flex h-[50px] flex-1 items-center justify-center rounded-full text-[17px] font-semibold"
-                      >
-                        {day.openTemplateId === CUSTOM_WORKOUT ? "Continue custom workout" : day.loggedSetToday ? "Continue workout" : "Start workout"}
-                      </Link>
-                      <Link to="/workout?plan=b" className="btn-secondary flex h-[50px] items-center justify-center rounded-full px-[18px] text-[16px] font-semibold">
-                        Plan B
-                      </Link>
-                    </>
-                  )}
-                </div>
-                {!day.finishedTemplateId && day.openTemplateId !== CUSTOM_WORKOUT && (
-                  <div className="mt-1 flex flex-wrap gap-x-5">
-                    {canMove && (
-                      <button type="button" onClick={() => setMoveOpen(true)} className="flex h-11 items-center gap-1.5 text-[15px] font-semibold text-label-2">
-                        <Icon name="swap" size={16} />
-                        Not today? Move it
-                      </button>
-                    )}
-                    <Link to={`/workout?template=${CUSTOM_WORKOUT}`} className="flex h-11 items-center gap-1.5 text-[15px] font-semibold text-label-2">
-                      <Icon name="plus" size={16} />
-                      Did something else? Log it
-                    </Link>
-                  </div>
-                )}
-              </div>
-            </Card>
-          ) : (
-            <Card className="flex flex-col gap-3 px-[18px] py-4">
-              <div className="flex items-center justify-between gap-3">
-                <div>
-                  <div className="text-[17px] font-semibold">Rest day</div>
-                  <div className="text-[14px] text-label-2">{day.optional ? `Optional: ${day.optional.name}, 30 min` : "Walk, recover, eat on plan."}</div>
-                </div>
-                {day.optional && (
-                  <Link to={`/workout?template=${day.optional.templateId}`} className="btn-secondary flex h-11 items-center gap-1.5 rounded-full px-4 text-[15px] font-semibold">
-                    {day.finishedTemplateId === day.optional.templateId ? (
-                      <>
-                        <Icon name="check" size={16} strokeWidth={3} />
-                        Done
-                      </>
-                    ) : (
-                      "Start"
-                    )}
-                  </Link>
-                )}
-              </div>
-              <div className="flex flex-wrap gap-2">
-                {canPull && canMove && (
-                  <button type="button" onClick={() => setMoveOpen(true)} className="btn-secondary flex h-11 items-center gap-1.5 rounded-full px-4 text-[15px] font-semibold">
-                    <Icon name="swap" size={16} />
-                    Train today instead
-                  </button>
-                )}
-                <Link to={`/workout?template=${CUSTOM_WORKOUT}`} className="btn-secondary flex h-11 items-center gap-1.5 rounded-full px-4 text-[15px] font-semibold">
-                  {day.finishedTemplateId === CUSTOM_WORKOUT ? (
-                    <>
-                      <Icon name="check" size={16} strokeWidth={3} />
-                      Custom workout done
-                    </>
-                  ) : day.openTemplateId === CUSTOM_WORKOUT ? (
-                    "Continue custom workout"
-                  ) : (
-                    <>
-                      <Icon name="plus" size={16} />
-                      Log a workout
-                    </>
-                  )}
-                </Link>
-              </div>
-            </Card>
+function NextUpPoster({ m }: { m: PlanToday }) {
+  const mutate = useMutate();
+  const n = m.next;
+  if (n.kind === "check-in") {
+    return (
+      <Poster lines={["Sunday.", "Check-in."]} meta="10 minutes to set up next week">
+        <Link to="/check-in" className={`${btn.primary} h-14`}>
+          Start check-in
+        </Link>
+      </Poster>
+    );
+  }
+  if (n.kind === "workout" && m.training) {
+    const t = m.training;
+    return (
+      <Poster lines={t.headline} meta={t.meta}>
+        {t.goUp && <ProgressionCallout>{t.goUp}</ProgressionCallout>}
+        <div className="flex gap-2.5">
+          <Link to={t.link} className={`${btn.primary} h-14 flex-1 px-3`}>
+            {t.buttonLabel}
+          </Link>
+          {!t.started && (
+            <Link to="/workout?plan=b" className={`${btn.outline} h-14 flex-col px-3.5 text-[16px] uppercase leading-[1.1] tracking-[0.02em]`}>
+              Short
+              <span className="text-[13px] font-semibold normal-case tracking-normal text-ink-3">25 min, home</span>
+            </Link>
           )}
         </div>
+      </Poster>
+    );
+  }
+  if (n.kind === "meal") {
+    const s = m.slots.find((x) => x.slot === n.slot)!;
+    return (
+      <Poster lines={mealHeadline(s.meal)} meta={`${SLOT_LABEL[s.slot]} · ${s.time} · ${s.meal.kcal} cal`}>
+        <ul aria-label="Put on the scale" className="grid grid-cols-2 gap-x-4 gap-y-2 text-[16px]">
+          {scaleList(s.meal).map((i) => (
+            <li key={i.name} className="flex justify-between gap-2 border-b border-rule pb-1.5">
+              <span>{i.name}</span>
+              <span className="tabular whitespace-nowrap font-num font-bold">{i.grams} g</span>
+            </li>
+          ))}
+        </ul>
+        <div className="flex gap-2.5">
+          <button type="button" onClick={() => void mutate("logMeal", { clientId: crypto.randomUUID(), date: m.date, slot: s.slot, mealSlug: s.meal.slug })} className={`${btn.primary} h-14 flex-1`}>
+            Ate it
+          </button>
+          <Link to={`/meal/${s.meal.slug}?slot=${s.slot}`} className={`${btn.outline} h-14 px-5 text-[17px] uppercase tracking-[0.02em]`}>
+            Swap
+          </Link>
+        </div>
+      </Poster>
+    );
+  }
+  if (n.kind === "steps") {
+    return <Poster lines={[`${n.left.toLocaleString()} steps.`, "Two short walks."]} meta={`${m.steps.toLocaleString()} of ${m.targets.stepGoal.toLocaleString()} so far`} />;
+  }
+  return <Poster lines={["Done.", "Kitchen's closed."]} meta={`${m.totals.proteinG} of ${m.targets.proteinG} g protein today`} />;
+}
 
-        <div className="flex flex-col gap-[18px]">
-          <section aria-label="Meals" className="flex flex-col gap-2">
-            <SectionTitle right={day.relaxed ? "Holiday" : day.mode === "weekday" ? "Weekday" : "Weekend"}>Meals</SectionTitle>
-            <Card className="overflow-hidden">
-              {day.slots.map((s) => (
-                <MealRow key={s.slot} s={s} upNext={s.slot === day.nextSlot} />
-              ))}
-            </Card>
-            {day.offPlan.length > 0 && (
-              <Card className="px-[18px] py-3">
-                {day.offPlan.map((l) => (
-                  <div key={l.id} className="tabular flex justify-between py-1 text-[15px]">
-                    <span>
-                      {l.name}
-                      {l.relaxed && <span className="text-label-2"> · relaxed</span>}
-                    </span>
-                    <span className="text-label-2">{l.kcal} cal</span>
-                  </div>
-                ))}
-              </Card>
-            )}
-            <button type="button" onClick={() => setOffPlanOpen(true)} className="btn-secondary ml-0.5 h-11 self-start rounded-full px-4 text-[15px] font-semibold">
-              + Log off-plan
+function Fuel({ m, eatenAtOpen, onAteElse }: { m: PlanToday; eatenAtOpen: Set<string>; onAteElse: () => void }) {
+  const mutate = useMutate();
+  const left = m.targets.proteinG - m.totals.proteinG;
+  const offPlanProtein = m.offPlan.reduce((a, o) => a + o.proteinG, 0);
+  const segments = [
+    ...m.slots.map((s) => ({ label: SLOT_LABEL[s.slot].toLowerCase(), grams: s.meal.protein, state: s.logKey ? ("eaten" as const) : s.next ? ("next" as const) : ("later" as const) })),
+    ...(offPlanProtein > 0 ? [{ label: "off-plan", grams: offPlanProtein, state: "eaten" as const }] : []),
+  ];
+  return (
+    <section aria-labelledby="fuel" className="flex flex-col gap-3.5">
+      <SectionHead id="fuel" note={m.modeLabel}>
+        Fuel
+      </SectionHead>
+      <div className="flex flex-col gap-2">
+        <div className="flex items-baseline justify-between font-num">
+          <span className="tabular text-[34px] font-bold leading-none">
+            {m.totals.proteinG}
+            <span className="text-[18px] font-semibold text-ink-3"> of {m.targets.proteinG} g protein</span>
+          </span>
+          <span className="tabular text-[16px] font-bold">{left > 0 ? `${left} to go` : "Done"}</span>
+        </div>
+        <ProteinBar segments={segments} target={m.targets.proteinG} />
+        <p className="text-[15px] tabular-nums text-ink-3">
+          {m.totals.kcal.toLocaleString()} of {m.targets.kcal.toLocaleString()} cal · {m.steps.toLocaleString()} of {m.targets.stepGoal.toLocaleString()} steps
+        </p>
+      </div>
+
+      <ul className="flex flex-col">
+        {m.slots.map((s) => (
+          <MealRow key={s.slot} s={s} date={m.date} fresh={s.logKey !== null && !eatenAtOpen.has(s.slot)} />
+        ))}
+        {m.offPlan.map((o) => (
+          <li key={o.key} className="flex min-h-12 items-center gap-3 border-t border-rule">
+            <span className="flex-1 text-[16px]">
+              {o.name} <span className="whitespace-nowrap text-[14px] tabular-nums text-ink-3">· {o.kcal} cal</span>
+            </span>
+            <button type="button" aria-label={`Remove ${o.name}`} onClick={() => void mutate("deleteOffPlan", { key: o.key })} className="flex size-11 items-center justify-center text-ink-3">
+              <svg aria-hidden="true" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.4" strokeLinecap="round">
+                <path d="M6 6l12 12M18 6L6 18" />
+              </svg>
             </button>
-          </section>
-
-          <Card className="flex flex-col gap-3.5 p-[18px]">
-            <div>
-              <h2 className="text-[17px] font-semibold">Minimum viable day</h2>
-              <p className="mt-0.5 text-[14px] leading-snug text-label-2">Hit these three and today counts, even if the rest goes sideways.</p>
-            </div>
-            <Bar label={`${day.targets.proteinG} g protein`} value={day.totals.proteinG} target={day.targets.proteinG} color="var(--protein)" />
-            <Bar label={`${day.targets.stepGoal.toLocaleString()} steps`} value={day.steps} target={day.targets.stepGoal} color="var(--steps)" />
-            <div className="flex justify-between text-[15px]">
-              <span>No off-plan dessert</span>
-              <span className="text-label-2">{day.offPlanDessert ? "Missed" : day.minutes >= 21 * 60 ? "Done" : "Tonight"}</span>
-            </div>
-            {day.weighIn !== null ? (
-              <button
-                type="button"
-                onClick={() => setEditWeighIn(true)}
-                className="tabular flex items-center justify-between border-t-[0.5px] border-separator pt-3 text-left text-[15px]"
-              >
-                <span className="text-label-2">Weigh-in</span>
-                <span className="flex items-center gap-1.5 font-semibold">
-                  {day.weighIn} lb{day.weighInTime ? ` · ${day.weighInTime}` : ""}
-                  <span className="sr-only">. Edit</span>
-                  <span aria-hidden="true" className="text-label-4">
-                    <Icon name="chevron" size={16} strokeWidth={2.4} />
-                  </span>
-                </span>
-              </button>
-            ) : (
-              <div className="tabular flex justify-between border-t-[0.5px] border-separator pt-3 text-[15px]">
-                <span className="text-label-2">Weigh-in</span>
-                <span className="font-semibold">Not yet</span>
-              </div>
-            )}
-          </Card>
-        </div>
-      </div>
-
-      <OffPlanSheet open={offPlanOpen} onClose={() => setOffPlanOpen(false)} />
-      <MoveSheet open={moveOpen} onClose={() => setMoveOpen(false)} anchor={todaySchedule} week={day.week} today={day.date} />
-      <WeighInSheet entry={editWeighIn && day.weighIn !== null ? { date: day.date, weight: day.weighIn } : null} onClose={() => setEditWeighIn(false)} />
-    </Screen>
+          </li>
+        ))}
+        <li className="flex min-h-12 items-center justify-between gap-3 border-y border-rule">
+          <span className="text-[15px] text-ink-3">Off-plan dessert</span>
+          <span className="font-num text-[15px] font-bold">{m.dessertLine}</span>
+        </li>
+      </ul>
+      <button type="button" onClick={onAteElse} className={`${btn.outlinePlain} h-11 self-start px-4`}>
+        + Ate something else
+      </button>
+    </section>
   );
 }
 
-function Stat({ label, color, value, of }: { label: string; color: string; value: string; of: string }) {
-  return (
-    <div>
-      <div className="text-[13px] font-semibold">{label}</div>
-      <div className={`text-[22px] font-bold ${color}`}>
-        {value}
-        <span className="text-[15px]">{of}</span>
-      </div>
-    </div>
-  );
-}
-
-function Bar({ label, value, target, color }: { label: string; value: number; target: number; color: string }) {
-  const p = Math.min(100, Math.round((value / target) * 100));
-  return (
-    <div className="flex flex-col gap-1.5">
-      <div className="tabular flex justify-between text-[15px]">
-        <span>{label}</span>
-        <span className="text-label-2">
-          {value.toLocaleString()} / {target.toLocaleString()}
-        </span>
-      </div>
-      <div className="h-1.5 rounded-full" style={{ background: `color-mix(in srgb, ${color} 20%, transparent)` }}>
-        <div className="h-1.5 rounded-full" style={{ width: `${p}%`, background: color }} />
-      </div>
-    </div>
-  );
-}
-
-function WeighInCard() {
-  const fetcher = useFetcher<typeof action>();
-  return (
-    <Card className="p-4">
-      <fetcher.Form method="post" className="flex items-center gap-3">
-        <input type="hidden" name="intent" value="weigh-in" />
-        <label htmlFor="weight" className="flex-1 text-[16px] font-semibold">
-          Log weigh-in
-        </label>
-        <div className="flex h-11 w-[120px] items-center gap-1.5 rounded-xl bg-fill px-3">
-          <input id="weight" name="weight" inputMode="decimal" placeholder="0.0" required className="tabular w-full min-w-0 bg-transparent text-right text-[18px] font-semibold outline-none" />
-          <span className="font-semibold text-label-2">lb</span>
-        </div>
-        <button type="submit" disabled={fetcher.state !== "idle"} className="btn-prominent h-11 rounded-full px-4 text-[15px] font-semibold disabled:opacity-60">
-          {fetcher.state !== "idle" ? "Saving..." : "Save"}
+function MealRow({ s, date, fresh }: { s: SlotModel; date: string; fresh: boolean }) {
+  const mutate = useMutate();
+  const eat = () => void mutate("logMeal", { clientId: crypto.randomUUID(), date, slot: s.slot, mealSlug: s.meal.slug });
+  const recipe = `/meal/${s.meal.slug}?slot=${s.slot}`;
+  if (s.logKey) {
+    return (
+      <li className="flex min-h-12 items-center gap-3 border-t border-rule">
+        <span className="tabular w-11 font-num text-[15px] font-semibold text-muted">{s.time}</span>
+        <Link to={recipe} className="flex-1 text-[16px] text-muted">
+          {s.meal.name} <span className="whitespace-nowrap tabular-nums">· {s.meal.protein} g</span>
+        </Link>
+        <button type="button" aria-label={`Mark ${s.meal.name} not eaten`} onClick={() => void mutate("unlogMeal", { key: s.logKey })} className="flex h-11 items-center gap-1 text-[14px] font-semibold text-ink-3">
+          <span className={`text-ink ${fresh ? "check-land" : ""}`}>
+            <Icon name="check" size={16} strokeWidth={2.8} />
+          </span>
+          Eaten
         </button>
-      </fetcher.Form>
-      {fetcher.data && "error" in fetcher.data && <p className="mt-2 text-[14px] text-calories">{fetcher.data.error}</p>}
-    </Card>
+      </li>
+    );
+  }
+  if (s.next) {
+    return (
+      <li className="-mr-3 flex items-center gap-3 border-t-2 border-ink bg-raised py-3 pr-3">
+        <span className="tabular flex w-11 flex-col font-num text-[15px] font-bold">
+          <span>{s.time}</span>
+          <span className="text-[12px] text-red">NEXT</span>
+        </span>
+        <Link to={recipe} className="flex flex-1 flex-col">
+          <span className="text-[17px] font-bold">{s.meal.name}</span>
+          <span className="text-[14px] tabular-nums text-ink-3">
+            {s.meal.kcal} cal · {s.meal.protein} g protein
+          </span>
+        </Link>
+        <button type="button" onClick={eat} className={`${btn.outline} h-11 px-3.5 text-[16px]`}>
+          Ate it
+        </button>
+      </li>
+    );
+  }
+  return (
+    <li className="flex min-h-[60px] items-center gap-3 border-t border-rule">
+      <span className="tabular w-11 font-num text-[15px] font-semibold text-muted">{s.time}</span>
+      <Link to={recipe} className="flex flex-1 flex-col">
+        <span className="text-[16px]">{s.meal.name}</span>
+        <span className="text-[14px] tabular-nums text-muted">
+          {s.meal.kcal} cal · {s.meal.protein} g
+        </span>
+      </Link>
+      <button type="button" aria-label={`Mark ${s.meal.name} eaten`} onClick={eat} className="size-11 flex-none rounded-full border-[1.5px] border-border" />
+    </li>
   );
 }
 
 const PRESETS = [
-  { name: "Restaurant meal", category: "meal", kcal: 900, protein: 50, relaxed: true },
-  { name: "Ranch Water", category: "drink", kcal: 100, protein: 0, relaxed: false },
-];
+  { name: "Restaurant meal", category: "meal", kcal: 900, proteinG: 50, relaxed: true },
+  { name: "Ranch Water", category: "drink", kcal: 100, proteinG: 0, relaxed: false },
+] as const;
 
-function OffPlanSheet({ open, onClose }: { open: boolean; onClose: () => void }) {
-  const fetcher = useFetcher<typeof action>();
-  const submit = (fields: Record<string, string>) => {
-    fetcher.submit({ intent: "off-plan", ...fields }, { method: "post" });
+const FIELD = "h-11 rounded-[6px] border-[1.5px] border-border bg-field px-3 text-[17px] font-normal text-ink";
+
+function OffPlanSheet({ open, date, onClose }: { open: boolean; date: string; onClose: () => void }) {
+  const mutate = useMutate();
+  const log = (entry: { name: string; category: string; kcal: number; proteinG: number; relaxed: boolean }) => {
+    void mutate("logOffPlan", { clientId: crypto.randomUUID(), date, ...entry });
     onClose();
   };
   return (
-    <Sheet open={open} onClose={onClose} title="Log off-plan">
+    <Sheet open={open} onClose={onClose} title="Ate something else">
       <div className="mb-4 flex flex-wrap gap-2">
         {PRESETS.map((p) => (
-          <button
-            key={p.name}
-            type="button"
-            onClick={() => submit({ name: p.name, category: p.category, kcal: String(p.kcal), protein: String(p.protein), ...(p.relaxed ? { relaxed: "on" } : {}) })}
-            className="btn-secondary h-11 rounded-full px-4 text-[15px] font-semibold"
-          >
+          <button key={p.name} type="button" onClick={() => log({ ...p })} className={`${btn.outlinePlain} h-11 px-4`}>
             {p.name}
             {p.relaxed ? " (relaxed)" : ""}
           </button>
         ))}
       </div>
-      <Form
-        method="post"
+      <form
         onSubmit={(e) => {
           e.preventDefault();
-          submit(Object.fromEntries(new FormData(e.currentTarget)) as Record<string, string>);
+          const f = new FormData(e.currentTarget);
+          const kcal = Number(f.get("kcal"));
+          if (!String(f.get("name") ?? "").trim() || !Number.isFinite(kcal)) return;
+          log({ name: String(f.get("name")).trim(), category: String(f.get("category")), kcal: Math.round(kcal), proteinG: Math.round(Number(f.get("protein") || 0)), relaxed: f.get("relaxed") === "on" });
         }}
         className="flex flex-col gap-3"
       >
-        <label className="flex flex-col gap-1 text-[13px] font-semibold text-label-2">
+        <label className="flex flex-col gap-1 text-[13px] font-semibold text-ink-3">
           What was it
-          <input name="name" required className="h-11 rounded-xl bg-fill px-3 text-[17px] font-normal text-label outline-none" />
+          <input name="name" required maxLength={80} className={FIELD} />
         </label>
-        <label className="flex flex-col gap-1 text-[13px] font-semibold text-label-2">
+        <label className="flex flex-col gap-1 text-[13px] font-semibold text-ink-3">
           Category
-          <select name="category" defaultValue="meal" className="h-11 rounded-xl bg-fill px-3 text-[17px] font-normal text-label outline-none">
+          <select name="category" defaultValue="meal" className={FIELD}>
             <option value="meal">Meal</option>
             <option value="snack">Snack</option>
             <option value="dessert">Dessert</option>
@@ -439,23 +399,23 @@ function OffPlanSheet({ open, onClose }: { open: boolean; onClose: () => void })
           </select>
         </label>
         <div className="grid grid-cols-2 gap-3">
-          <label className="flex flex-col gap-1 text-[13px] font-semibold text-label-2">
+          <label className="flex flex-col gap-1 text-[13px] font-semibold text-ink-3">
             Calories
-            <input name="kcal" inputMode="numeric" required className="tabular h-11 rounded-xl bg-fill px-3 text-[17px] font-normal text-label outline-none" />
+            <input name="kcal" inputMode="numeric" required className={`tabular ${FIELD}`} />
           </label>
-          <label className="flex flex-col gap-1 text-[13px] font-semibold text-label-2">
+          <label className="flex flex-col gap-1 text-[13px] font-semibold text-ink-3">
             Protein (g)
-            <input name="protein" inputMode="numeric" defaultValue="0" className="tabular h-11 rounded-xl bg-fill px-3 text-[17px] font-normal text-label outline-none" />
+            <input name="protein" inputMode="numeric" defaultValue="0" className={`tabular ${FIELD}`} />
           </label>
         </div>
-        <label className="flex items-center justify-between text-[16px]">
+        <label className="flex min-h-11 items-center justify-between text-[16px]">
           Relaxed meal (weekend restaurant)
-          <input type="checkbox" name="relaxed" className="size-6 accent-[var(--steps)]" />
+          <input type="checkbox" name="relaxed" className="size-6 accent-[var(--ink)]" />
         </label>
-        <button type="submit" className="btn-prominent mt-1 h-[52px] rounded-full text-[17px] font-semibold">
+        <button type="submit" className={`${btn.primary} mt-1 h-14`}>
           Log it
         </button>
-      </Form>
+      </form>
     </Sheet>
   );
 }

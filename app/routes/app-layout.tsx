@@ -32,7 +32,7 @@ export default function AppLayout({ loaderData }: Route.ComponentProps) {
     // Real tap latency from this phone, sent once per page view when the browser reports it (Safari 26.2+).
     void import("web-vitals/attribution").then(({ onINP }) =>
       onINP((m) => {
-        const body = JSON.stringify({ route: location.pathname, inp: Math.round(m.value), target: m.attribution.interactionTarget.slice(0, 200) || undefined });
+        const body = JSON.stringify({ route: location.pathname, inp: Math.round(m.value), target: m.attribution.interactionTarget?.slice(0, 200) || undefined });
         navigator.sendBeacon("/api/vitals", new Blob([body], { type: "application/json" }));
       }),
     );

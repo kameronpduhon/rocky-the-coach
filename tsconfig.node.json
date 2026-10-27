@@ -7,7 +7,8 @@
     "drizzle.core.config.ts",
     "scripts/**/*.ts",
     "app/domain/**/*.ts",
-    "app/server/password.ts"
+    "app/server/password.ts",
+    "app/sync/tables.ts"
   ],
   "compilerOptions": {
     "composite": true,

@@ -29,6 +29,20 @@
       "when": 1791407612976,
       "tag": "0003_custom_workouts",
       "breakpoints": true
+    },
+    {
+      "idx": 4,
+      "version": "6",
+      "when": 1793122390040,
+      "tag": "0004_sync_tables",
+      "breakpoints": true
+    },
+    {
+      "idx": 5,
+      "version": "6",
+      "when": 1793122423943,
+      "tag": "0005_sync_triggers",
+      "breakpoints": true
     }
   ]
 }

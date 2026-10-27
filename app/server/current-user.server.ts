@@ -21,3 +21,8 @@ export function currentUser(): User {
 export function userDb(): Db {
   return getDb(env[currentUser().dbBinding]);
 }
+
+/** The signed-in person's own D1 database, for raw SQL such as the sync endpoints. */
+export function userD1(): D1Database {
+  return env[currentUser().dbBinding];
+}

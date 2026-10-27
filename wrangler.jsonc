@@ -21,7 +21,7 @@
 	// middleware. Both are empty here, and production never sets them.
 	"vars": { "DEV_NOW": "", "TEST_USER_DB": "" },
 	"secrets": {
-		"required": ["APP_PASSWORD", "SESSION_SECRET", "INGEST_TOKEN", "VAPID_PUBLIC_KEY", "VAPID_PRIVATE_KEY"]
+		"required": ["SESSION_SECRET", "INGEST_TOKEN", "VAPID_PUBLIC_KEY", "VAPID_PRIVATE_KEY"]
 	},
 	"triggers": { "crons": ["*/5 * * * *", "0 9 * * SUN"] },
 	"observability": { "enabled": true },

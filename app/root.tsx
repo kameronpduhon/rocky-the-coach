@@ -1,12 +1,16 @@
 import { isRouteErrorResponse, Links, Meta, Outlet, Scripts, ScrollRestoration } from "react-router";
 import type { Route } from "./+types/root";
 import "./app.css";
-import { requireSignedIn } from "~/server/auth.server";
+import { authenticate } from "~/server/auth.server";
+import { runAsUser } from "~/server/current-user.server";
 
 export const middleware: Route.MiddlewareFunction[] = [
   async ({ request }, next) => {
-    await requireSignedIn(request);
-    return next();
+    const auth = await authenticate(request);
+    if (!auth) return next();
+    const response = await runAsUser(auth.user, next);
+    if (auth.setCookie) response.headers.append("Set-Cookie", auth.setCookie);
+    return response;
   },
 ];
 

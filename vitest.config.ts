@@ -24,7 +24,6 @@ export default defineConfig(async () => {
                   TEST_MIGRATIONS: migrations,
                   TEST_CORE_MIGRATIONS: coreMigrations,
                   TEST_USER_DB: "DB",
-                  APP_PASSWORD: "test-password",
                   SESSION_SECRET: "test-session-secret",
                   INGEST_TOKEN: "test-ingest-token",
                   VAPID_PUBLIC_KEY: "BOr9r1kQdvy1W8e1ZJHhq2bBo6S7gQkC3n2Ucg5w8yW8mGg9x2fV9bXJb2kq3pY2c4cJ7aZbS0m3v5Q6nQ1tY2U",

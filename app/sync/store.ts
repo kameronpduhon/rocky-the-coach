@@ -33,6 +33,8 @@ export class SyncStore {
   version = 0;
   nextMutationId = 1;
   pending: PendingMutation[] = [];
+  /** Goes up on every change, so a screen can memoise work on it. */
+  changeCount = 0;
   private base: Tables = new Map();
   private view: Tables = new Map();
   private listeners = new Set<() => void>();
@@ -102,6 +104,7 @@ export class SyncStore {
   }
 
   private changed(): void {
+    this.changeCount++;
     this.snapshots.clear();
     for (const fn of this.listeners) fn();
   }

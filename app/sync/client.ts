@@ -1,4 +1,4 @@
-import type { MutationContext } from "./mutators";
+import { describeRejection, MutationRejected, type MutationContext } from "./mutators";
 import { SyncStore, type PendingMutation, type PullPayload, type SavedState } from "./store";
 
 export type Persisted = SavedState & { clientId: string };
@@ -19,6 +19,8 @@ export interface SyncStatus {
   online: boolean;
   lastSyncedAt: string | null;
   rejected: string[];
+  /** A saved copy has loaded or the first pull has landed, so screens can draw from the store. */
+  ready: boolean;
 }
 
 export interface SyncClientOptions {
@@ -31,6 +33,7 @@ export interface SyncClientOptions {
 }
 
 const newClientId = () => crypto.randomUUID();
+const PUSH_LIMIT = 500;
 
 export class SyncClient {
   readonly store: SyncStore;
@@ -39,7 +42,7 @@ export class SyncClient {
   private again = false;
   private failures = 0;
   private retryTimer: ReturnType<typeof setTimeout> | null = null;
-  private state: SyncStatus = { waiting: 0, online: true, lastSyncedAt: null, rejected: [] };
+  private state: SyncStatus = { waiting: 0, online: true, lastSyncedAt: null, rejected: [], ready: false };
   private statusListeners = new Set<() => void>();
 
   constructor(private readonly opts: SyncClientOptions) {
@@ -50,15 +53,23 @@ export class SyncClient {
     const saved = await this.opts.persistence.load().catch(() => null);
     this.clientId = saved?.clientId ?? newClientId();
     if (saved) await this.store.restore(saved);
-    this.updateStatus({});
+    this.updateStatus(saved ? { ready: true } : {});
     void this.sync();
   }
 
-  async mutate(name: string, args: unknown): Promise<void> {
-    await this.store.mutate(name, args);
+  /** Applies a change now and queues it. A change the rules refuse is reported in status, and this returns false. */
+  async mutate(name: string, args: unknown): Promise<boolean> {
+    try {
+      await this.store.mutate(name, args);
+    } catch (err) {
+      if (!(err instanceof MutationRejected)) throw err;
+      this.updateStatus({ rejected: [...this.state.rejected, describeRejection(name, err.message)] });
+      return false;
+    }
     this.updateStatus({});
     await this.persist();
     void this.sync();
+    return true;
   }
 
   /** Pushes anything waiting, then pulls. Overlapping calls coalesce into one more round. */
@@ -96,10 +107,15 @@ export class SyncClient {
   private async round(): Promise<void> {
     try {
       if (this.store.pending.length) {
-        const res = await this.opts.transport.push({ clientId: this.clientId, mutations: this.store.pending });
+        const batch = this.store.pending.slice(0, PUSH_LIMIT);
+        const names = new Map(batch.map((m) => [m.id, m.name]));
+        const res = await this.opts.transport.push({ clientId: this.clientId, mutations: batch });
         if (res.status === 401) return this.signedOut();
         if (!res.ok) throw new Error(`push ${res.status}`);
-        if (res.result.rejected.length) this.updateStatus({ rejected: [...this.state.rejected, ...res.result.rejected.map((r) => r.message)] });
+        if (res.result.rejected.length) {
+          this.updateStatus({ rejected: [...this.state.rejected, ...res.result.rejected.map((r) => describeRejection(names.get(r.id) ?? "", r.message))] });
+        }
+        if (this.store.pending.length > batch.length) this.again = true;
       }
       const pulled = await this.opts.transport.pull(this.store.version, this.clientId);
       if (pulled.status === 401) return this.signedOut();
@@ -107,7 +123,7 @@ export class SyncClient {
       await this.store.applyPull(pulled.result);
       await this.persist();
       this.failures = 0;
-      this.updateStatus({ online: true, lastSyncedAt: new Date().toISOString() });
+      this.updateStatus({ online: true, ready: true, lastSyncedAt: new Date().toISOString() });
     } catch {
       this.updateStatus({ online: false });
       this.scheduleRetry();

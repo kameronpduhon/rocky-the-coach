@@ -135,4 +135,11 @@ describe("buildWorkout", () => {
   it("writes weights that changed set to set in full", () => {
     expect(setsText([{ weight: 270, reps: 12 }, { weight: 260, reps: 10 }])).toBe("270 × 12, 260 × 10");
   });
+  it("keeps a rest day's optional workout in the picker after another is picked", () => {
+    const TUE = "2026-10-27";
+    const optional = plan.optional[String(new Date(`${TUE}T12:00:00Z`).getUTCDay())]!;
+    const m = buildWorkout(rowsOf({ workout_sessions: [session({ date: TUE })] }), at(TUE, "09:00"));
+    expect(m.templateId).toBe(LEGS);
+    expect(m.choices.map((c) => c.templateId)).toContain(optional);
+  });
 });

@@ -75,7 +75,7 @@ export interface WorkoutAsk {
   template?: string | null;
 }
 
-/** Today's scheduled workout first, then the other gym workouts, then Short, home, then Your own. */
+/** Today's scheduled workout (or a rest day's optional one) first, then the other gym workouts, then Short, home, then Your own. */
 function choices(scheduled: string | null, picked: string | null): WorkoutModel["choices"] {
   const gym = Object.entries(plan.templates).filter(([, t]) => t.kind === "gym").map(([id]) => id);
   const ids = [...new Set([scheduled, picked, ...gym, plan.planB, CUSTOM_WORKOUT].filter((id): id is string => id !== null))];
@@ -188,7 +188,7 @@ export function buildWorkout(rows: Rows, now: Date, ask: WorkoutAsk = {}): Worko
     setsPerLift,
     lifts,
     current: lifts.find((l) => !l.done) ?? null,
-    choices: choices(scheduled, templateId),
+    choices: choices(scheduled ?? (live ? optionalTemplateFor(plan, date) : null), templateId),
     totals,
     movedUp,
     rockyLine: rockyLine(movedUp.length, rows, date, now, live),
@@ -196,6 +196,9 @@ export function buildWorkout(rows: Rows, now: Date, ask: WorkoutAsk = {}): Worko
     schedule: weekSchedule(weekStart(date), moves, done),
   };
 }
+
+/** "1 lift", "6 lifts". */
+export const count = (n: number, word: string) => `${n} ${word}${n === 1 ? "" : "s"}`;
 
 /** The next unfinished lift after this one in list order, wrapping round, or null when nothing else is left. */
 export function nextOpen(lifts: LiftView[], position: number): LiftView | null {

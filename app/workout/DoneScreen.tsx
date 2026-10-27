@@ -4,7 +4,7 @@ import type { Feel } from "~/domain/progression";
 import { btn } from "~/ui/button";
 import { ChoiceRow } from "~/ui/ChoiceRow";
 import { Dock, GymFrame, HeaderIcon } from "~/ui/GymFrame";
-import { setsText, type WorkoutModel } from "./model";
+import { count, setsText, type WorkoutModel } from "./model";
 import { SetsSheet } from "./SetsSheet";
 import { useWorkoutActions } from "./use-actions";
 
@@ -50,7 +50,7 @@ export function DoneScreen({ m, back, dateLabel }: { m: WorkoutModel; back: stri
           ))}
         </h1>
         <p className="font-num text-[18px] font-semibold text-ink-3">
-          {m.totals.lifts} lifts · {m.totals.sets} sets{m.totals.minutes > 0 ? ` · ${m.totals.minutes} min` : ""}
+          {count(m.totals.lifts, "lift")} · {count(m.totals.sets, "set")}{m.totals.minutes > 0 ? ` · ${m.totals.minutes} min` : ""}
         </p>
         <p className="mt-1 text-[17px] font-medium leading-[1.4]">
           <span className="font-num font-bold">Rocky:</span> {m.rockyLine}

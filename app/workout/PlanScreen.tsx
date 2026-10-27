@@ -10,7 +10,7 @@ import { ChoiceRow } from "~/ui/ChoiceRow";
 import { Dock, GymFrame, HeaderIcon } from "~/ui/GymFrame";
 import { AddLiftSheet } from "./AddLiftSheet";
 import { addLifts, dropLift, swapToday, undoSwap } from "./lifts";
-import type { LiftView, WorkoutModel } from "./model";
+import { count, type LiftView, type WorkoutModel } from "./model";
 import { SwapSheet } from "./SwapSheet";
 import { useWorkoutActions } from "./use-actions";
 
@@ -32,7 +32,7 @@ export function PlanScreen({ m, back, dateLabel }: { m: WorkoutModel; back: stri
   // The screen follows the store: a started workout shows Set, a past day logged late shows Done.
   const begin = () => void (m.live ? act.start() : act.logLate());
   const status = m.live ? (m.key ? "Saved · not started" : "Not started") : dateLabel;
-  const meta = `${m.live ? "Noon · " : ""}${m.totals.lifts} lifts · ${m.totals.sets} sets · about ${m.totals.minutes} min`;
+  const meta = `${m.live ? "Noon · " : ""}${count(m.totals.lifts, "lift")} · ${count(m.totals.sets, "set")} · about ${m.totals.minutes} min`;
 
   return (
     <GymFrame

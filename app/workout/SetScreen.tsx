@@ -224,8 +224,8 @@ export function SetScreen({ m, back }: { m: WorkoutModel; back: string }) {
     dock = (
       <Dock>
         <div className="flex justify-between gap-3 text-[15px] text-ink-3">
-          <span>{t.setNumber < m.setsPerLift ? `Then set ${t.setNumber + 1}${values.weight !== null ? ` at ${values.weight}` : ""}` : "Last set"}</span>
-          <span className="text-right">{after ? `Next lift: ${after.name}` : "Last lift"}</span>
+          <span className="whitespace-nowrap">{t.setNumber < m.setsPerLift ? `Then set ${t.setNumber + 1}${values.weight !== null ? ` at ${values.weight}` : ""}` : "Last set"}</span>
+          <span className="min-w-0 truncate text-right">{after ? `Next lift: ${after.name}` : "Last lift"}</span>
         </div>
         <button type="button" disabled={!ready} onClick={() => ready && void log(lift, t.setNumber, values.weight!, values.reps!)} className={`${btn.gym} h-16 disabled:opacity-60`}>
           Log set {t.setNumber}

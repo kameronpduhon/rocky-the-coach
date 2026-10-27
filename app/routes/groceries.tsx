@@ -1,9 +1,8 @@
-import { env } from "cloudflare:workers";
 import { useFetcher } from "react-router";
 import type { Route } from "./+types/groceries";
 import { BackButton, Card, Icon, LargeTitle, Screen, SectionTitle } from "~/components/ui";
 import { foods } from "~/content";
-import { getDb } from "~/db/client";
+import { userDb } from "~/server/current-user.server";
 import { localDate, weekStart } from "~/domain/dates";
 import { parseSwaps } from "~/domain/next-week";
 import { serverNow } from "~/server/clock.server";
@@ -22,7 +21,7 @@ export async function loader({ request }: Route.LoaderArgs) {
   const param = url.searchParams.get("week");
   const today = localDate(serverNow());
   const monday = param && ISO.test(param) ? weekStart(param) : weekStart(today);
-  const list = await groceryList(getDb(env.DB), monday, today, {
+  const list = await groceryList(userDb(), monday, today, {
     rest: url.searchParams.has("rest") ? url.searchParams.getAll("rest").filter(Boolean) : null,
     swaps: parseSwaps(url.searchParams.getAll("swap")),
   });
@@ -34,7 +33,7 @@ export async function action({ request }: Route.ActionArgs) {
   const week = String(form.get("week"));
   const food = String(form.get("food"));
   if (!ISO.test(week) || !foods.has(food)) return { error: "Bad request" };
-  await setGroceryCheck(getDb(env.DB), weekStart(week), food, form.get("checked") === "true");
+  await setGroceryCheck(userDb(), weekStart(week), food, form.get("checked") === "true");
   return { ok: true };
 }
 

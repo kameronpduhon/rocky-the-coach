@@ -4,7 +4,7 @@ import { Form, useFetcher } from "react-router";
 import type { Route } from "./+types/settings";
 import { Toggle } from "~/components/Toggle";
 import { BackButton, Card, LargeTitle, Screen, SectionTitle } from "~/components/ui";
-import { getDb } from "~/db/client";
+import { currentUser, userDb } from "~/server/current-user.server";
 import { DEFAULT_REMINDERS, REMINDER_LABEL, type ReminderKind } from "~/domain/reminders";
 import { runBackup } from "~/server/backup.server";
 import { serverNow } from "~/server/clock.server";
@@ -26,11 +26,12 @@ function daysLabel(days: number[]) {
 }
 
 export async function loader({ request }: Route.LoaderArgs) {
-  const reminders = await reminderSettings(getDb(env.DB));
+  const reminders = await reminderSettings(userDb());
   return {
     reminders: reminders.map((r) => ({ ...r, days: daysLabel(DEFAULT_REMINDERS.find((d) => d.kind === r.kind)!.days) })),
     ingestUrl: `${new URL(request.url).origin}/api/ingest/steps`,
-    ingestToken: env.INGEST_TOKEN,
+    // Kameron's Shortcut still sends the v1 INGEST_TOKEN until he switches it to his own token.
+    ingestToken: currentUser().ingestToken ?? (currentUser().dbBinding === "DB" ? env.INGEST_TOKEN : null),
     vapidPublicKey: env.VAPID_PUBLIC_KEY,
   };
 }
@@ -39,16 +40,17 @@ export async function action({ request }: Route.ActionArgs) {
   const form = await request.formData();
   const intent = form.get("intent");
   if (intent === "test-push") {
-    const pushed = await sendToAll(getDb(env.DB), { title: "Rocky", body: "Notifications are working.", url: "/settings", tag: "test" });
+    const pushed = await sendToAll(userDb(), { title: "Rocky", body: "Notifications are working.", url: "/settings", tag: "test" });
     return { pushed };
   }
   if (intent === "backup") {
-    return { backup: await runBackup(env.DB, env.MEDIA, serverNow()) };
+    const user = currentUser();
+    return { backup: await runBackup(env[user.dbBinding], env.MEDIA, serverNow(), user.name.toLowerCase()) };
   }
   const kind = String(form.get("kind")) as ReminderKind;
   const time = String(form.get("time"));
   if (!DEFAULT_REMINDERS.some((r) => r.kind === kind) || !/^([01]\d|2[0-3]):[0-5]\d$/.test(time)) return { error: "Bad reminder" };
-  await saveReminder(getDb(env.DB), { kind, enabled: form.get("enabled") === "true", time });
+  await saveReminder(userDb(), { kind, enabled: form.get("enabled") === "true", time });
   return { ok: true };
 }
 
@@ -95,14 +97,16 @@ export default function Settings({ loaderData }: Route.ComponentProps) {
                 <div>
                   <div className="text-[13px] font-semibold">Authorization header</div>
                   <code className="mt-1 block break-all font-mono text-[14px] text-label" aria-label={shown ? undefined : "Bearer token, hidden"}>
-                    Bearer {shown ? ingestToken : "••••••••••••••••"}
+                    Bearer {ingestToken === null ? "No token yet" : shown ? ingestToken : "••••••••••••••••"}
                   </code>
-                  <div className="mt-3 flex gap-2">
-                    <button type="button" onClick={() => setShown(!shown)} className="btn-secondary h-11 rounded-full px-[18px] text-[15px] font-semibold">
-                      {shown ? "Hide" : "Show"}
-                    </button>
-                    <CopyButton text={`Bearer ${ingestToken}`} label="Copy header" />
-                  </div>
+                  {ingestToken !== null && (
+                    <div className="mt-3 flex gap-2">
+                      <button type="button" onClick={() => setShown(!shown)} className="btn-secondary h-11 rounded-full px-[18px] text-[15px] font-semibold">
+                        {shown ? "Hide" : "Show"}
+                      </button>
+                      <CopyButton text={`Bearer ${ingestToken}`} label="Copy header" />
+                    </div>
+                  )}
                 </div>
               </div>
             </Step>

@@ -1,4 +1,3 @@
-import { env } from "cloudflare:workers";
 import { useEffect, useMemo, useRef, useState } from "react";
 import { Form, redirect, useRevalidator } from "react-router";
 import type { Route } from "./+types/workout";
@@ -7,7 +6,7 @@ import { Segmented } from "~/components/Segmented";
 import { Sheet } from "~/components/Sheet";
 import { BackButton, BarSpacer, Card, FloatingBar, Icon } from "~/components/ui";
 import { exerciseImage, exercises, plan } from "~/content";
-import { getDb } from "~/db/client";
+import { userDb } from "~/server/current-user.server";
 import { optionalTemplateFor, templateFor } from "~/domain/calendar";
 import { isISODate, localDate } from "~/domain/dates";
 import { send } from "~/lib/offline-queue";
@@ -41,7 +40,7 @@ const backTo = (from: unknown) => BACK[from as keyof typeof BACK] ?? "/";
 export async function loader({ request }: Route.LoaderArgs) {
   const url = new URL(request.url);
   const now = serverNow();
-  const db = getDb(env.DB);
+  const db = userDb();
   const today = localDate(now);
   // A past date opens that day's workout to log it late or fix a set.
   const asked = url.searchParams.get("date");
@@ -61,7 +60,7 @@ export async function loader({ request }: Route.LoaderArgs) {
 
 export async function action({ request }: Route.ActionArgs) {
   const form = await request.formData();
-  const db = getDb(env.DB);
+  const db = userDb();
   const now = serverNow();
   const today = localDate(now);
   const date = form.get("date") ? String(form.get("date")) : today;

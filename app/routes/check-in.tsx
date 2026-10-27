@@ -1,4 +1,3 @@
-import { env } from "cloudflare:workers";
 import { between } from "drizzle-orm";
 import { useMemo, useState } from "react";
 import { Form, Link, redirect } from "react-router";
@@ -9,7 +8,7 @@ import { Sheet } from "~/components/Sheet";
 import { Toggle } from "~/components/Toggle";
 import { BackButton, Card, FloatingBar, Icon, Screen, SectionTitle, Tile } from "~/components/ui";
 import { meals } from "~/content";
-import { getDb } from "~/db/client";
+import { userDb } from "~/server/current-user.server";
 import { mealState, plannedMeals } from "~/db/schema";
 import { addDays, localDate, weekStart, weekday } from "~/domain/dates";
 import { encodeSwap, freshMeals, parseSwaps, previewWeek, swapFits, type MealSwap } from "~/domain/next-week";
@@ -26,7 +25,7 @@ export function meta() {
 const ISO = /^\d{4}-\d{2}-\d{2}$/;
 
 export async function loader({ request }: Route.LoaderArgs) {
-  const db = getDb(env.DB);
+  const db = userDb();
   const now = serverNow();
   const param = new URL(request.url).searchParams.get("week");
   const window = checkInWindow(now);
@@ -71,7 +70,7 @@ export async function action({ request }: Route.ActionArgs) {
   if (!ISO.test(week)) return { error: "Bad week" };
   const waist = form.get("waist") ? Number(form.get("waist")) : null;
   await completeCheckIn(
-    getDb(env.DB),
+    userDb(),
     weekStart(week),
     {
       waist: waist !== null && Number.isFinite(waist) && waist > 20 && waist < 60 ? Math.round(waist * 10) / 10 : null,

@@ -1,11 +1,10 @@
-import { env } from "cloudflare:workers";
 import { useState } from "react";
 import { Link } from "react-router";
 import type { Route } from "./+types/progress";
 import { WeighInSheet } from "~/components/WeighInSheet";
 import { WeightChart } from "~/components/WeightChart";
 import { Card, Icon, LargeTitle, Screen, SectionTitle, Tile } from "~/components/ui";
-import { getDb } from "~/db/client";
+import { userDb } from "~/server/current-user.server";
 import { isISODate, localDate } from "~/domain/dates";
 import { deleteWeighIn, setWeighIn } from "~/server/body.server";
 import { serverNow } from "~/server/clock.server";
@@ -16,12 +15,12 @@ export function meta() {
 }
 
 export async function loader(_args: Route.LoaderArgs) {
-  return { p: await progressData(getDb(env.DB), localDate(serverNow())) };
+  return { p: await progressData(userDb(), localDate(serverNow())) };
 }
 
 export async function action({ request }: Route.ActionArgs) {
   const form = await request.formData();
-  const db = getDb(env.DB);
+  const db = userDb();
   const now = serverNow();
   const date = form.get("date");
   if (!isISODate(date) || date > localDate(now)) return { error: "Pick a day that has happened." };

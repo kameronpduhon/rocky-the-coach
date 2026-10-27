@@ -1,4 +1,3 @@
-import { env } from "cloudflare:workers";
 import { useState } from "react";
 import { Link, useSearchParams } from "react-router";
 import type { Route } from "./+types/library";
@@ -6,7 +5,7 @@ import { MealPhoto } from "~/components/MealPhoto";
 import { Segmented } from "~/components/Segmented";
 import { Card, Icon, LargeTitle, Screen, SectionTitle } from "~/components/ui";
 import { exerciseImage, exercises, GROUP_LABEL, meals, plan } from "~/content";
-import { getDb } from "~/db/client";
+import { userDb } from "~/server/current-user.server";
 import { exerciseOverrides, mealState } from "~/db/schema";
 import { localDate } from "~/domain/dates";
 import { serverNow } from "~/server/clock.server";
@@ -26,7 +25,7 @@ const TEMPLATE_DAY: Record<string, string> = {
 const EQUIPMENT: Record<string, string> = { barbell: "Barbell", "body-weight": "Body weight", cable: "Cable", dumbbell: "Dumbbells", machine: "Machine" };
 
 export async function loader(_args: Route.LoaderArgs) {
-  const db = getDb(env.DB);
+  const db = userDb();
   const [state, overrides] = await Promise.all([db.select().from(mealState).all(), db.select().from(exerciseOverrides).all()]);
   const today = localDate(serverNow());
   const usedBy = new Map<string, string[]>();

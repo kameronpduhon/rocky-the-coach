@@ -1,4 +1,3 @@
-import { env } from "cloudflare:workers";
 import { useState } from "react";
 import { redirect, useFetcher, useNavigate } from "react-router";
 import type { Route } from "./+types/meal";
@@ -7,7 +6,7 @@ import { Segmented } from "~/components/Segmented";
 import { Sheet } from "~/components/Sheet";
 import { BackButton, Card, FloatingBar, Icon } from "~/components/ui";
 import { foods, meals, plan } from "~/content";
-import { getDb } from "~/db/client";
+import { userDb } from "~/server/current-user.server";
 import { dayMode } from "~/domain/calendar";
 import { formatClock, mealDate, parseTime } from "~/domain/dates";
 import { scaleGrams } from "~/domain/macros";
@@ -32,7 +31,7 @@ const STATE_LABEL = { raw: "Raw", cooked: "Cooked", "as-is": "As is" } as const;
 export async function loader({ request, params }: Route.LoaderArgs) {
   const meal = meals.get(params.slug);
   if (!meal) throw new Response("Not found", { status: 404 });
-  const db = getDb(env.DB);
+  const db = userDb();
   const now = serverNow();
   const date = mealDate(now);
   const [day, rested, photo, batch] = await Promise.all([
@@ -74,7 +73,7 @@ export async function loader({ request, params }: Route.LoaderArgs) {
 export async function action({ request, params }: Route.ActionArgs) {
   const meal = meals.get(params.slug);
   if (!meal) throw new Response("Not found", { status: 404 });
-  const db = getDb(env.DB);
+  const db = userDb();
   const now = serverNow();
   const date = mealDate(now);
   const form = await request.formData();

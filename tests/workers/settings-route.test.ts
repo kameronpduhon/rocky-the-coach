@@ -10,7 +10,7 @@ describe("settings actions", () => {
 
   it("backs up on demand", async () => {
     const res = (await action(routeArgs(post("http://localhost/settings", { intent: "backup" })))) as { backup: string };
-    expect(res.backup).toMatch(/^backups\/\d{4}-\d{2}-\d{2}\.json$/);
+    expect(res.backup).toMatch(/^backups\/kameron\/\d{4}-\d{2}-\d{2}\.json$/);
     expect(await env.MEDIA.get(res.backup)).not.toBeNull();
   });
 

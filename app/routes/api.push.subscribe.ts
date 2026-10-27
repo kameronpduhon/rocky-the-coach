@@ -1,6 +1,5 @@
-import { env } from "cloudflare:workers";
 import type { Route } from "./+types/api.push.subscribe";
-import { getDb } from "~/db/client";
+import { userDb } from "~/server/current-user.server";
 import { saveSubscription } from "~/server/push.server";
 
 export async function loader() {
@@ -12,6 +11,6 @@ export async function action({ request }: Route.ActionArgs) {
   if (!body?.endpoint?.startsWith("https://") || !body.keys?.p256dh || !body.keys.auth) {
     return Response.json({ error: "Bad subscription" }, { status: 400 });
   }
-  await saveSubscription(getDb(env.DB), { endpoint: body.endpoint, keys: { p256dh: body.keys.p256dh, auth: body.keys.auth } });
+  await saveSubscription(userDb(), { endpoint: body.endpoint, keys: { p256dh: body.keys.p256dh, auth: body.keys.auth } });
   return Response.json({ ok: true });
 }

@@ -1,4 +1,3 @@
-import { env } from "cloudflare:workers";
 import { useState } from "react";
 import { Form, Link, useFetcher } from "react-router";
 import type { Route } from "./+types/today";
@@ -9,7 +8,7 @@ import { Sheet } from "~/components/Sheet";
 import { WeighInSheet } from "~/components/WeighInSheet";
 import { Card, Icon, LargeTitle, Screen, SectionTitle } from "~/components/ui";
 import { messages } from "~/content";
-import { getDb } from "~/db/client";
+import { userDb } from "~/server/current-user.server";
 import { localDate, mealDate } from "~/domain/dates";
 import { CUSTOM_WORKOUT } from "~/domain/types";
 import { pickSituation, renderMessage } from "~/domain/messages";
@@ -24,7 +23,7 @@ export function meta() {
 
 export async function loader(_args: Route.LoaderArgs) {
   const now = serverNow();
-  const db = getDb(env.DB);
+  const db = userDb();
   const day = await loadDay(db, mealDate(now), now);
   const lunch = day.slots.find((s) => s.slot === "lunch")?.meal.name ?? "lunch";
   const next = day.slots.find((s) => s.slot === day.nextSlot)?.meal.name ?? "breakfast tomorrow";
@@ -55,7 +54,7 @@ export async function loader(_args: Route.LoaderArgs) {
 
 export async function action({ request }: Route.ActionArgs) {
   const form = await request.formData();
-  const db = getDb(env.DB);
+  const db = userDb();
   const now = serverNow();
   switch (form.get("intent")) {
     case "weigh-in": {

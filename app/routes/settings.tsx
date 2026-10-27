@@ -66,7 +66,7 @@ export default function Settings({ loaderData }: Route.ComponentProps) {
 
       <div className="flex flex-col rounded-[6px] border-[1.5px] border-ink p-3.5">
         <span className="text-[17px] font-bold">Signed in as {name}</span>
-        {otherName && <span className="text-[14px] text-ink-3">{otherName}'s plan, logs and check-ins are kept separately.</span>}
+        {otherName && <span className="text-[14px] leading-tight text-ink-3">{otherName}'s plan, logs and check-ins are kept separately.</span>}
       </div>
 
       <section aria-labelledby="rocky" className="flex flex-col gap-3.5">
@@ -145,8 +145,8 @@ function VoicePicker({ voice }: { voice: "corner" | "plain" }) {
               onClick={() => !on && void mutate("setVoice", { voice: v.value })}
               className={`min-h-16 rounded-[6px] px-2.5 py-2 text-left ${on ? "border-2 border-ink bg-ink text-paper" : "border-[1.5px] border-border text-ink"}`}
             >
-              <span className="block font-num text-[16px] font-bold">{v.name}</span>
-              <span className={`block text-[13px] ${on ? "text-on-ink-2" : "text-ink-3"}`}>{v.note}</span>
+              <span className="block font-num text-[16px] font-bold leading-tight">{v.name}</span>
+              <span className={`block text-[13px] leading-tight ${on ? "text-on-ink-2" : "text-ink-3"}`}>{v.note}</span>
             </button>
           );
         })}

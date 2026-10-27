@@ -8,11 +8,11 @@ import { Sheet } from "~/components/Sheet";
 import { WeighInSheet } from "~/components/WeighInSheet";
 import { Card, Icon, LargeTitle, Screen, SectionTitle } from "~/components/ui";
 import { messages } from "~/content";
-import { userDb } from "~/server/current-user.server";
+import { currentUser, userDb } from "~/server/current-user.server";
 import { localDate, mealDate } from "~/domain/dates";
 import { CUSTOM_WORKOUT } from "~/domain/types";
 import { pickSituation, renderMessage } from "~/domain/messages";
-import { logWeighIn } from "~/server/body.server";
+import { logWeighIn, stepsFor, weighInFor } from "~/server/body.server";
 import { loadDay } from "~/server/day.server";
 import { logOffPlan, type OffPlanCategory } from "~/server/meals.server";
 import { serverNow } from "~/server/clock.server";
@@ -24,6 +24,11 @@ export function meta() {
 export async function loader(_args: Route.LoaderArgs) {
   const now = serverNow();
   const db = userDb();
+  const user = currentUser();
+  if (!user.planKey) {
+    const date = localDate(now);
+    return { noPlan: true as const, name: user.name, date, weighIn: await weighInFor(db, date), steps: await stepsFor(db, date) };
+  }
   const day = await loadDay(db, mealDate(now), now);
   const lunch = day.slots.find((s) => s.slot === "lunch")?.meal.name ?? "lunch";
   const next = day.slots.find((s) => s.slot === day.nextSlot)?.meal.name ?? "breakfast tomorrow";
@@ -82,6 +87,32 @@ export async function action({ request }: Route.ActionArgs) {
 const DATE_FMT = new Intl.DateTimeFormat("en-US", { weekday: "long", month: "short", day: "numeric", timeZone: "UTC" });
 
 export default function Today({ loaderData }: Route.ComponentProps) {
+  return loaderData.noPlan ? <PlanOnTheWay {...loaderData} /> : <TodayWithPlan loaderData={loaderData} />;
+}
+
+function PlanOnTheWay({ name, date, weighIn, steps }: { name: string; date: string; weighIn: number | null; steps: number }) {
+  return (
+    <Screen>
+      <LargeTitle
+        eyebrow={DATE_FMT.format(new Date(`${date}T12:00:00Z`))}
+        title="Today"
+        right={
+          <Link to="/settings" aria-label="Settings" className="glass flex size-11 items-center justify-center rounded-full">
+            <Icon name="gear" />
+          </Link>
+        }
+      />
+      {weighIn === null ? <WeighInCard /> : <Card className="tabular px-[18px] py-4 text-[17px] font-semibold">Weigh-in {weighIn} lb</Card>}
+      <Card className="flex flex-col gap-1 px-[18px] py-4">
+        <h2 className="text-[17px] font-semibold">Your plan is on the way, {name}</h2>
+        <p className="text-[15px] leading-snug text-label-2">Weigh in each morning and keep your steps syncing. Your plan will start from real numbers.</p>
+      </Card>
+      <Card className="tabular px-[18px] py-4 text-[17px]">{steps.toLocaleString()} steps today</Card>
+    </Screen>
+  );
+}
+
+function TodayWithPlan({ loaderData }: { loaderData: Extract<Route.ComponentProps["loaderData"], { day: unknown }> }) {
   const { day, message } = loaderData;
   const [offPlanOpen, setOffPlanOpen] = useState(false);
   const [moveOpen, setMoveOpen] = useState(false);

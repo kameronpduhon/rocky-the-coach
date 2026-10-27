@@ -1,6 +1,18 @@
-import { Outlet, useMatches, useNavigation } from "react-router";
+import { Outlet, redirect, useMatches, useNavigation } from "react-router";
+import type { Route } from "./+types/app-layout";
 import { PendingSync } from "~/components/PendingSync";
 import { TabBar } from "~/components/TabBar";
+import { currentUser } from "~/server/current-user.server";
+
+// Screens that only make sense with a plan. Library and Settings work for everyone.
+const PLAN_ONLY = /^\/(plan|progress|workout|meal|check-in|groceries)(\/|\.data|$)/;
+
+export const middleware: Route.MiddlewareFunction[] = [
+  async ({ request }, next) => {
+    if (!currentUser().planKey && PLAN_ONLY.test(new URL(request.url).pathname)) throw redirect("/");
+    return next();
+  },
+];
 
 export default function AppLayout() {
   const hideTabBar = useMatches().some((m) => (m.handle as { hideTabBar?: boolean } | undefined)?.hideTabBar);

@@ -319,6 +319,10 @@ const defs = {
         if (d.usual) tx.delete("schedule_moves", d.date);
         else tx.put("schedule_moves", { date: d.date, template_id: d.templateId });
       }
+      // A workout planned but not started follows the schedule, so it goes and the day replans from its new workout.
+      for (const r of await tx.scan("workout_sessions")) {
+        if ((r.date === a.a || r.date === a.b) && !r.started_at && !r.ended_at) tx.delete("workout_sessions", keyOf("workout_sessions", r));
+      }
     },
   },
   swapAlways: {

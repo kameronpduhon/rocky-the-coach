@@ -109,4 +109,15 @@ describe("workout mutators", () => {
     await run(tx, "swapAlways", { templateId: LEGS, position: 0, exercise: OTHER });
     expect(await tx.get("exercise_overrides", `${LEGS}|0`)).toEqual({ template_id: LEGS, position: 0, exercise_id: OTHER });
   });
+
+  it("drops a workout planned but not started when its day moves, and keeps a started one", async () => {
+    const tx = await planned();
+    await run(tx, "moveWorkout", { a: "2026-10-28", b: "2026-10-29" });
+    expect(await tx.get("workout_sessions", W)).toBeNull();
+
+    const started = await planned();
+    await run(started, "startWorkout", { workout: W, at: ctx.now });
+    await run(started, "moveWorkout", { a: "2026-10-28", b: "2026-10-29" });
+    expect(await started.get("workout_sessions", W)).toMatchObject({ started_at: ctx.now });
+  });
 });

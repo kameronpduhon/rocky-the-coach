@@ -23,7 +23,7 @@ export function ProteinBar({ segments, target }: { segments: ProteinSegment[]; t
         ))}
       </div>
       <span aria-hidden="true" className="absolute top-[-4px] h-[22px] w-0.5 bg-red" style={{ left: `calc(${at}% - 1px)` }} />
-      <span aria-hidden="true" className="tabular absolute top-5 -translate-x-full pr-1 font-num text-[12px] font-bold text-ink-3" style={{ left: `${at}%` }}>
+      <span aria-hidden="true" className="tabular absolute top-5 -translate-x-full whitespace-nowrap pr-1 font-num text-[12px] font-bold text-ink-3" style={{ left: `${at}%` }}>
         {target} g
       </span>
     </div>

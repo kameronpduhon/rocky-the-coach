@@ -118,7 +118,7 @@ function PlanOnTheWay({ m, name }: { m: NoPlanToday; name: string }) {
         <WeighInRow date={m.date} />
       )}
       <Poster lines={["Your plan", "is on the way."]} meta={`Weigh in each morning and keep your steps syncing, ${name}. Your plan starts from real numbers.`} />
-      <p className="tabular text-[16px] text-ink-2">{m.steps.toLocaleString()} steps today</p>
+      <p className="text-[16px] tabular-nums text-ink-2">{m.steps.toLocaleString()} steps today</p>
     </Page>
   );
 }
@@ -223,7 +223,7 @@ function NextUpPoster({ m }: { m: PlanToday }) {
           {scaleList(s.meal).map((i) => (
             <li key={i.name} className="flex justify-between gap-2 border-b border-rule pb-1.5">
               <span>{i.name}</span>
-              <span className="tabular font-num font-bold">{i.grams} g</span>
+              <span className="tabular whitespace-nowrap font-num font-bold">{i.grams} g</span>
             </li>
           ))}
         </ul>
@@ -266,7 +266,7 @@ function Fuel({ m, eatenAtOpen, onAteElse }: { m: PlanToday; eatenAtOpen: Set<st
           <span className="tabular text-[16px] font-bold">{left > 0 ? `${left} to go` : "Done"}</span>
         </div>
         <ProteinBar segments={segments} target={m.targets.proteinG} />
-        <p className="tabular text-[15px] text-ink-3">
+        <p className="text-[15px] tabular-nums text-ink-3">
           {m.totals.kcal.toLocaleString()} of {m.targets.kcal.toLocaleString()} cal · {m.steps.toLocaleString()} of {m.targets.stepGoal.toLocaleString()} steps
         </p>
       </div>
@@ -278,7 +278,7 @@ function Fuel({ m, eatenAtOpen, onAteElse }: { m: PlanToday; eatenAtOpen: Set<st
         {m.offPlan.map((o) => (
           <li key={o.key} className="flex min-h-12 items-center gap-3 border-t border-rule">
             <span className="flex-1 text-[16px]">
-              {o.name} <span className="tabular text-[14px] text-ink-3">· {o.kcal} cal</span>
+              {o.name} <span className="whitespace-nowrap text-[14px] tabular-nums text-ink-3">· {o.kcal} cal</span>
             </span>
             <button type="button" aria-label={`Remove ${o.name}`} onClick={() => void mutate("deleteOffPlan", { key: o.key })} className="flex size-11 items-center justify-center text-ink-3">
               <svg aria-hidden="true" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.4" strokeLinecap="round">
@@ -308,7 +308,7 @@ function MealRow({ s, date, fresh }: { s: SlotModel; date: string; fresh: boolea
       <li className="flex min-h-12 items-center gap-3 border-t border-rule">
         <span className="tabular w-11 font-num text-[15px] font-semibold text-muted">{s.time}</span>
         <Link to={recipe} className="flex-1 text-[16px] text-muted">
-          {s.meal.name} · {s.meal.protein} g
+          {s.meal.name} <span className="whitespace-nowrap tabular-nums">· {s.meal.protein} g</span>
         </Link>
         <button type="button" aria-label={`Mark ${s.meal.name} not eaten`} onClick={() => void mutate("unlogMeal", { key: s.logKey })} className="flex h-11 items-center gap-1 text-[14px] font-semibold text-ink-3">
           <span className={`text-ink ${fresh ? "check-land" : ""}`}>
@@ -328,7 +328,7 @@ function MealRow({ s, date, fresh }: { s: SlotModel; date: string; fresh: boolea
         </span>
         <Link to={recipe} className="flex flex-1 flex-col">
           <span className="text-[17px] font-bold">{s.meal.name}</span>
-          <span className="tabular text-[14px] text-ink-3">
+          <span className="text-[14px] tabular-nums text-ink-3">
             {s.meal.kcal} cal · {s.meal.protein} g protein
           </span>
         </Link>
@@ -343,7 +343,7 @@ function MealRow({ s, date, fresh }: { s: SlotModel; date: string; fresh: boolea
       <span className="tabular w-11 font-num text-[15px] font-semibold text-muted">{s.time}</span>
       <Link to={recipe} className="flex flex-1 flex-col">
         <span className="text-[16px]">{s.meal.name}</span>
-        <span className="tabular text-[14px] text-muted">
+        <span className="text-[14px] tabular-nums text-muted">
           {s.meal.kcal} cal · {s.meal.protein} g
         </span>
       </Link>

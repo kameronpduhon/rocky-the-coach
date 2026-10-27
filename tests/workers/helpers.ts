@@ -1,5 +1,6 @@
 import { env } from "cloudflare:test";
 import { getDb } from "~/db/client";
+import { hashPassword } from "~/server/password";
 
 export const db = () => getDb(env.DB);
 
@@ -14,4 +15,12 @@ export function post(url: string, fields: Record<string, string | Blob>): Reques
   const body = new FormData();
   for (const [k, v] of Object.entries(fields)) body.set(k, v);
   return new Request(url, { method: "POST", body });
+}
+
+export async function setPassword(nameKey: string, password: string): Promise<void> {
+  await env.CORE.prepare("update users set password_hash = ? where name_key = ?").bind(await hashPassword(password), nameKey).run();
+}
+
+export async function setIngestToken(nameKey: string, token: string): Promise<void> {
+  await env.CORE.prepare("update users set ingest_token = ? where name_key = ?").bind(token, nameKey).run();
 }

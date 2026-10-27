@@ -1,6 +1,17 @@
 import { isRouteErrorResponse, Links, Meta, Outlet, Scripts, ScrollRestoration } from "react-router";
 import type { Route } from "./+types/root";
 import "./app.css";
+// Latin subsets only. The service worker caches /assets/ on first use, so these work offline after one visit.
+import "@fontsource/anton/latin-400.css";
+import "@fontsource/barlow/latin-400.css";
+import "@fontsource/barlow/latin-500.css";
+import "@fontsource/barlow/latin-600.css";
+import "@fontsource/barlow/latin-700.css";
+import "@fontsource/barlow-semi-condensed/latin-600.css";
+import "@fontsource/barlow-semi-condensed/latin-700.css";
+import antonWoff2 from "@fontsource/anton/files/anton-latin-400-normal.woff2?url";
+import barlowWoff2 from "@fontsource/barlow/files/barlow-latin-400-normal.woff2?url";
+import numWoff2 from "@fontsource/barlow-semi-condensed/files/barlow-semi-condensed-latin-700-normal.woff2?url";
 import { authenticate } from "~/server/auth.server";
 import { runAsUser } from "~/server/current-user.server";
 
@@ -14,9 +25,14 @@ export const middleware: Route.MiddlewareFunction[] = [
   },
 ];
 
+const preloadFont = (href: string) => ({ rel: "preload", href, as: "font", type: "font/woff2", crossOrigin: "anonymous" as const });
+
 export const links: Route.LinksFunction = () => [
   { rel: "manifest", href: "/manifest.webmanifest" },
   { rel: "apple-touch-icon", href: "/icons/apple-touch-icon.png" },
+  preloadFont(antonWoff2),
+  preloadFont(barlowWoff2),
+  preloadFont(numWoff2),
 ];
 
 export function meta() {

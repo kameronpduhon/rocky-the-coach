@@ -60,7 +60,7 @@ export function WeightChart({ series }: { series: Point[] }) {
         {ticks.map((t) => (
           <g key={t}>
             <line x1={LEFT} x2={W} y1={y(t)} y2={y(t)} stroke="var(--fill)" />
-            <text x="0" y={y(t) + 4} fill="var(--label-3)" fontSize="11">
+            <text x="0" y={y(t) + 4} fill="var(--label-3)" fontSize="12" fontWeight="700">
               {t}
             </text>
           </g>
@@ -68,11 +68,11 @@ export function WeightChart({ series }: { series: Point[] }) {
         {series.map((p, i) => (p.weight !== null ? <circle key={p.date} cx={x(i)} cy={y(p.weight)} r="3" fill="var(--chart-dot)" /> : null))}
         <polyline fill="none" stroke="var(--protein)" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round" points={avgPoints} />
         {lastAvgIndex >= 0 && <circle cx={x(lastAvgIndex)} cy={y(series[lastAvgIndex].avg!)} r="5" fill="var(--protein)" stroke="var(--card)" strokeWidth="2" />}
-        <text x={x(0)} y={H - 6} fill="var(--label-3)" fontSize="11">
+        <text x={x(0)} y={H - 6} fill="var(--label-3)" fontSize="12" fontWeight="700">
           {label(series[0].date)}
         </text>
         {series.length > 1 && (
-          <text x={x(series.length - 1)} y={H - 6} fill="var(--label-3)" fontSize="11" textAnchor="end">
+          <text x={x(series.length - 1)} y={H - 6} fill="var(--label-3)" fontSize="12" fontWeight="700" textAnchor="end">
             {label(series.at(-1)!.date)}
           </text>
         )}

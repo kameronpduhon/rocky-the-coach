@@ -1,82 +1,52 @@
+/* Corner revised, measured from the approved mocks. docs/design/system.md says where each one goes. Light only. */
 :root {
-  --bg: #f2f2f7;
-  --card: #ffffff;
-  --fill: #e5e5ea;
-  --separator: #c6c6c8;
-  --label: #000000;
-  --label-2: #6c6c70;
-  --label-3: #6c6c70;
-  --label-4: #aeaeb2;
-  --calories: #d70f45;
-  --protein: #0071a4;
-  --steps: #248a3d;
-  --warn: #b25000;
-  /* Text that sits on data color or on fill. Light --steps is 4.40:1 on white and --label-2 is 4.16:1 on
-     --fill, both under 4.5:1, so text gets a darker step (5.39:1 and 5.63:1). */
-  --steps-text: #1f7a36;
-  --label-on-fill: #58585d;
-  /* Secondary text on glass: the rest pill and unselected segments. --label-2 drops to about 3.9:1 on a dark
-     segmented track inside a sheet (about #3C3A3D); this stays above 5:1 there and on the page. */
-  --label-on-glass: #58585d;
-  /* Chip text is the data color on its own tint. Over white, 6% keeps it above 4.5:1
-     (#FDF1F4 gives 4.71:1 for calories, #F0F6FA gives 4.94:1 for protein). */
-  --calories-chip-bg: color-mix(in srgb, var(--calories) 6%, #ffffff);
-  --protein-chip-bg: color-mix(in srgb, var(--protein) 6%, #ffffff);
-  /* Daily weigh-in dots: #AEAEB2 (--label-4) fades to 2.2:1 on white, this keeps them at 3.3:1. */
-  --chart-dot: #8e8e93;
-  --toggle-off: #e9e9ea;
-  --timeline-past: #aeaeb2;
-  --sheet-bg: #f2f2f7;
-  --sheet-card: #ffffff;
-  --glass-fill: rgba(255, 255, 255, 0.6);
-  --glass-fill-strong: rgba(250, 250, 252, 0.72);
-  --glass-border: rgba(0, 0, 0, 0.08);
-  --glass-highlight: rgba(255, 255, 255, 0.9);
-  --glass-shadow: 0 10px 30px rgba(0, 0, 0, 0.12);
-  --glass-selected: rgba(0, 0, 0, 0.08);
-  --segment-selected: #ffffff;
-  --segment-selected-border: rgba(0, 0, 0, 0.04);
-  --segment-selected-shadow: 0 3px 10px rgba(0, 0, 0, 0.1);
-  --prominent-fill: #000000;
-  --prominent-label: #ffffff;
-  color-scheme: light;
-}
+  --paper: #f3eee4;
+  --raised: #fbf8f2;
+  --well: #e8e0d2;
+  --field: #ffffff;
+  --ink: #1a1714;
+  --ink-2: #3a332a;
+  --ink-3: #4a443c;
+  --muted: #6b6358;
+  --rule: #ded5c5;
+  /* Outlines only: 3.1:1 on paper is enough for a control edge, not for text. */
+  --border: #8f8677;
+  --underline: #b9af9e;
+  --red: #bf3326;
+  --on-red: #ffffff;
+  --brass-tag: #7e6020;
+  --brass-on: #fbf6ea;
+  --brass-border: #9c7a2e;
+  --brass-fill: #f8f1e1;
+  --coral: #f08a7e;
+  --on-ink-2: #d9d0c0;
 
-@media (prefers-color-scheme: dark) {
-  :root {
-    --bg: #000000;
-    --card: #1c1c1e;
-    --fill: #2c2c2e;
-    --separator: #38383a;
-    --label: #ffffff;
-    --label-2: #98989f;
-    --label-3: #8e8e93;
-    --label-4: #636366;
-    --calories: #ff375f;
-    --protein: #64d2ff;
-    --steps: #30d158;
-    --warn: #ff9f0a;
-    --steps-text: #30d158;
-    --label-on-fill: #98989f;
-    --label-on-glass: #aeaeb2;
-    --calories-chip-bg: color-mix(in srgb, var(--calories) 16%, transparent);
-    --protein-chip-bg: color-mix(in srgb, var(--protein) 16%, transparent);
-    --chart-dot: #636366;
-    --toggle-off: #39393d;
-    --timeline-past: #48484a;
-    --sheet-bg: #1c1c1e;
-    --sheet-card: #2c2c2e;
-    --glass-fill: rgba(255, 255, 255, 0.1);
-    --glass-fill-strong: rgba(40, 40, 44, 0.55);
-    --glass-border: rgba(255, 255, 255, 0.22);
-    --glass-highlight: rgba(255, 255, 255, 0.28);
-    --glass-shadow: 0 12px 32px rgba(0, 0, 0, 0.55);
-    --glass-selected: rgba(255, 255, 255, 0.14);
-    --segment-selected: rgba(255, 255, 255, 0.22);
-    --segment-selected-border: rgba(255, 255, 255, 0.3);
-    --segment-selected-shadow: 0 4px 12px rgba(0, 0, 0, 0.3);
-    --prominent-fill: rgba(255, 255, 255, 0.94);
-    --prominent-label: #000000;
-    color-scheme: dark;
-  }
+  /* v1 names, pointed at the new palette until each screen is rebuilt. The three data colours become three inks:
+     protein is the one number, and red never marks food. */
+  --bg: var(--paper);
+  --sheet-bg: var(--paper);
+  --card: var(--raised);
+  --sheet-card: var(--raised);
+  --calories-chip-bg: var(--raised);
+  --protein-chip-bg: var(--raised);
+  --fill: var(--well);
+  --toggle-off: var(--well);
+  --glass-selected: var(--well);
+  --separator: var(--rule);
+  --label: var(--ink);
+  --protein: var(--ink);
+  --label-2: var(--ink-3);
+  --label-on-fill: var(--ink-3);
+  --label-on-glass: var(--ink-3);
+  --steps: var(--ink-3);
+  --steps-text: var(--ink-3);
+  --label-3: var(--muted);
+  --calories: var(--muted);
+  --chart-dot: var(--muted);
+  --warn: var(--ink-2);
+  --label-4: var(--border);
+  --timeline-past: var(--border);
+  --prominent-fill: var(--red);
+  --prominent-label: var(--on-red);
+  color-scheme: light;
 }

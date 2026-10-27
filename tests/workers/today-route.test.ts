@@ -8,6 +8,7 @@ import { db, post, routeArgs } from "./helpers";
 describe("today route", () => {
   it("loads a summary and a Rocky message", async () => {
     const data = await loader(routeArgs(new Request("http://localhost/")));
+    if (data.noPlan) throw new Error("Kameron has a plan");
     expect(data.day.slots).toHaveLength(5);
     expect(typeof data.message).toBe("string");
     expect(data.message.length).toBeGreaterThan(5);

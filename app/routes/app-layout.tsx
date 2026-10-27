@@ -30,9 +30,37 @@ export async function loader() {
   return { userId: user.id, name: user.name, hasPlan: Boolean(user.planKey) };
 }
 
+const LAYOUT_KEY = "rocky-layout";
+
+/** Offline, who is signed in has not changed, so the last answer stands in. A redirect to sign in still goes through. */
+export async function clientLoader({ serverLoader }: Route.ClientLoaderArgs) {
+  try {
+    return await serverLoader();
+  } catch (err) {
+    if (err instanceof Response) throw err;
+    let saved: string | null = null;
+    try {
+      saved = localStorage.getItem(LAYOUT_KEY);
+    } catch {
+      saved = null;
+    }
+    if (!saved) throw err;
+    return JSON.parse(saved) as Awaited<ReturnType<typeof loader>>;
+  }
+}
+
 export default function AppLayout({ loaderData }: Route.ComponentProps) {
   const hideTabBar = useMatches().some((m) => (m.handle as { hideTabBar?: boolean } | undefined)?.hideTabBar);
   const loading = useNavigation().state === "loading";
+  // Saved from the component, not the clientLoader, because the first load renders the server's answer without
+  // running the clientLoader. An app opened offline and never navigated online would otherwise have nothing saved.
+  useEffect(() => {
+    try {
+      localStorage.setItem(LAYOUT_KEY, JSON.stringify(loaderData));
+    } catch {
+      // Private mode can refuse storage. The live answer is still good.
+    }
+  }, [loaderData]);
   useEffect(() => {
     if (reportingInp) return;
     reportingInp = true;

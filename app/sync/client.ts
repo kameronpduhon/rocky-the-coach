@@ -42,6 +42,7 @@ export class SyncClient {
   private again = false;
   private failures = 0;
   private retryTimer: ReturnType<typeof setTimeout> | null = null;
+  private stopped = false;
   private state: SyncStatus = { waiting: 0, online: true, lastSyncedAt: null, rejected: [], ready: false };
   private statusListeners = new Set<() => void>();
 
@@ -59,6 +60,7 @@ export class SyncClient {
 
   /** Applies a change now and queues it. A change the rules refuse is reported in status, and this returns false. */
   async mutate(name: string, args: unknown): Promise<boolean> {
+    if (this.stopped) return false;
     try {
       await this.store.mutate(name, args);
     } catch (err) {
@@ -74,6 +76,7 @@ export class SyncClient {
 
   /** Pushes anything waiting, then pulls. Overlapping calls coalesce into one more round. */
   sync(): Promise<void> {
+    if (this.stopped) return Promise.resolve();
     this.again = true;
     // `running` is cleared in the same tick as the last `again` check. A .finally() would leave a gap where a call
     // sees a loop that has already ended and its change is never pushed.
@@ -144,6 +147,7 @@ export class SyncClient {
   }
 
   private async persist(): Promise<void> {
+    if (this.stopped) return;
     await this.opts.persistence.save({ clientId: this.clientId, ...this.store.save() }).catch(() => undefined);
   }
 
@@ -157,8 +161,9 @@ export class SyncClient {
     this.updateStatus({ rejected: [] });
   }
 
-  /** Cancels a scheduled retry. Called when the app unmounts the client. */
+  /** Stops for good: no more rounds, retries or saves. Called on unmount, or when another tab takes over. */
   stop(): void {
+    this.stopped = true;
     if (this.retryTimer) clearTimeout(this.retryTimer);
     this.retryTimer = null;
   }

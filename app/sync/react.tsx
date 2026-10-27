@@ -2,9 +2,11 @@ import { createContext, useCallback, useContext, useEffect, useState, useSyncExt
 import { useLocation } from "react-router";
 import { localDate } from "~/domain/dates";
 import { SyncClient } from "./client";
-import { idbPersistence } from "./idb";
+import { forgetOtherPeople, idbPersistence } from "./idb";
 import type { MutationName } from "./mutators";
+import { claimSync } from "./tab-lock";
 import type { Row } from "./tables";
+import { btn } from "~/ui/button";
 
 const SyncContext = createContext<SyncClient | null>(null);
 
@@ -25,31 +27,69 @@ function createClient(userId: number): SyncClient {
   });
 }
 
-/** Starts the person's sync client in the browser. Renders children immediately; nothing waits on sync. */
+/** Starts the person's sync client in the browser, in one tab at a time. Nothing waits on sync. */
 export function SyncProvider({ userId, children }: { userId: number; children: React.ReactNode }) {
   const [client, setClient] = useState<SyncClient | null>(null);
+  const [elsewhere, setElsewhere] = useState(false);
+  // Each "Use Rocky here" tap bumps this, which re-claims the lock with steal.
+  const [takeovers, setTakeovers] = useState(0);
   useEffect(() => {
-    const c = createClient(userId);
-    void c.start();
-    void navigator.storage?.persist?.().catch(() => undefined);
-    const resync = () => document.visibilityState === "visible" && void c.sync();
-    const timer = window.setInterval(resync, 60_000);
-    document.addEventListener("visibilitychange", resync);
-    window.addEventListener("online", resync);
-    setClient(c);
-    return () => {
-      c.stop();
-      window.clearInterval(timer);
-      document.removeEventListener("visibilitychange", resync);
-      window.removeEventListener("online", resync);
+    let running: SyncClient | null = null;
+    let stopListening: () => void = () => {};
+    const shutdown = () => {
+      stopListening();
+      running?.stop();
+      running = null;
+      setClient(null);
     };
-  }, [userId]);
+    const release = claimSync(navigator.locks, `rocky-sync-${userId}`, takeovers > 0, {
+      held() {
+        setElsewhere(false);
+        const c = createClient(userId);
+        running = c;
+        void c.start();
+        void navigator.storage?.persist?.().catch(() => undefined);
+        void forgetOtherPeople(userId);
+        const resync = () => document.visibilityState === "visible" && void c.sync();
+        const timer = window.setInterval(resync, 60_000);
+        document.addEventListener("visibilitychange", resync);
+        window.addEventListener("online", resync);
+        stopListening = () => {
+          window.clearInterval(timer);
+          document.removeEventListener("visibilitychange", resync);
+          window.removeEventListener("online", resync);
+        };
+        setClient(c);
+      },
+      elsewhere() {
+        shutdown();
+        setElsewhere(true);
+      },
+    });
+    return () => {
+      release();
+      shutdown();
+    };
+  }, [userId, takeovers]);
   // Pull on every navigation, so a v1 screen's server action (a set, a swap) shows on the next screen at once.
   const { key } = useLocation();
   useEffect(() => {
     void client?.sync();
   }, [client, key]);
+  if (elsewhere) return <OpenElsewhere onUseHere={() => setTakeovers((n) => n + 1)} />;
   return <SyncContext.Provider value={client}>{children}</SyncContext.Provider>;
+}
+
+function OpenElsewhere({ onUseHere }: { onUseHere: () => void }) {
+  return (
+    <main className="mx-auto flex min-h-dvh w-full max-w-[560px] flex-col justify-center gap-4 px-5">
+      <h1 className="font-display text-[48px] uppercase leading-none">Open in another tab.</h1>
+      <p className="text-[17px] leading-[1.45] text-ink-2">Rocky keeps one copy in step at a time, so changes never cross. Close the other tab, or use Rocky here.</p>
+      <button type="button" onClick={onUseHere} className={`${btn.primary} h-14`}>
+        Use Rocky here
+      </button>
+    </main>
+  );
 }
 
 export function useSyncClient(): SyncClient | null {

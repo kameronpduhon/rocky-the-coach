@@ -43,7 +43,7 @@ export default function Login({ actionData }: Route.ComponentProps) {
           autoComplete="username"
           autoCapitalize="words"
           required
-          className="h-[52px] rounded-[14px] bg-fill px-4 text-[17px] outline-none"
+          className="h-[52px] rounded-[6px] bg-fill px-4 text-[17px] outline-none"
         />
         <label htmlFor="password" className="text-[13px] font-semibold text-label-2">
           Password
@@ -54,7 +54,7 @@ export default function Login({ actionData }: Route.ComponentProps) {
           type="password"
           autoComplete="current-password"
           required
-          className="h-[52px] rounded-[14px] bg-fill px-4 text-[17px] outline-none"
+          className="h-[52px] rounded-[6px] bg-fill px-4 text-[17px] outline-none"
         />
         {actionData?.error && <p className="text-[15px] text-calories">{actionData.error}</p>}
         <button type="submit" disabled={busy} className="btn-prominent mt-2 h-[54px] rounded-full text-[17px] font-semibold">

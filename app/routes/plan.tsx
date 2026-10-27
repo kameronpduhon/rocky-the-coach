@@ -169,7 +169,7 @@ export default function Plan({ loaderData }: Route.ComponentProps) {
                   className={`flex size-11 flex-none flex-col items-center justify-center rounded-full leading-none ${d.today ? "bg-label text-bg" : "bg-fill"}`}
                   aria-hidden="true"
                 >
-                  <span className={`text-[10px] font-bold ${d.today ? "" : "text-label-on-fill"}`}>{DOW[dow]}</span>
+                  <span className={`text-[13px] font-bold ${d.today ? "" : "text-label-on-fill"}`}>{DOW[dow]}</span>
                   <span className="tabular text-[17px] font-bold">{Number(d.date.slice(8))}</span>
                 </div>
                 <div className="min-w-0 flex-1">
@@ -248,7 +248,7 @@ export default function Plan({ loaderData }: Route.ComponentProps) {
 
       {movingDay && <MoveSheet open onClose={() => setMoving(null)} anchor={movingDay} week={week} today={today} />}
 
-      <Link to="/groceries" className="flex min-h-[60px] items-center justify-between gap-3 rounded-[26px] bg-card px-[18px] py-4">
+      <Link to="/groceries" className="flex min-h-[60px] items-center justify-between gap-3 rounded-[6px] bg-card px-[18px] py-4">
         <span>
           <span className="block text-[16px] font-semibold">Grocery list</span>
           <span className="tabular mt-px block text-[14px] text-label-2">{groceryCount} items for this week's meals</span>
@@ -263,7 +263,7 @@ export default function Plan({ loaderData }: Route.ComponentProps) {
 
 function Target({ label, value, color }: { label: string; value: string; color: string }) {
   return (
-    <div className="rounded-[20px] bg-card p-3.5 leading-[normal]">
+    <div className="rounded-[6px] bg-card p-3.5 leading-[normal]">
       <div className="text-[13px] font-semibold">{label}</div>
       <div className={`tabular mt-0.5 text-[22px] font-bold ${color}`}>{value}</div>
     </div>

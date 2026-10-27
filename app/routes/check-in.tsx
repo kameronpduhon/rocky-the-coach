@@ -187,11 +187,11 @@ export default function CheckIn({ loaderData }: Route.ComponentProps) {
             <Tile label="Workouts" value={`${d.workoutsDone} of ${d.workoutsPlanned}`} sub={d.optionalDone ? `+${d.optionalDone} optional` : "Mon, Wed, Fri"} />
             <Tile label="Avg steps" value={d.avgSteps.toLocaleString()} sub={`goal ${d.stepGoal.toLocaleString()}`} valueGood={d.avgSteps >= d.stepGoal} />
           </div>
-          <div className="flex items-center justify-between gap-3 rounded-[20px] bg-card px-4 py-3.5">
+          <div className="flex items-center justify-between gap-3 rounded-[6px] bg-card px-4 py-3.5">
             <label htmlFor="waist" className="text-[16px] font-medium">
               Waist
             </label>
-            <div className="flex h-11 w-[120px] items-center gap-1.5 rounded-[14px] bg-fill px-3">
+            <div className="flex h-11 w-[120px] items-center gap-1.5 rounded-[6px] bg-fill px-3">
               <input id="waist" name="waist" inputMode="decimal" defaultValue={d.waist ?? ""} placeholder="0.0" className="tabular w-full min-w-0 bg-transparent text-right text-[18px] font-semibold outline-none" />
               <span className="font-semibold text-label-on-fill">in</span>
             </div>
@@ -265,7 +265,7 @@ export default function CheckIn({ loaderData }: Route.ComponentProps) {
               return (
                 <button key={date} type="button" onClick={() => setDayOpen(date)} className="group flex w-full items-center gap-3.5 pl-4 text-left leading-[normal]">
                   <span aria-hidden="true" className="flex size-11 flex-none flex-col items-center justify-center rounded-full bg-fill leading-none">
-                    <span className="text-[10px] font-bold text-label-on-fill">{DOW[weekday(date)].toUpperCase()}</span>
+                    <span className="text-[13px] font-bold text-label-on-fill">{DOW[weekday(date)].toUpperCase()}</span>
                     <span className="tabular text-[17px] font-bold">{Number(date.slice(8))}</span>
                   </span>
                   <span className="sr-only">
@@ -292,7 +292,7 @@ export default function CheckIn({ loaderData }: Route.ComponentProps) {
 
         <section aria-label="Groceries" className="flex flex-col gap-2">
           <SectionTitle>Groceries</SectionTitle>
-          <Link to={`/groceries?${groceryParams}`} className="flex min-h-[60px] items-center justify-between gap-3 rounded-[26px] bg-card px-[18px] py-4">
+          <Link to={`/groceries?${groceryParams}`} className="flex min-h-[60px] items-center justify-between gap-3 rounded-[6px] bg-card px-[18px] py-4">
             <span>
               <span className="block text-[16px] font-semibold">Grocery list ready</span>
               <span className="tabular mt-px block text-[14px] text-label-2">{groceryCount} items from next week's meals</span>
@@ -355,7 +355,7 @@ function DaySheet({
           <p className="mb-3 px-1 text-[14px] text-label-2">
             Instead of {current.meal.name}. {slotPool(picking) === "main" ? "Lunch and dinner meals" : "Meals for this slot"} that fit the day.
           </p>
-          <div className="overflow-hidden rounded-[20px] bg-card">
+          <div className="overflow-hidden rounded-[6px] bg-card">
             {[...optionsFor(picking, current.meal.slug)]
               .sort((a, b) => b.protein - a.protein)
               .map((m) => (
@@ -377,7 +377,7 @@ function DaySheet({
           </div>
         </>
       ) : (
-        <div className="overflow-hidden rounded-[20px] bg-card">
+        <div className="overflow-hidden rounded-[6px] bg-card">
           {dayMeals.map(({ slot, meal, swapped }) => (
             <button
               key={slot}

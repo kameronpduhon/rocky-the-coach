@@ -80,7 +80,7 @@ export default function Library({ loaderData }: Route.ComponentProps) {
         value={tab}
         onChange={(v) => setParams(v === "meals" ? {} : { tab: v }, { replace: true, preventScrollReset: true })}
       />
-      <div className="flex h-11 items-center gap-2 rounded-[14px] bg-fill px-3 text-label-on-fill">
+      <div className="flex h-11 items-center gap-2 rounded-[6px] bg-fill px-3 text-label-on-fill">
         <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" aria-hidden="true">
           <circle cx="11" cy="11" r="7" />
           <path d="M20 20l-3.5-3.5" />
@@ -109,7 +109,7 @@ export default function Library({ loaderData }: Route.ComponentProps) {
                     const meta = [m.weekendOnly ? "Weekends only" : null, m.restedUntil ? `Resting until ${m.restedUntil}` : null].filter(Boolean).join(" · ");
                     return (
                       <Link key={m.slug} to={`/meal/${m.slug}?from=library`} className="flex items-center gap-3 border-b-[0.5px] border-separator px-3.5 py-3 last:border-b-0">
-                        <MealPhoto photoKey={m.photoKey} alt="" className="size-[54px] flex-none rounded-[14px]" />
+                        <MealPhoto photoKey={m.photoKey} alt="" className="size-[54px] flex-none rounded-[6px]" />
                         <div className="min-w-0 flex-1">
                           {meta && <div className="text-[13px] text-label-2">{meta}</div>}
                           <div className={`mt-px text-[16px] font-semibold ${m.restedUntil ? "text-label-2" : ""}`}>{m.name}</div>
@@ -134,7 +134,7 @@ export default function Library({ loaderData }: Route.ComponentProps) {
                 <Card className="overflow-hidden">
                   {list.map((e) => (
                     <div key={e.id} className="flex items-center gap-3 border-b-[0.5px] border-separator px-3.5 py-3 last:border-b-0">
-                      <img src={e.image} alt="" className="size-[54px] flex-none rounded-[14px] bg-fill object-cover" />
+                      <img src={e.image} alt="" className="size-[54px] flex-none rounded-[6px] bg-fill object-cover" />
                       <div className="min-w-0 flex-1">
                         <div className="text-[13px] text-label-2">{e.equipment}</div>
                         <div className="mt-px text-[16px] font-semibold">{e.name}</div>

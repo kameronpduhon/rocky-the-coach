@@ -140,7 +140,7 @@ function TodayWithPlan({ loaderData }: { loaderData: Extract<Route.ComponentProp
 
       {day.weighIn === null && <WeighInCard />}
       {day.checkInDue && (
-        <Link to="/check-in" className="flex min-h-[60px] items-center justify-between gap-3 rounded-[26px] bg-card px-[18px] py-4">
+        <Link to="/check-in" className="flex min-h-[60px] items-center justify-between gap-3 rounded-[6px] bg-card px-[18px] py-4">
           <span>
             <span className="block text-[17px] font-semibold">Sunday check-in</span>
             <span className="block text-[14px] text-label-2">10 minutes to set up next week.</span>

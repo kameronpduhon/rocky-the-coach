@@ -364,7 +364,7 @@ export default function Workout({ loaderData }: Route.ComponentProps) {
                   onClick={() => setCurrent(view.exercises.indexOf(e))}
                   className="flex w-full items-center gap-3 border-b-[0.5px] border-separator px-3.5 py-3 text-left last:border-b-0"
                 >
-                  <img src={e.images[0]} alt="" className="size-14 flex-none rounded-[14px] bg-fill object-cover" />
+                  <img src={e.images[0]} alt="" className="size-14 flex-none rounded-[6px] bg-fill object-cover" />
                   <div className="min-w-0 flex-1">
                     <div className="text-[15px] font-semibold text-label-2">{e.name} · done</div>
                     <div className="tabular mt-0.5 text-[14px] font-semibold text-steps-text">
@@ -393,7 +393,7 @@ export default function Workout({ loaderData }: Route.ComponentProps) {
                   onClick={() => setCurrent(view.exercises.indexOf(e))}
                   className="flex w-full items-center gap-3 border-b-[0.5px] border-separator px-3.5 py-3 text-left last:border-b-0"
                 >
-                  <img src={e.images[0]} alt="" className="size-14 flex-none rounded-[14px] bg-fill object-cover" />
+                  <img src={e.images[0]} alt="" className="size-14 flex-none rounded-[6px] bg-fill object-cover" />
                   <div className="min-w-0 flex-1">
                     <div className="text-[16px] font-semibold">{e.name}</div>
                     {e.suggestion.goUp ? (
@@ -489,7 +489,7 @@ function SetCard({
 
   return (
     <Card className="flex flex-col gap-3.5 p-[18px]" aria-label="Sets">
-      <div className="tabular rounded-[14px] bg-fill px-3.5 py-3 text-[15px] leading-snug text-label-on-fill">
+      <div className="tabular rounded-[6px] bg-fill px-3.5 py-3 text-[15px] leading-snug text-label-on-fill">
         {ex.last ? (
           <>
             Last time <strong className="font-semibold text-label">{setsText(ex.last)}</strong>.{" "}
@@ -533,7 +533,7 @@ function SetCard({
                   inputMode="decimal"
                   enterKeyHint="next"
                   autoFocus
-                  className="tabular h-[50px] w-full rounded-[14px] border-2 border-label bg-fill px-3 text-[19px] font-semibold text-label outline-none"
+                  className="tabular h-[50px] w-full rounded-[6px] border-2 border-label bg-fill px-3 text-[19px] font-semibold text-label outline-none"
                 />
               </label>
               <label className="flex">
@@ -543,7 +543,7 @@ function SetCard({
                   onChange={(e) => setEditing({ ...editing, reps: e.target.value })}
                   inputMode="numeric"
                   enterKeyHint="done"
-                  className="tabular h-[50px] w-full rounded-[14px] bg-fill px-3.5 text-[19px] font-semibold text-label outline-none focus:ring-2 focus:ring-label"
+                  className="tabular h-[50px] w-full rounded-[6px] bg-fill px-3.5 text-[19px] font-semibold text-label outline-none focus:ring-2 focus:ring-label"
                 />
               </label>
               <button type="submit" aria-label={`Save set ${r.setNumber}`} className="btn-prominent flex size-[50px] items-center justify-center rounded-full">
@@ -577,8 +577,8 @@ function SetCard({
             className="tabular grid w-full grid-cols-[40px_minmax(0,1fr)_minmax(0,1fr)_50px] items-center gap-2.5 text-left"
           >
             <span className="text-[17px] font-bold text-label-2">{r.setNumber}</span>
-            <span className="flex h-[50px] items-center rounded-[14px] bg-fill px-3.5 text-[19px] font-semibold">{r.done.weight}</span>
-            <span className="flex h-[50px] items-center rounded-[14px] bg-fill px-3.5 text-[19px] font-semibold">{r.done.reps}</span>
+            <span className="flex h-[50px] items-center rounded-[6px] bg-fill px-3.5 text-[19px] font-semibold">{r.done.weight}</span>
+            <span className="flex h-[50px] items-center rounded-[6px] bg-fill px-3.5 text-[19px] font-semibold">{r.done.reps}</span>
             <span className="flex size-[50px] items-center justify-center rounded-full bg-steps text-black">
               <Icon name="check" strokeWidth={3.2} />
             </span>
@@ -607,7 +607,7 @@ function SetCard({
                 onChange={(e) => setWeight(e.target.value)}
                 inputMode="decimal"
                 enterKeyHint="next"
-                className="tabular h-[50px] w-full rounded-[14px] border-2 border-label bg-fill px-3 text-[19px] font-semibold text-label outline-none"
+                className="tabular h-[50px] w-full rounded-[6px] border-2 border-label bg-fill px-3 text-[19px] font-semibold text-label outline-none"
               />
             </label>
             <label className="flex">
@@ -618,7 +618,7 @@ function SetCard({
                 inputMode="numeric"
                 enterKeyHint="done"
                 placeholder="reps"
-                className="tabular h-[50px] w-full rounded-[14px] bg-fill px-3.5 text-[19px] font-semibold text-label outline-none placeholder:text-label-on-fill focus:ring-2 focus:ring-label"
+                className="tabular h-[50px] w-full rounded-[6px] bg-fill px-3.5 text-[19px] font-semibold text-label outline-none placeholder:text-label-on-fill focus:ring-2 focus:ring-label"
               />
             </label>
             <button type="submit" aria-label={`Log set ${r.setNumber}`} className="btn-secondary flex size-[50px] items-center justify-center rounded-full">
@@ -631,11 +631,11 @@ function SetCard({
               <span className="sr-only">Set </span>
               {r.setNumber}
             </span>
-            <div className="tabular flex h-[50px] items-center rounded-[14px] bg-fill px-3.5 text-[19px] font-semibold">
+            <div className="tabular flex h-[50px] items-center rounded-[6px] bg-fill px-3.5 text-[19px] font-semibold">
               {weight}
               <span className="sr-only"> pounds planned</span>
             </div>
-            <div className="flex h-[50px] items-center rounded-[14px] bg-fill px-3.5 text-[19px] font-semibold text-label-on-fill">reps</div>
+            <div className="flex h-[50px] items-center rounded-[6px] bg-fill px-3.5 text-[19px] font-semibold text-label-on-fill">reps</div>
             <button type="button" disabled aria-label={`Log set ${r.setNumber}, after set ${r.setNumber - 1}`} className="btn-secondary flex size-[50px] items-center justify-center rounded-full text-label-on-fill">
               <Icon name="check" strokeWidth={3} />
             </button>
@@ -646,7 +646,7 @@ function SetCard({
       {ex.logged.length === 0 &&
         pending.length === 0 &&
         (ex.checked ? (
-          <div className="flex items-center justify-between gap-3 rounded-[14px] bg-fill px-3.5 py-2 text-[15px]">
+          <div className="flex items-center justify-between gap-3 rounded-[6px] bg-fill px-3.5 py-2 text-[15px]">
             <span className="flex items-center gap-2 font-semibold text-steps-text">
               <Icon name="check" size={16} strokeWidth={3} />
               Done, no numbers
@@ -687,10 +687,10 @@ function SwapList({ name, day, options, onPick }: { name: string; day: string; o
       <p className="mt-2 px-1 text-[13px] text-label-2">
         {always ? `Replaces ${name.toLowerCase()} in every ${day} workout from now on.` : `Only today's workout changes. ${name} comes back next time.`}
       </p>
-      <div className="mt-3 overflow-hidden rounded-[26px] bg-card">
+      <div className="mt-3 overflow-hidden rounded-[6px] bg-card">
         {options.map((o) => (
           <button key={o.id} type="button" onClick={() => onPick(o.id, always)} className="flex w-full items-center gap-3 border-b-[0.5px] border-separator px-3.5 py-3 text-left last:border-b-0">
-            <img src={o.image} alt="" className="size-14 flex-none rounded-[14px] bg-fill object-cover" />
+            <img src={o.image} alt="" className="size-14 flex-none rounded-[6px] bg-fill object-cover" />
             <div className="min-w-0 flex-1">
               <div className="text-[16px] font-semibold">{o.name}</div>
               <div className="mt-px text-[14px] text-label-2">{EQUIPMENT[o.equipment] ?? o.equipment}</div>

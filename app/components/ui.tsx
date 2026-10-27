@@ -18,7 +18,7 @@ export function FloatingBar({ children, className = "", spacer = true }: { child
   return (
     <>
       {spacer && <BarSpacer />}
-      <div className={`glass-bar fixed inset-x-4 bottom-[max(28px,env(safe-area-inset-bottom))] z-20 mx-auto max-w-[728px] rounded-[34px] p-1.5 ${className}`}>{children}</div>
+      <div className={`glass-bar fixed inset-x-4 bottom-[max(28px,env(safe-area-inset-bottom))] z-20 mx-auto max-w-[728px] rounded-[6px] p-1.5 ${className}`}>{children}</div>
     </>
   );
 }
@@ -37,7 +37,7 @@ export function LargeTitle({ eyebrow, title, right }: { eyebrow?: string; title:
 
 export function Card({ children, className = "", ...rest }: ComponentProps<"section">) {
   return (
-    <section {...rest} className={`rounded-[26px] bg-card ${className}`}>
+    <section {...rest} className={`rounded-[6px] bg-card ${className}`}>
       {children}
     </section>
   );
@@ -46,7 +46,7 @@ export function Card({ children, className = "", ...rest }: ComponentProps<"sect
 /** A 20 px radius figure tile: label, big value, one line under it. Green marks a good value or change. */
 export function Tile({ label, value, sub, valueGood, subGood }: { label: string; value: string; sub: string; valueGood?: boolean; subGood?: boolean }) {
   return (
-    <div className="rounded-[20px] bg-card p-4">
+    <div className="rounded-[6px] bg-card p-4">
       <div className="text-[13px] font-semibold">{label}</div>
       <div className={`tabular mt-1 text-[24px] font-bold ${valueGood ? "text-steps-text" : ""}`}>{value}</div>
       <div className={`tabular mt-px text-[14px] ${subGood ? "font-semibold text-steps-text" : "text-label-2"}`}>{sub}</div>

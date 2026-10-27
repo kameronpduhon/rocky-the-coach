@@ -19,7 +19,7 @@ export function TabBar() {
       <nav
         aria-label="Main"
         className="glass-bar fixed inset-x-5 bottom-[max(28px,env(safe-area-inset-bottom))] z-20 grid h-16 grid-cols-4 gap-0.5 rounded-full p-1.5
-          min-[900px]:inset-x-auto min-[900px]:bottom-auto min-[900px]:left-6 min-[900px]:top-6 min-[900px]:h-auto min-[900px]:w-52 min-[900px]:grid-cols-1 min-[900px]:rounded-[26px] min-[900px]:p-2"
+          min-[900px]:inset-x-auto min-[900px]:bottom-auto min-[900px]:left-6 min-[900px]:top-6 min-[900px]:h-auto min-[900px]:w-52 min-[900px]:grid-cols-1 min-[900px]:rounded-[6px] min-[900px]:p-2"
       >
         {TABS.map((t) => (
           <NavLink

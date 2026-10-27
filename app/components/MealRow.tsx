@@ -9,7 +9,7 @@ export function MealRow({ s, upNext }: { s: SlotView; upNext: boolean }) {
   const eaten = s.logId !== null;
   return (
     <Link to={`/meal/${s.meal.slug}?slot=${s.slot}`} className="flex items-center gap-3 border-b-[0.5px] border-separator px-3.5 py-3 last:border-b-0">
-      <MealPhoto photoKey={s.photoKey} alt="" className="size-[54px] flex-none rounded-[14px]" />
+      <MealPhoto photoKey={s.photoKey} alt="" className="size-[54px] flex-none rounded-[6px]" />
       <div className="min-w-0 flex-1">
         <div className={`text-[13px] ${upNext ? "font-semibold text-label" : "text-label-3"}`}>
           {LABEL[s.slot]} · {s.time}

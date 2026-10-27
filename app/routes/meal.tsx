@@ -209,7 +209,7 @@ export default function MealScreen({ loaderData }: Route.ComponentProps) {
               <div className="flex items-center gap-2">
               <input type="hidden" name="intent" value="batch" />
               <input type="hidden" name="portions" value={portions} />
-              <div className="flex h-[52px] flex-1 items-center gap-2 rounded-[14px] bg-fill px-3.5">
+              <div className="flex h-[52px] flex-1 items-center gap-2 rounded-[6px] bg-fill px-3.5">
                 <input id="cooked" name="cookedWeight" inputMode="numeric" placeholder="0" required className="tabular w-full min-w-0 bg-transparent text-[20px] font-semibold outline-none" />
                 <span className="font-semibold text-label-2">g</span>
               </div>
@@ -297,7 +297,7 @@ function SwapSheet({ open, onClose, slot, options }: { open: boolean; onClose: (
         onChange={(v) => setAlways(v === "always")}
       />
       <p className="mt-2 px-1 text-[13px] text-label-2">{always ? "The current meal rests for 4 weeks." : "Only today's plan changes."}</p>
-      <div className="mt-3 overflow-hidden rounded-[20px] bg-card">
+      <div className="mt-3 overflow-hidden rounded-[6px] bg-card">
         {options.map((m) => (
           <button
             key={m.slug}

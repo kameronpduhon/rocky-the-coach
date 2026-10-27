@@ -1,11 +1,10 @@
-import { env } from "cloudflare:workers";
 import { useState } from "react";
 import { Link } from "react-router";
 import { MoveSheet } from "~/components/MoveSheet";
 import type { Route } from "./+types/plan";
 import { Card, Icon, LargeTitle, Screen, SectionTitle } from "~/components/ui";
 import { plan } from "~/content";
-import { getDb } from "~/db/client";
+import { userDb } from "~/server/current-user.server";
 import { dayMode, optionalTemplateFor, templateFor, weekNumber, weekType } from "~/domain/calendar";
 import { addDays, isISODate, localDate, weekStart, weekday } from "~/domain/dates";
 import { CUSTOM_WORKOUT } from "~/domain/types";
@@ -21,7 +20,7 @@ export function meta() {
 }
 
 export async function loader(_args: Route.LoaderArgs) {
-  const db = getDb(env.DB);
+  const db = userDb();
   const today = localDate(serverNow());
   const monday = weekStart(today);
   const [week, targets, groceries] = await Promise.all([
@@ -67,7 +66,7 @@ export async function action({ request }: Route.ActionArgs) {
   const a = form.get("a");
   const b = form.get("b");
   if (!isISODate(a) || !isISODate(b)) return { error: "Pick a day this week." };
-  const error = await moveWorkout(getDb(env.DB), a, b);
+  const error = await moveWorkout(userDb(), a, b);
   return error ? { error } : { ok: true };
 }
 

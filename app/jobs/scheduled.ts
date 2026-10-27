@@ -8,7 +8,7 @@ export const BACKUP_CRON = "0 9 * * SUN";
 export async function runScheduled(env: Env, cron: string, now: Date): Promise<void> {
   try {
     if (cron === BACKUP_CRON) {
-      const key = await runBackup(env.DB, env.MEDIA, now);
+      const key = await runBackup(env.DB, env.MEDIA, now, "kameron");
       console.log(`[cron] backup written to ${key}`);
       return;
     }

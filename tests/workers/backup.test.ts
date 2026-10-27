@@ -7,8 +7,8 @@ import { db } from "./helpers";
 describe("backup", () => {
   it("writes every table to R2 as JSON", async () => {
     await logWeighIn(db(), "2026-10-12", 205.8, new Date());
-    const key = await runBackup(env.DB, env.MEDIA, new Date("2026-10-18T09:00:00Z"));
-    expect(key).toBe("backups/2026-10-18.json");
+    const key = await runBackup(env.DB, env.MEDIA, new Date("2026-10-18T09:00:00Z"), "kameron");
+    expect(key).toBe("backups/kameron/2026-10-18.json");
     const dump = (await (await env.MEDIA.get(key))!.json()) as Record<string, unknown[]>;
     expect(dump.weigh_ins).toEqual([expect.objectContaining({ date: "2026-10-12", weight_lb: 205.8 })]);
     expect(Object.keys(dump)).toContain("meal_logs");
@@ -17,13 +17,19 @@ describe("backup", () => {
 
   it("names the file by the Chicago date, not the UTC one", async () => {
     // 9:30pm Sunday in Chicago is already Monday in UTC.
-    expect(await runBackup(env.DB, env.MEDIA, new Date("2026-10-19T02:30:00Z"))).toBe("backups/2026-10-18.json");
+    expect(await runBackup(env.DB, env.MEDIA, new Date("2026-10-19T02:30:00Z"), "kameron")).toBe("backups/kameron/2026-10-18.json");
   });
 
   it("keeps only the 12 newest backups", async () => {
-    for (let i = 0; i < 14; i++) await runBackup(env.DB, env.MEDIA, new Date(Date.UTC(2027, 0, 3 + i * 7, 9)));
-    const listed = await env.MEDIA.list({ prefix: "backups/" });
+    for (let i = 0; i < 14; i++) await runBackup(env.DB, env.MEDIA, new Date(Date.UTC(2027, 0, 3 + i * 7, 9)), "kameron");
+    const listed = await env.MEDIA.list({ prefix: "backups/kameron/" });
     expect(listed.objects).toHaveLength(12);
-    expect(listed.objects.map((o) => o.key)).not.toContain("backups/2026-10-18.json");
+    expect(listed.objects.map((o) => o.key)).not.toContain("backups/kameron/2026-10-18.json");
+  });
+
+  it("keeps each database's backups separate", async () => {
+    expect(await runBackup(env.DB_CATHERINE, env.MEDIA, new Date("2026-10-18T09:00:00Z"), "catherine")).toBe("backups/catherine/2026-10-18.json");
+    // Catherine's prune must leave Kameron's folder alone.
+    expect((await env.MEDIA.list({ prefix: "backups/kameron/" })).objects).toHaveLength(12);
   });
 });

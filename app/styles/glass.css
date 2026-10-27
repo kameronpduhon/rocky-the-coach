@@ -2,7 +2,6 @@
    v1 screens that use them are rebuilt. */
 @layer components {
   .glass,
-  .glass-bar,
   .glass-on-image {
     background: var(--paper);
     color: var(--ink);

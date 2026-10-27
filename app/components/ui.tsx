@@ -10,15 +10,17 @@ export function Screen({ children }: { children: ReactNode }) {
  * page flow, the same height as the bar plus its inset, so the last row always scrolls fully clear at any width.
  */
 export function BarSpacer({ className = "" }: { className?: string }) {
-  return <div aria-hidden="true" className={`h-[calc(66px+max(28px,env(safe-area-inset-bottom)))] flex-none ${className}`} />;
+  return <div aria-hidden="true" className={`h-[calc(70px+max(14px,env(safe-area-inset-bottom)))] flex-none ${className}`} />;
 }
 
-/** The floating glass action bar at the bottom of a pushed screen, with its spacer unless the caller places one. */
+/** The docked action bar at the bottom of a pushed screen (the gym mock's), with its spacer unless the caller places one. */
 export function FloatingBar({ children, className = "", spacer = true }: { children: ReactNode; className?: string; spacer?: boolean }) {
   return (
     <>
       {spacer && <BarSpacer />}
-      <div className={`glass-bar fixed inset-x-4 bottom-[max(28px,env(safe-area-inset-bottom))] z-20 mx-auto max-w-[728px] rounded-[6px] p-1.5 ${className}`}>{children}</div>
+      <div className="fixed inset-x-0 bottom-0 z-20 border-t-2 border-ink bg-paper px-4 pt-3.5 pb-[max(14px,env(safe-area-inset-bottom))]">
+        <div className={`mx-auto max-w-[728px] ${className}`}>{children}</div>
+      </div>
     </>
   );
 }

@@ -9,7 +9,6 @@ import "@fontsource/barlow/latin-600.css";
 import "@fontsource/barlow/latin-700.css";
 import "@fontsource/barlow-semi-condensed/latin-600.css";
 import "@fontsource/barlow-semi-condensed/latin-700.css";
-import antonWoff2 from "@fontsource/anton/files/anton-latin-400-normal.woff2?url";
 import barlowWoff2 from "@fontsource/barlow/files/barlow-latin-400-normal.woff2?url";
 import numWoff2 from "@fontsource/barlow-semi-condensed/files/barlow-semi-condensed-latin-700-normal.woff2?url";
 import { authenticate } from "~/server/auth.server";
@@ -30,7 +29,6 @@ const preloadFont = (href: string) => ({ rel: "preload", href, as: "font", type:
 export const links: Route.LinksFunction = () => [
   { rel: "manifest", href: "/manifest.webmanifest" },
   { rel: "apple-touch-icon", href: "/icons/apple-touch-icon.png" },
-  preloadFont(antonWoff2),
   preloadFont(barlowWoff2),
   preloadFont(numWoff2),
 ];

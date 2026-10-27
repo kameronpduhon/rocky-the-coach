@@ -14,11 +14,17 @@ export interface Suggestion {
   goUp: boolean;
 }
 
-export function nextSuggestion(lastSession: LoggedSet[] | null, rule: ProgressionRule): Suggestion {
+/** How the last session felt, from the optional tap after a workout. */
+export type Feel = 'easy' | 'right' | 'hard';
+
+export function nextSuggestion(lastSession: LoggedSet[] | null, rule: ProgressionRule, feel: Feel | null = null): Suggestion {
   if (!lastSession || lastSession.length === 0) return { weight: null, goUp: false };
   const top = Math.max(...lastSession.map((s) => s.weight));
-  const goUp = !rule.deload && lastSession.every((s) => s.reps >= rule.repMax);
-  return { weight: goUp ? top + rule.increment : top, goUp };
+  const atTop = lastSession.every((s) => s.reps >= rule.repMax);
+  // Hard holds even at the top. Easy at the top earns a second step.
+  const goUp = !rule.deload && atTop && feel !== 'hard';
+  const steps = feel === 'easy' ? 2 : 1;
+  return { weight: goUp ? top + rule.increment * steps : top, goUp };
 }
 
 export function restSeconds(compound: boolean): number {

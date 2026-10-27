@@ -1,8 +1,28 @@
+// The build stamps VERSION and PRECACHE (scripts/precache-sw.ts). In dev both stay empty, and assets cache as they load.
+const VERSION = "dev";
+const PRECACHE = [];
 const PAGES = "rocky-pages-v1";
-const ASSETS = "rocky-assets-v1";
+const ASSETS = `rocky-assets-${VERSION}`;
+// Exercise photos outlive builds, so they keep their own cache.
+const MEDIA = "rocky-media-v1";
 
-self.addEventListener("install", () => self.skipWaiting());
-self.addEventListener("activate", (event) => event.waitUntil(self.clients.claim()));
+self.addEventListener("install", (event) => {
+  event.waitUntil(
+    caches
+      .open(ASSETS)
+      .then((cache) => cache.addAll(PRECACHE))
+      .then(() => self.skipWaiting()),
+  );
+});
+
+self.addEventListener("activate", (event) => {
+  event.waitUntil(
+    caches
+      .keys()
+      .then((keys) => Promise.all(keys.filter((k) => k.startsWith("rocky-assets-") && k !== ASSETS).map((k) => caches.delete(k))))
+      .then(() => self.clients.claim()),
+  );
+});
 
 self.addEventListener("push", (event) => {
   let data = {};
@@ -45,9 +65,9 @@ self.addEventListener("fetch", (event) => {
   const url = new URL(req.url);
   if (url.origin !== self.location.origin) return;
 
-  if (url.pathname.startsWith("/assets/") || url.pathname.startsWith("/media/exercises/")) {
+  const cacheFirst = (name) =>
     event.respondWith(
-      caches.open(ASSETS).then(async (cache) => {
+      caches.open(name).then(async (cache) => {
         const hit = await cache.match(req);
         if (hit) return hit;
         const res = await fetch(req);
@@ -55,8 +75,8 @@ self.addEventListener("fetch", (event) => {
         return res;
       }),
     );
-    return;
-  }
+  if (url.pathname.startsWith("/assets/")) return cacheFirst(ASSETS);
+  if (url.pathname.startsWith("/media/exercises/")) return cacheFirst(MEDIA);
 
   if (req.mode === "navigate") {
     event.respondWith(

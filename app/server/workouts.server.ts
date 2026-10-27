@@ -93,6 +93,7 @@ async function ensureSession(db: Db, date: ISODate, templateId: string, now: Dat
   return created;
 }
 
+// No app caller since W2: the worker tests seed history with logSet and endSession. Project 4 removes them.
 export async function logSet(db: Db, input: SetInput, now: Date): Promise<void> {
   const session = await ensureSession(db, input.date, input.templateId, now);
   await db
@@ -111,56 +112,10 @@ export async function logSet(db: Db, input: SetInput, now: Date): Promise<void> 
     .onConflictDoNothing();
 }
 
-export async function updateSet(db: Db, id: number, weightLb: number, reps: number): Promise<void> {
-  await db.update(setLogs).set({ weightLb, reps }).where(eq(setLogs.id, id));
-}
-
-export async function deleteSet(db: Db, id: number): Promise<void> {
-  await db.delete(setLogs).where(eq(setLogs.id, id));
-}
-
-export async function swapExercise(db: Db, date: ISODate, templateId: string, position: number, exerciseId: string, always: boolean): Promise<void> {
-  if (always) {
-    await db.insert(exerciseOverrides).values({ templateId, position, exerciseId }).onConflictDoUpdate({ target: [exerciseOverrides.templateId, exerciseOverrides.position], set: { exerciseId } });
-    await db.delete(exerciseSwaps).where(and(eq(exerciseSwaps.date, date), eq(exerciseSwaps.templateId, templateId), eq(exerciseSwaps.position, position)));
-  } else {
-    await db
-      .insert(exerciseSwaps)
-      .values({ date, templateId, position, exerciseId })
-      .onConflictDoUpdate({ target: [exerciseSwaps.date, exerciseSwaps.templateId, exerciseSwaps.position], set: { exerciseId } });
-  }
-}
-
 /** Ends the workout. With nothing logged it still counts as done, for a workout logged without the numbers. */
 export async function endSession(db: Db, date: ISODate, templateId: string, now: Date): Promise<void> {
   const session = await ensureSession(db, date, templateId, now);
   await db.update(workoutSessions).set({ endedAt: now.toISOString() }).where(eq(workoutSessions.id, session.id));
-}
-
-/** Marks an exercise done without weights or reps, or clears that mark. */
-export async function checkExercise(db: Db, date: ISODate, templateId: string, exerciseId: string, done: boolean, now: Date): Promise<void> {
-  const session = await ensureSession(db, date, templateId, now);
-  if (done) await db.insert(exerciseChecks).values({ sessionId: session.id, sessionKey: sessionKey(session), exerciseId }).onConflictDoNothing();
-  else await db.delete(exerciseChecks).where(and(eq(exerciseChecks.sessionId, session.id), eq(exerciseChecks.exerciseId, exerciseId)));
-}
-
-/**
- * Sets the exercises in a custom workout. Ones with sets or a check stay even if left out, so nothing logged is
- * orphaned; the rest keep their order and new picks go on the end.
- */
-export async function setCustomExercises(db: Db, date: ISODate, ids: string[], now: Date): Promise<void> {
-  const session = await ensureSession(db, date, CUSTOM, now);
-  const [sets, checks] = await Promise.all([
-    db.select({ id: setLogs.exerciseId }).from(setLogs).where(eq(setLogs.sessionId, session.id)).all(),
-    db.select({ id: exerciseChecks.exerciseId }).from(exerciseChecks).where(eq(exerciseChecks.sessionId, session.id)).all(),
-  ]);
-  const keep = new Set([...ids, ...sets.map((r) => r.id), ...checks.map((r) => r.id)]);
-  const current = customIds(session);
-  const next = [...current.filter((id) => keep.has(id)), ...ids.filter((id) => exercises.has(id) && !current.includes(id))];
-  const list = [...new Set(next)];
-  // W2 reads lifts. exercises stays for the v1 screen until W2 replaces it.
-  const lifts = list.map((exercise, position) => ({ position, exercise, repMin: 8, repMax: 12, from: "added" as const }));
-  await db.update(workoutSessions).set({ exercises: JSON.stringify(list), lifts: JSON.stringify(lifts) }).where(eq(workoutSessions.id, session.id));
 }
 
 export interface ExerciseView {

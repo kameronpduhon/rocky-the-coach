@@ -1,7 +1,8 @@
 import { env } from "cloudflare:workers";
 import { createCookieSessionStorage } from "react-router";
 
-type SessionData = { signedIn: true };
+// signedIn is the v1 cookie. authenticate() upgrades it to userId on Kameron's next request.
+type SessionData = { userId: number; signedIn: true };
 
 export const sessionStorage = createCookieSessionStorage<SessionData>({
   cookie: {

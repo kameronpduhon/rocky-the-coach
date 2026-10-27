@@ -1,14 +1,15 @@
 import { env } from "cloudflare:test";
 import { describe, expect, it } from "vitest";
-import { requireSignedIn } from "~/server/auth.server";
-import { action as loginAction } from "~/routes/login";
+import { authenticate } from "~/server/auth.server";
+import { currentUser, runAsUser, userDb } from "~/server/current-user.server";
+import { commitSession, getSession } from "~/server/session.server";
+import { logWeighIn } from "~/server/body.server";
+import { userById } from "~/server/users.server";
 
-const args = (request: Request) => ({ request, params: {}, context: {} }) as any;
-
-function loginRequest(password: string, ip = "203.0.113.7") {
-  const body = new FormData();
-  body.set("password", password);
-  return new Request("http://localhost/login", { method: "POST", body, headers: { "CF-Connecting-IP": ip } });
+async function cookieWith(values: Record<string, unknown>): Promise<string> {
+  const session = await getSession();
+  for (const [k, v] of Object.entries(values)) session.set(k as never, v as never);
+  return (await commitSession(session)).split(";")[0];
 }
 
 async function thrown(p: Promise<unknown>) {
@@ -20,38 +21,47 @@ async function thrown(p: Promise<unknown>) {
   }
 }
 
-describe("auth", () => {
+describe("authenticate", () => {
   it("redirects signed-out requests to /login", async () => {
-    const res = await thrown(requireSignedIn(new Request("http://localhost/plan")));
+    const res = await thrown(authenticate(new Request("http://localhost/plan")));
     expect(res?.status).toBe(302);
     expect(res?.headers.get("Location")).toBe("/login");
   });
 
-  it("lets public paths through", async () => {
-    expect(await thrown(requireSignedIn(new Request("http://localhost/login")))).toBeNull();
-    expect(await thrown(requireSignedIn(new Request("http://localhost/login.data")))).toBeNull();
-    expect(await thrown(requireSignedIn(new Request("http://localhost/api/ingest/steps", { method: "POST" })))).toBeNull();
+  it("lets public paths through without a user", async () => {
+    expect(await authenticate(new Request("http://localhost/login"))).toBeNull();
+    expect(await authenticate(new Request("http://localhost/login.data"))).toBeNull();
+    expect(await authenticate(new Request("http://localhost/api/ingest/steps", { method: "POST" }))).toBeNull();
   });
 
-  it("rejects a wrong password", async () => {
-    const res = await loginAction(args(loginRequest("nope")));
-    expect((res as any).init?.status ?? (res as Response).status).toBe(401);
+  it("resolves the user in the session", async () => {
+    const auth = await authenticate(new Request("http://localhost/", { headers: { Cookie: await cookieWith({ userId: 2 }) } }));
+    expect(auth?.user.name).toBe("Catherine");
+    expect(auth?.setCookie).toBeUndefined();
   });
 
-  it("signs in with the right password and the cookie passes the guard", async () => {
-    const res = (await loginAction(args(loginRequest("test-password", "198.51.100.1")))) as Response;
-    expect(res.status).toBe(302);
-    const setCookie = res.headers.get("Set-Cookie")!;
-    expect(setCookie).toMatch(/Max-Age=34560000/);
-    const cookie = setCookie.split(";")[0];
-    expect(await thrown(requireSignedIn(new Request("http://localhost/plan", { headers: { Cookie: cookie } })))).toBeNull();
+  it("upgrades a v1 cookie to Kameron without signing him out", async () => {
+    const auth = await authenticate(new Request("http://localhost/", { headers: { Cookie: await cookieWith({ signedIn: true }) } }));
+    expect(auth?.user.name).toBe("Kameron");
+    const upgraded = await getSession(auth!.setCookie!.split(";")[0]);
+    expect(upgraded.get("userId")).toBe(1);
+    expect(upgraded.get("signedIn")).toBeUndefined();
   });
 
-  it("locks out an IP after 5 failed attempts in 15 minutes", async () => {
-    for (let i = 0; i < 5; i++) await loginAction(args(loginRequest("wrong", "192.0.2.50")));
-    const res = await loginAction(args(loginRequest("test-password", "192.0.2.50")));
-    expect((res as any).init?.status ?? (res as Response).status).toBe(429);
-    const { results } = await env.DB.prepare("select count(*) as n from login_attempts where ip = ?").bind("192.0.2.50").all<{ n: number }>();
-    expect(results[0].n).toBe(5);
+  it("sends an unknown user id back to /login", async () => {
+    const res = await thrown(authenticate(new Request("http://localhost/", { headers: { Cookie: await cookieWith({ userId: 99 }) } })));
+    expect(res?.headers.get("Location")).toBe("/login");
+  });
+});
+
+describe("request scope", () => {
+  it("points userDb at the signed-in person's own database", async () => {
+    const catherine = (await userById(2))!;
+    await runAsUser(catherine, async () => {
+      expect(currentUser().name).toBe("Catherine");
+      await logWeighIn(userDb(), "2026-10-26", 139.8, new Date());
+    });
+    expect(await env.DB_CATHERINE.prepare("select count(*) as n from weigh_ins where date = '2026-10-26'").first()).toEqual({ n: 1 });
+    expect(await env.DB.prepare("select count(*) as n from weigh_ins where date = '2026-10-26'").first()).toEqual({ n: 0 });
   });
 });

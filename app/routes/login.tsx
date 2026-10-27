@@ -1,7 +1,9 @@
 import { data, Form, redirect, useNavigation } from "react-router";
 import type { Route } from "./+types/login";
-import { clientIp, isLockedOut, passwordMatches, recordFailure } from "~/server/auth.server";
+import { clientIp } from "~/server/auth.server";
+import { verifyPassword } from "~/server/password";
 import { commitSession, getSession } from "~/server/session.server";
+import { credentialsFor, isLockedOut, recordFailure } from "~/server/users.server";
 
 export function meta() {
   return [{ title: "Sign in · Rocky" }];
@@ -13,12 +15,15 @@ export async function action({ request }: Route.ActionArgs) {
     return data({ error: "Too many tries. Wait 15 minutes." }, { status: 429 });
   }
   const form = await request.formData();
-  if (!(await passwordMatches(String(form.get("password") ?? "")))) {
+  const found = await credentialsFor(String(form.get("name") ?? ""));
+  const ok = await verifyPassword(String(form.get("password") ?? ""), found?.passwordHash ?? null);
+  if (!found || !ok) {
     await recordFailure(ip);
-    return data({ error: "Wrong password." }, { status: 401 });
+    return data({ error: "That name and password don't match." }, { status: 401 });
   }
   const session = await getSession(request.headers.get("Cookie"));
-  session.set("signedIn", true);
+  session.unset("signedIn");
+  session.set("userId", found.user.id);
   return redirect("/", { headers: { "Set-Cookie": await commitSession(session) } });
 }
 
@@ -29,6 +34,17 @@ export default function Login({ actionData }: Route.ComponentProps) {
       <h1 className="text-[34px] font-bold">Rocky</h1>
       <p className="mt-1 text-label-2">Your plan, every day.</p>
       <Form method="post" reloadDocument className="mt-8 flex flex-col gap-3">
+        <label htmlFor="name" className="text-[13px] font-semibold text-label-2">
+          Name
+        </label>
+        <input
+          id="name"
+          name="name"
+          autoComplete="username"
+          autoCapitalize="words"
+          required
+          className="h-[52px] rounded-[14px] bg-fill px-4 text-[17px] outline-none"
+        />
         <label htmlFor="password" className="text-[13px] font-semibold text-label-2">
           Password
         </label>

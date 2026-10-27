@@ -54,7 +54,7 @@ export async function runReminders(db: Db, now: Date, send: Sender = sendToAll):
       trainingDay: isTrainingDay(plan, date, moves),
       weighedIn: weighIn !== null,
       loggedSlots: logs.filter((l) => l.slot).map((l) => l.slot as Slot),
-      sessionStarted: sessions.length > 0,
+      sessionStarted: sessions.some((s) => s.startedAt !== null),
       loggedSetToday: setDates.has(date),
       steps,
       stepGoal: targets.stepGoal,

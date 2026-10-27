@@ -1,4 +1,5 @@
 import { describe, expect, it } from "vitest";
+import { workoutSessions } from "~/db/schema";
 import { logWeighIn } from "~/server/body.server";
 import { runReminders } from "~/server/reminders.server";
 import type { PushMessage } from "~/server/push.server";
@@ -37,5 +38,12 @@ describe("runReminders", () => {
     // Nov 26 is CST (UTC-6), so this is 7:30am local, inside the weigh-in window.
     await runReminders(db(), new Date("2026-11-26T07:30:00-06:00"), c.send);
     expect(c.sent).toEqual([]);
+  });
+
+  it("still sends the lift reminder when the workout was only planned", async () => {
+    await db().insert(workoutSessions).values({ date: "2026-10-28", templateId: "wed-legs-shoulders", clientId: "planned-only", plannedAt: "2026-10-28T13:00:00Z" });
+    const c = collector();
+    await runReminders(db(), chicago("2026-10-28", "11:30"), c.send);
+    expect(c.sent.map((m) => m.title)).toContain("Lift at noon");
   });
 });

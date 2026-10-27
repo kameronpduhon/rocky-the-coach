@@ -1,6 +1,6 @@
 import { env } from "cloudflare:test";
 import { describe, expect, it } from "vitest";
-import { meals } from "~/content";
+import { meals, plan } from "~/content";
 import { processPush } from "~/sync/push.server";
 import { StorageError } from "~/sync/server-tx.server";
 
@@ -68,5 +68,35 @@ describe("push", () => {
     };
     await expect(processPush(env.DB, { clientId: "phone-outage", mutations: [{ id: 1, name: "setVoice", args: { voice: "plain" } }] }, now, outage)).rejects.toThrow("D1 unavailable");
     expect(await env.DB.prepare("SELECT last_mutation_id FROM sync_clients WHERE client_id = 'phone-outage'").first()).toBeNull();
+  });
+
+  it("logs a set against a workout made in the same push, filling in the server's id", async () => {
+    const at = now.toISOString();
+    const exercise = plan.templates["wed-legs-shoulders"]!.exercises[0].exercise;
+    const res = await processPush(
+      env.DB,
+      {
+        clientId: "phone-gym",
+        mutations: [
+          { id: 1, name: "planWorkout", args: { clientId: "w-push", date: "2026-10-27", templateId: "wed-legs-shoulders", at } },
+          { id: 2, name: "logSet", args: { clientId: "s-push", workout: "w-push", position: 0, exercise, setNumber: 1, weightLb: 280, reps: 11, at } },
+        ],
+      },
+      now,
+    );
+    expect(res.rejected).toEqual([]);
+    const w = await env.DB.prepare("SELECT id, started_at, planned_at FROM workout_sessions WHERE client_id = 'w-push'").first<{ id: number; started_at: string; planned_at: string }>();
+    expect(w).toMatchObject({ started_at: at, planned_at: at });
+    expect(await env.DB.prepare("SELECT session_id, session_key FROM set_logs WHERE client_id = 's-push'").first()).toEqual({ session_id: w!.id, session_key: "w-push" });
+  });
+
+  it("edits a v1 set that has no client id", async () => {
+    const session = await env.DB.prepare("INSERT INTO workout_sessions (date, template_id, started_at) VALUES ('2026-10-26', 'mon-chest-back-arms', '2026-10-26T17:00:00Z') RETURNING id").first<{ id: number }>();
+    const set = await env.DB.prepare("INSERT INTO set_logs (session_id, session_key, exercise_id, position, set_number, weight_lb, reps, logged_at) VALUES (?, ?, 'leg-press', 0, 1, 100, 8, '2026-10-26T17:05:00Z') RETURNING id")
+      .bind(session!.id, `id:${session!.id}`)
+      .first<{ id: number }>();
+    const res = await processPush(env.DB, { clientId: "phone-edit", mutations: [{ id: 1, name: "editSet", args: { key: `id:${set!.id}`, weightLb: 105, reps: 8 } }] }, now);
+    expect(res.rejected).toEqual([]);
+    expect(await env.DB.prepare("SELECT count(*) AS n, max(weight_lb) AS w FROM set_logs WHERE session_id = ?").bind(session!.id).first()).toEqual({ n: 1, w: 105 });
   });
 });

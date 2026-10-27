@@ -1,5 +1,5 @@
 import { runMutation, type MutationContext } from "./mutators";
-import { keyOf, type Row } from "./tables";
+import { keyOf, SYNC_SCHEMA, type Row } from "./tables";
 import { MemoryTx, type Tables } from "./tx";
 
 export interface PendingMutation {
@@ -17,6 +17,8 @@ export interface PullPayload {
 }
 
 export interface SavedState {
+  /** The SYNC_SCHEMA the copy was saved under. Missing on copies saved before W1. */
+  schema?: number;
   version: number;
   nextMutationId: number;
   base: Record<string, Row[]>;
@@ -92,14 +94,17 @@ export class SyncStore {
   save(): SavedState {
     const base: Record<string, Row[]> = {};
     for (const [name, rows] of this.base) base[name] = [...rows.values()];
-    return { version: this.version, nextMutationId: this.nextMutationId, base, pending: this.pending };
+    return { schema: SYNC_SCHEMA, version: this.version, nextMutationId: this.nextMutationId, base, pending: this.pending };
   }
 
   async restore(s: SavedState): Promise<void> {
-    this.version = s.version;
     this.nextMutationId = s.nextMutationId;
     this.pending = s.pending;
-    this.base = new Map(Object.entries(s.base).map(([name, rows]) => [name, new Map(rows.map((r) => [keyOf(name, r), r]))]));
+    // A copy saved before a row-key change would keep rows under keys the server no longer sends. Start over from a
+    // snapshot; the waiting changes still replay on top.
+    const current = s.schema === SYNC_SCHEMA;
+    this.version = current ? s.version : 0;
+    this.base = current ? new Map(Object.entries(s.base).map(([name, rows]) => [name, new Map(rows.map((r) => [keyOf(name, r), r]))])) : new Map();
     await this.rebase();
   }
 

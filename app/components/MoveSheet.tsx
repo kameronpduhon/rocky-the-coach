@@ -1,6 +1,6 @@
 import { useEffect, useRef } from "react";
 import { useFetcher } from "react-router";
-import type { ScheduleDay } from "~/server/schedule.server";
+import type { ScheduleDay } from "~/content/schedule";
 import { Sheet } from "./Sheet";
 import { Icon } from "./ui";
 
@@ -11,7 +11,7 @@ const dayLabel = (date: string) => DAY_FMT.format(new Date(`${date}T12:00:00Z`))
  * Moves a workout between two days of the week. From a workout day it lists every other day to move it to; from a
  * rest day it lists the workouts to bring there. Either way the two days trade, so the day left behind rests.
  */
-export function MoveSheet({ open, onClose, anchor, week, today }: { open: boolean; onClose: () => void; anchor: ScheduleDay; week: ScheduleDay[]; today?: string }) {
+export function MoveSheet({ open, onClose, anchor, week, today, children }: { open: boolean; onClose: () => void; anchor: ScheduleDay; week: ScheduleDay[]; today?: string; children?: React.ReactNode }) {
   const fetcher = useFetcher<{ ok?: boolean; error?: string }>();
   // Closes when a submit settles with ok. The last result lingers on the fetcher, so reopening must not re-close.
   const busy = useRef(false);
@@ -62,6 +62,7 @@ export function MoveSheet({ open, onClose, anchor, week, today }: { open: boolea
         </div>
       )}
       {fetcher.data?.error && <p className="mt-3 px-1 text-[14px] font-semibold text-calories">{fetcher.data.error}</p>}
+      {children}
     </Sheet>
   );
 }

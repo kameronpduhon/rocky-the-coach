@@ -72,6 +72,9 @@ function findSession(db: Db, date: ISODate, templateId: string) {
   return db.select().from(workoutSessions).where(and(eq(workoutSessions.date, date), eq(workoutSessions.templateId, templateId))).get();
 }
 
+/** The sync key a workout's sets and checks point at. */
+const sessionKey = (s: Session) => s.clientId ?? `id:${s.id}`;
+
 export interface SetInput {
   date: ISODate;
   templateId: string;
@@ -96,6 +99,7 @@ export async function logSet(db: Db, input: SetInput, now: Date): Promise<void> 
     .insert(setLogs)
     .values({
       sessionId: session.id,
+      sessionKey: sessionKey(session),
       exerciseId: input.exerciseId,
       position: input.position,
       setNumber: input.setNumber,
@@ -136,7 +140,7 @@ export async function endSession(db: Db, date: ISODate, templateId: string, now:
 /** Marks an exercise done without weights or reps, or clears that mark. */
 export async function checkExercise(db: Db, date: ISODate, templateId: string, exerciseId: string, done: boolean, now: Date): Promise<void> {
   const session = await ensureSession(db, date, templateId, now);
-  if (done) await db.insert(exerciseChecks).values({ sessionId: session.id, exerciseId }).onConflictDoNothing();
+  if (done) await db.insert(exerciseChecks).values({ sessionId: session.id, sessionKey: sessionKey(session), exerciseId }).onConflictDoNothing();
   else await db.delete(exerciseChecks).where(and(eq(exerciseChecks.sessionId, session.id), eq(exerciseChecks.exerciseId, exerciseId)));
 }
 
@@ -153,7 +157,10 @@ export async function setCustomExercises(db: Db, date: ISODate, ids: string[], n
   const keep = new Set([...ids, ...sets.map((r) => r.id), ...checks.map((r) => r.id)]);
   const current = customIds(session);
   const next = [...current.filter((id) => keep.has(id)), ...ids.filter((id) => exercises.has(id) && !current.includes(id))];
-  await db.update(workoutSessions).set({ exercises: JSON.stringify([...new Set(next)]) }).where(eq(workoutSessions.id, session.id));
+  const list = [...new Set(next)];
+  // W2 reads lifts. exercises stays for the v1 screen until W2 replaces it.
+  const lifts = list.map((exercise, position) => ({ position, exercise, repMin: 8, repMax: 12, from: "added" as const }));
+  await db.update(workoutSessions).set({ exercises: JSON.stringify(list), lifts: JSON.stringify(lifts) }).where(eq(workoutSessions.id, session.id));
 }
 
 export interface ExerciseView {

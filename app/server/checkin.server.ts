@@ -5,7 +5,8 @@ import { checkIns, mealLogs, plannedMeals } from "~/db/schema";
 import { weekAdherence, weekIsOnPlan } from "~/domain/adherence";
 import { decideAdjustment, type Adjustment } from "~/domain/adjustments";
 import { isTrainingDay, weekNumber } from "~/domain/calendar";
-import { addDays, localDate, localMinutes, weekStart, weekday } from "~/domain/dates";
+import { checkInWindow } from "~/domain/checkin";
+import { addDays } from "~/domain/dates";
 import { freshMeals, previewWeek, swapFits, type MealSwap } from "~/domain/next-week";
 import type { RotationMeal } from "~/domain/rotation";
 import { rampStepGoal } from "~/domain/steps";
@@ -17,15 +18,7 @@ import { ensureWeekPlan, lastEaten, restMeal, restedSlugs } from "./meal-plan.se
 import { movesBetween } from "./schedule.server";
 import { baseTargetsFor, setTargetsFrom } from "./targets.server";
 
-/** The Monday of the week under review while the check-in is open (Sunday 5pm to Monday noon), else null. */
-export function checkInWindow(now: Date): ISODate | null {
-  const today = localDate(now);
-  const minutes = localMinutes(now);
-  const wd = weekday(today);
-  if (wd === 0 && minutes >= 17 * 60) return weekStart(today);
-  if (wd === 1 && minutes < 12 * 60) return addDays(weekStart(today), -7);
-  return null;
-}
+export { checkInWindow } from "~/domain/checkin";
 
 export async function checkInDone(db: Db, monday: ISODate): Promise<boolean> {
   return (await db.select().from(checkIns).where(eq(checkIns.weekStart, monday)).get()) !== undefined;

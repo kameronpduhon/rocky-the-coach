@@ -1,5 +1,5 @@
 import { sql } from "drizzle-orm";
-import { index, integer, primaryKey, real, sqliteTable, text } from "drizzle-orm/sqlite-core";
+import { index, integer, primaryKey, real, sqliteTable, text, uniqueIndex } from "drizzle-orm/sqlite-core";
 
 const bool = (name: string) => integer(name, { mode: "boolean" });
 
@@ -55,10 +55,18 @@ export const workoutSessions = sqliteTable(
     id: integer("id").primaryKey({ autoIncrement: true }),
     date: text("date").notNull(),
     templateId: text("template_id").notNull(),
-    startedAt: text("started_at").notNull(),
+    /** Null while a workout is planned but not started. */
+    startedAt: text("started_at"),
     endedAt: text("ended_at"),
-    /** JSON array of exercise ids, for a workout built on the spot rather than taken from the plan. */
+    /** JSON array of exercise ids, for a workout built on the spot rather than taken from the plan. v1 only. */
     exercises: text("exercises"),
+    /** Made on the phone, so a workout can be created offline. v1 rows have none and sync as `id:<id>`. */
+    clientId: text("client_id").unique(),
+    plannedAt: text("planned_at"),
+    /** JSON lift list for this day (see the W1 plan). Null follows the template and its always-swaps. */
+    lifts: text("lifts"),
+    /** easy, right or hard, from the optional tap after the workout. */
+    feel: text("feel"),
   },
   (t) => [index("workout_sessions_date").on(t.date)],
 );
@@ -68,9 +76,11 @@ export const exerciseChecks = sqliteTable(
   "exercise_checks",
   {
     sessionId: integer("session_id").notNull(),
+    /** The workout's sync key: its client_id, or id:<id> for a v1 workout. */
+    sessionKey: text("session_key").notNull().default(""),
     exerciseId: text("exercise_id").notNull(),
   },
-  (t) => [primaryKey({ columns: [t.sessionId, t.exerciseId] })],
+  (t) => [primaryKey({ columns: [t.sessionId, t.exerciseId] }), uniqueIndex("exercise_checks_session_key").on(t.sessionKey, t.exerciseId)],
 );
 
 export const setLogs = sqliteTable(
@@ -78,6 +88,8 @@ export const setLogs = sqliteTable(
   {
     id: integer("id").primaryKey({ autoIncrement: true }),
     sessionId: integer("session_id").notNull(),
+    /** The workout's sync key: its client_id, or id:<id> for a v1 workout. */
+    sessionKey: text("session_key").notNull().default(""),
     exerciseId: text("exercise_id").notNull(),
     position: integer("position").notNull(),
     setNumber: integer("set_number").notNull(),
@@ -216,4 +228,11 @@ export const vitals = sqliteTable("vitals", {
   inpMs: integer("inp_ms").notNull(),
   target: text("target"),
   at: text("at").notNull(),
+});
+
+/** A note kept with an exercise from week to week, such as "seat on 4". */
+export const exerciseNotes = sqliteTable("exercise_notes", {
+  exerciseId: text("exercise_id").primaryKey(),
+  note: text("note").notNull(),
+  updatedAt: text("updated_at").notNull(),
 });

@@ -43,6 +43,20 @@
       "when": 1793122423943,
       "tag": "0005_sync_triggers",
       "breakpoints": true
+    },
+    {
+      "idx": 6,
+      "version": "6",
+      "when": 1793136205475,
+      "tag": "0006_workout_data",
+      "breakpoints": true
+    },
+    {
+      "idx": 7,
+      "version": "6",
+      "when": 1793136224428,
+      "tag": "0007_workout_sync",
+      "breakpoints": true
     }
   ]
 }

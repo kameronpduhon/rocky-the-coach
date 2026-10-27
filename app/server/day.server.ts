@@ -143,7 +143,7 @@ export async function loadDay(db: Db, date: ISODate, now: Date): Promise<DaySumm
     sessionStarted: sessions.length > 0,
     loggedSetToday: setDates.has(date),
     finishedTemplateId: sessions.filter((s) => s.endedAt).sort((a, b) => b.endedAt!.localeCompare(a.endedAt!))[0]?.templateId ?? null,
-    openTemplateId: sessions.filter((s) => !s.endedAt).sort((a, b) => b.startedAt.localeCompare(a.startedAt))[0]?.templateId ?? null,
+    openTemplateId: sessions.filter((s) => !s.endedAt).sort((a, b) => (b.startedAt ?? "").localeCompare(a.startedAt ?? ""))[0]?.templateId ?? null,
     onPlan,
     streak: streakFrom(history, date, onPlan),
     missedTwice: missedTwoInARow(date, setDates, moves),

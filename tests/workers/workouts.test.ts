@@ -1,5 +1,6 @@
+import { env } from "cloudflare:test";
 import { describe, expect, it } from "vitest";
-import { endSession, goUps, lastSessionSets, logSet, resolveTemplate, swapExercise, workoutView } from "~/server/workouts.server";
+import { checkExercise, endSession, goUps, lastSessionSets, logSet, resolveTemplate, setCustomExercises, swapExercise, workoutView } from "~/server/workouts.server";
 import { db } from "./helpers";
 
 const MON = "mon-chest-back-arms";
@@ -87,5 +88,18 @@ describe("workouts", () => {
   it("ends a session", async () => {
     await endSession(db(), "2026-10-12", MON, new Date("2026-10-12T18:00:00Z"));
     expect((await workoutView(db(), "2026-10-12", MON)).endedAt).toBe("2026-10-12T18:00:00.000Z");
+  });
+
+  it("keys v1 sets and checks to their workout, and keeps a custom list in lifts", async () => {
+    const now = new Date("2026-10-28T17:00:00Z");
+    await logSet(db(), { date: "2026-10-28", templateId: "wed-legs-shoulders", position: 0, exerciseId: "leg-press", setNumber: 1, weightLb: 270, reps: 12, clientId: "v1-set" }, now);
+    await checkExercise(db(), "2026-10-28", "wed-legs-shoulders", "seated-leg-curl", true, now);
+    const session = await env.DB.prepare("SELECT id FROM workout_sessions WHERE template_id = 'wed-legs-shoulders' AND date = '2026-10-28'").first<{ id: number }>();
+    expect(await env.DB.prepare("SELECT session_key FROM set_logs WHERE client_id = 'v1-set'").first()).toEqual({ session_key: `id:${session!.id}` });
+    expect(await env.DB.prepare("SELECT session_key FROM exercise_checks WHERE exercise_id = 'seated-leg-curl'").first()).toEqual({ session_key: `id:${session!.id}` });
+
+    await setCustomExercises(db(), "2026-10-28", ["leg-press", "seated-leg-curl"], now);
+    const custom = await env.DB.prepare("SELECT lifts FROM workout_sessions WHERE template_id = 'custom'").first<{ lifts: string }>();
+    expect(JSON.parse(custom!.lifts).map((l: { exercise: string; position: number }) => [l.position, l.exercise])).toEqual([[0, "leg-press"], [1, "seated-leg-curl"]]);
   });
 });

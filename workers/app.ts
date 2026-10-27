@@ -2,6 +2,8 @@ import { createRequestHandler } from "react-router";
 import { runScheduled } from "../app/jobs/scheduled";
 import { httpsRedirect } from "./https";
 
+export { RestTimer } from "../app/server/rest-timer.server";
+
 const requestHandler = createRequestHandler(
   () => import("virtual:react-router/server-build"),
   import.meta.env.MODE,

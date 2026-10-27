@@ -1,5 +1,6 @@
 import { describe, expect, it } from "vitest";
 import { SyncStore } from "~/sync/store";
+import { SYNC_SCHEMA } from "~/sync/tables";
 
 const ctx = () => ({ now: "2026-10-27T16:00:00.000Z", today: "2026-10-27" });
 
@@ -51,5 +52,21 @@ describe("SyncStore", () => {
     await copy.restore(store.save());
     expect(copy.rows("profile")).toEqual([{ id: "me", voice: "plain" }]);
     expect(copy.pending).toHaveLength(1);
+  });
+
+  it("drops a copy saved under an older sync schema, keeping the waiting changes", async () => {
+    const store = new SyncStore(() => ({ now: "2026-10-27T16:00:00.000Z", today: "2026-10-27" }));
+    await store.restore({
+      schema: SYNC_SCHEMA - 1,
+      version: 40,
+      nextMutationId: 3,
+      base: { exercise_checks: [{ session_id: 1, exercise_id: "leg-curl" }] },
+      pending: [{ id: 2, name: "setVoice", args: { voice: "plain" } }],
+    });
+    expect(store.version).toBe(0);
+    expect(store.rows("exercise_checks")).toEqual([]);
+    expect(store.pending).toHaveLength(1);
+    expect(store.nextMutationId).toBe(3);
+    expect(store.save().schema).toBe(SYNC_SCHEMA);
   });
 });

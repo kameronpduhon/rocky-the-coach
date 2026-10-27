@@ -35,6 +35,31 @@ describe('nextSuggestion', () => {
       nextSuggestion([{ weight: 140, reps: 12 }, { weight: 145, reps: 11 }], { repMax: 12, increment: 5, deload: false }),
     ).toEqual({ weight: 145, goUp: false });
   });
+
+  const top = [{ weight: 270, reps: 12 }, { weight: 270, reps: 12 }];
+  const short = [{ weight: 270, reps: 12 }, { weight: 270, reps: 11 }];
+  const legs = { repMax: 12, increment: 10, deload: false };
+
+  it('goes up one step after an "about right" or unrated session at the top', () => {
+    expect(nextSuggestion(top, legs, 'right')).toEqual({ weight: 280, goUp: true });
+    expect(nextSuggestion(top, legs, null)).toEqual({ weight: 280, goUp: true });
+  });
+
+  it('goes up two steps after an easy session at the top', () => {
+    expect(nextSuggestion(top, legs, 'easy')).toEqual({ weight: 290, goUp: true });
+  });
+
+  it('holds after a hard session, even at the top', () => {
+    expect(nextSuggestion(top, legs, 'hard')).toEqual({ weight: 270, goUp: false });
+  });
+
+  it('holds below the top whatever the feel', () => {
+    expect(nextSuggestion(short, legs, 'easy')).toEqual({ weight: 270, goUp: false });
+  });
+
+  it('holds in a deload week whatever the feel', () => {
+    expect(nextSuggestion(top, { ...legs, deload: true }, 'easy')).toEqual({ weight: 270, goUp: false });
+  });
 });
 
 describe('restSeconds', () => {

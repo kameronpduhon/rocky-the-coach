@@ -30,4 +30,15 @@ describe("sync triggers", () => {
     await env.DB.prepare("insert into notifications_sent (kind, date) values ('weigh-in', '2026-10-27')").run();
     expect((await changes()).length).toBe(before);
   });
+
+  it("keys workouts by their phone id, checks by workout key and exercise, and logs notes", async () => {
+    await env.DB.prepare("INSERT INTO workout_sessions (client_id, date, template_id, planned_at) VALUES ('w-t', '2026-10-28', 'wed-legs-shoulders', '2026-10-28T12:00:00Z')").run();
+    await env.DB.prepare("INSERT INTO exercise_checks (session_id, session_key, exercise_id) VALUES (99, 'w-t', 'leg-curl')").run();
+    await env.DB.prepare("INSERT INTO exercise_notes (exercise_id, note, updated_at) VALUES ('leg-press', 'seat on 4', '2026-10-28T12:00:00Z')").run();
+    expect((await changes()).slice(-3)).toEqual([
+      { table_name: "workout_sessions", row_key: "w-t", op: "put" },
+      { table_name: "exercise_checks", row_key: "w-t|leg-curl", op: "put" },
+      { table_name: "exercise_notes", row_key: "leg-press", op: "put" },
+    ]);
+  });
 });

@@ -9,6 +9,7 @@ export default [
   route("api/sync/push", "routes/api.sync.push.ts"),
   route("api/sync/pull", "routes/api.sync.pull.ts"),
   route("api/vitals", "routes/api.vitals.ts"),
+  route("api/rest", "routes/api.rest.ts"),
   layout("routes/app-layout.tsx", [
     index("routes/today.tsx"),
     route("plan", "routes/plan.tsx"),

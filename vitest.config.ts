@@ -19,6 +19,7 @@ export default defineConfig(async () => {
           plugins: [
             cloudflareTest({
               wrangler: { configPath: "./wrangler.jsonc" },
+              main: "./tests/workers/test-worker.ts",
               miniflare: {
                 bindings: {
                   TEST_MIGRATIONS: migrations,
@@ -29,6 +30,8 @@ export default defineConfig(async () => {
                   VAPID_PUBLIC_KEY: "BOr9r1kQdvy1W8e1ZJHhq2bBo6S7gQkC3n2Ucg5w8yW8mGg9x2fV9bXJb2kq3pY2c4cJ7aZbS0m3v5Q6nQ1tY2U",
                   VAPID_PRIVATE_KEY: "test-private-key",
                 },
+                // Left unmigrated by apply-migrations.ts, so a test can apply migrations in two halves around old data.
+                d1Databases: ["MIGRATION_TEST"],
               },
             }),
           ],

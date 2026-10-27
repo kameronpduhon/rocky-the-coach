@@ -49,10 +49,12 @@ export class ServerTx implements Tx {
     const def = tableDef(table);
     this.overlay.set(this.slot(table, def.key(row)), row);
     const columns = Object.keys(row);
-    const updates = columns.filter((c) => !def.conflict.includes(c)).map((c) => `${c} = excluded.${c}`);
+    // A row the server already numbered is updated by that number. A v1 row has no client_id to match on.
+    const conflict = row.id != null && def.conflict.includes("client_id") ? ["id"] : def.conflict;
+    const updates = columns.filter((c) => !conflict.includes(c)).map((c) => `${c} = excluded.${c}`);
     const sql =
       `INSERT INTO ${table} (${columns.join(", ")}) VALUES (${columns.map(() => "?").join(", ")})` +
-      ` ON CONFLICT (${def.conflict.join(", ")}) DO ${updates.length ? `UPDATE SET ${updates.join(", ")}` : "NOTHING"}`;
+      ` ON CONFLICT (${conflict.join(", ")}) DO ${updates.length ? `UPDATE SET ${updates.join(", ")}` : "NOTHING"}`;
     this.statements.push(this.d1.prepare(sql).bind(...columns.map((c) => row[c] ?? null)));
   }
 

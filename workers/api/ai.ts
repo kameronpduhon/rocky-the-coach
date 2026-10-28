@@ -7,6 +7,7 @@ import { checkProposals } from "~/ai/proposals";
 import { checkTake, takeHash } from "~/ai/take";
 import { anthropicClient, type AiClient, type AiKind, type AiReason, type AiResult } from "~/ai/claude.server";
 import { aiSwitchOn, callsToday, DAILY_CAP, logAiCall } from "~/ai/calls.server";
+import { UNREADABLE } from "~/ai/label";
 import { isISODate, weekday } from "~/domain/dates";
 import { serverNow } from "~/server/clock.server";
 import { currentUser, userD1 } from "~/server/current-user.server";
@@ -146,4 +147,19 @@ export async function aiTell(request: Request): Promise<Response> {
   await logged(call, "tell", result);
   if (!result.ok) return Response.json({ proposals: null }, { headers: NO_STORE });
   return Response.json({ proposals: checkProposals(result.value.proposals, text, hasPlan) }, { headers: NO_STORE });
+}
+
+// Base64 of a JPEG under 5 MB, Anthropic's per-image limit. The phone sends 1,568 px at 0.8, a few hundred KB.
+const LabelBody = z.object({ image: z.string().min(4).max(5_000_000).regex(/^[A-Za-z0-9+/]+={0,2}$/) });
+
+/** A nutrition label from a photo (spec section 3, "Read the label"). The photo goes to the model and is kept nowhere. */
+export async function aiLabel(request: Request): Promise<Response> {
+  const call = await aiGate();
+  if (call instanceof Response) return call;
+  const body = LabelBody.safeParse(await request.json().catch(() => null));
+  if (!body.success) return Response.json({ error: "Bad photo" }, { status: 400, headers: NO_STORE });
+  if (await overCap(call, "label")) return fallback("cap");
+  const result = await call.ai.label(body.data.image);
+  await logged(call, "label", result);
+  return Response.json(result.ok ? result.value : UNREADABLE, { headers: NO_STORE });
 }

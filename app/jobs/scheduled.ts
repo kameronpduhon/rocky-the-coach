@@ -1,5 +1,7 @@
 import { getDb } from "~/db/client";
+import { mealDate, weekStart } from "~/domain/dates";
 import { runBackup } from "~/server/backup.server";
+import { ensureWeekPlan } from "~/server/meal-plan.server";
 import { runReminders } from "~/server/reminders.server";
 import { allUsers } from "~/server/users.server";
 
@@ -19,9 +21,12 @@ export async function runScheduled(env: Env, cron: string, now: Date): Promise<v
       return;
     }
     for (const person of people) {
-      // Reminders read the plan, so someone without one gets none yet.
+      // Reminders and meals read the plan, so someone without one gets neither yet.
       if (!person.planKey) continue;
-      const sent = await runReminders(getDb(env[person.dbBinding]), now);
+      const db = getDb(env[person.dbBinding]);
+      // Monday's meals exist before anyone opens the app, so the first pull brings them.
+      await ensureWeekPlan(db, weekStart(mealDate(now)));
+      const sent = await runReminders(db, now);
       if (sent.length) console.log(`[cron] reminders for ${person.name}: ${sent.join(", ")}`);
     }
   } catch (err) {

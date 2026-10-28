@@ -75,3 +75,34 @@ export function parseOff(code: string, json: unknown): Product | null {
     drink: categories.includes("en:beverages"),
   };
 }
+
+const USER_AGENT = "TheCorner/2.0 (https://kampduh.com)";
+const CACHE_PREFIX = "https://kampduh.com/__off/";
+const HIT_SECONDS = 30 * 24 * 60 * 60;
+const MISS_SECONDS = 24 * 60 * 60;
+const TIMEOUT_MS = 6_000;
+
+export type BarcodeAnswer = { found: true; product: Product } | { found: false; down?: true };
+
+/** One barcode, from the cache or from Open Food Facts. A down or slow OFF is never cached, so the next scan asks again. */
+export async function lookupBarcode(code: string, cache: Cache = caches.default): Promise<BarcodeAnswer> {
+  const key = offCode(code);
+  const cacheKey = new Request(`${CACHE_PREFIX}${key}`);
+  const hit = await cache.match(cacheKey);
+  if (hit) return (await hit.json()) as BarcodeAnswer;
+
+  let json: unknown;
+  try {
+    const res = await fetch(offUrl(key), { headers: { "User-Agent": USER_AGENT }, signal: AbortSignal.timeout(TIMEOUT_MS) });
+    // OFF answers an unknown code with a 404 and a JSON body; anything else not ok means it is struggling.
+    if (!res.ok && res.status !== 404) return { found: false, down: true };
+    json = await res.json();
+  } catch {
+    return { found: false, down: true };
+  }
+
+  const product = parseOff(key, json);
+  const answer: BarcodeAnswer = product ? { found: true, product } : { found: false };
+  await cache.put(cacheKey, Response.json(answer, { headers: { "Cache-Control": `max-age=${product ? HIT_SECONDS : MISS_SECONDS}` } }));
+  return answer;
+}

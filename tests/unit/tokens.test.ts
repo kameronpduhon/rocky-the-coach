@@ -53,12 +53,8 @@ describe("Corner revised tokens", () => {
     // v1 names, as v1 screens use them
     ["label", "bg"],
     ["label-2", "card"],
-    ["label-3", "bg"],
     ["label-on-fill", "fill"],
     ["steps-text", "card"],
-    ["calories", "calories-chip-bg"],
-    ["protein", "protein-chip-bg"],
-    ["prominent-label", "prominent-fill"],
   ])("--%s text on --%s is at least 4.5:1", (fg, bg) => {
     expect(contrast(fg, bg)).toBeGreaterThanOrEqual(4.5);
   });

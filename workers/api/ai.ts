@@ -2,8 +2,11 @@
 // runs aiGate (a key, the person's switch), parses its body, checks its daily cap, calls the model once, logs the
 // call, and answers. A model failure is a 200 with the route's fallback shape; the phone treats it like a timeout.
 import { env } from "cloudflare:workers";
+import { z } from "zod";
+import { checkTake, takeHash } from "~/ai/take";
 import { anthropicClient, type AiClient, type AiKind, type AiReason, type AiResult } from "~/ai/claude.server";
 import { aiSwitchOn, callsToday, DAILY_CAP, logAiCall } from "~/ai/calls.server";
+import { isISODate, weekday } from "~/domain/dates";
 import { serverNow } from "~/server/clock.server";
 import { userD1 } from "~/server/current-user.server";
 
@@ -69,4 +72,48 @@ export async function aiStatus(request: Request): Promise<Response> {
   const result = await call.ai.probe();
   await logged(call, "probe", result);
   return Response.json({ available, probe: { ok: result.ok, reason: result.ok ? null : result.reason } }, { headers: NO_STORE });
+}
+
+/** What Rocky knows, oldest first, for a prompt. */
+export async function factTexts(d1: D1Database): Promise<string[]> {
+  return (await d1.prepare("SELECT text FROM facts ORDER BY created_at, client_id").all<{ text: string }>()).results.map((f) => f.text);
+}
+
+const TAKE_WRITES_PER_WEEK = 3;
+
+const TakeBody = z.object({
+  weekStart: z.string().refine((d) => isISODate(d) && weekday(d) === 1, "Not a Monday"),
+  lines: z.array(z.string().min(1).max(300)).min(1).max(16),
+  voice: z.enum(["corner", "plain"]),
+});
+
+/**
+ * Rocky's take for a week (spec section 2). The same lines and voice read the stored take with no model call. A new
+ * take is checked before it is stored; sync carries the row to the phones.
+ */
+export async function aiTake(request: Request): Promise<Response> {
+  const call = await aiGate();
+  if (call instanceof Response) return call;
+  const body = TakeBody.safeParse(await request.json().catch(() => null));
+  if (!body.success) return Response.json({ error: "Bad take" }, { status: 400 });
+  const { weekStart, lines, voice } = body.data;
+  const hash = await takeHash(lines, voice);
+  const stored = await call.d1.prepare("SELECT text, hash, writes FROM takes WHERE week_start = ?").bind(weekStart).first<{ text: string; hash: string; writes: number }>();
+  if (stored?.hash === hash) return Response.json({ text: stored.text }, { headers: NO_STORE });
+  if ((stored?.writes ?? 0) >= TAKE_WRITES_PER_WEEK || (await overCap(call, "take"))) return fallback("cap");
+
+  const result = await call.ai.take({ lines, voice, facts: await factTexts(call.d1) });
+  const check = result.ok ? checkTake(result.value, lines) : "ok";
+  const refused = check === "ok" ? null : check;
+  await logged(call, "take", result, refused);
+  if (!result.ok || refused) return Response.json({ text: null }, { headers: NO_STORE });
+
+  await call.d1
+    .prepare(
+      "INSERT INTO takes (week_start, text, hash, voice, writes, written_at) VALUES (?, ?, ?, ?, 1, ?) " +
+        "ON CONFLICT (week_start) DO UPDATE SET text = excluded.text, hash = excluded.hash, voice = excluded.voice, writes = takes.writes + 1, written_at = excluded.written_at",
+    )
+    .bind(weekStart, result.value, hash, voice, call.now.toISOString())
+    .run();
+  return Response.json({ text: result.value }, { headers: NO_STORE });
 }

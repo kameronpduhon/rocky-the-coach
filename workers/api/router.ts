@@ -1,5 +1,5 @@
 import { login, logout, me } from "./account";
-import { aiStatus } from "./ai";
+import { aiStatus, aiTake } from "./ai";
 import { withUser } from "./auth";
 import { ingestSteps } from "./ingest";
 import { mealPhoto, media } from "./media";
@@ -29,6 +29,7 @@ const ROUTES: ApiRoute[] = [
   { method: "POST", path: /^\/api\/push\/test$/, run: testPush },
   { method: "POST", path: /^\/api\/backup$/, run: backup },
   { method: "GET", path: /^\/api\/ai\/status$/, run: aiStatus },
+  { method: "POST", path: /^\/api\/ai\/take$/, run: aiTake },
 ];
 
 function decode(part: string): string {

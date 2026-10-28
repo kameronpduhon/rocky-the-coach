@@ -32,6 +32,14 @@ describe("GET /media/*", () => {
     expect((await api("/media/nope.jpg", {}, KAMERON)).status).toBe(404);
     expect((await api("/media/exercises/Butterfly/0.jpg")).status).toBe(401);
   });
+
+  it("serves only the app's images: a backup 404s for either person", async () => {
+    await env.MEDIA.put("backups/kameron/2026-10-25.json", "{}", { httpMetadata: { contentType: "application/json" } });
+    await env.MEDIA.put("exercises/Butterfly/1.jpg", new Uint8Array([5]));
+    expect((await api("/media/backups/kameron/2026-10-25.json", {}, CATHERINE)).status).toBe(404);
+    expect((await api("/media/backups/kameron/2026-10-25.json", {}, KAMERON)).status).toBe(404);
+    expect((await api("/media/exercises/Butterfly/1.jpg", {}, CATHERINE)).status).toBe(200);
+  });
 });
 
 describe("POST /api/meals/:slug/photo", () => {

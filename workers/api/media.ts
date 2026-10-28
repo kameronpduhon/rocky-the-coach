@@ -3,8 +3,11 @@ import { meals } from "~/content";
 import { userDb } from "~/server/current-user.server";
 import { saveMealPhoto } from "~/server/photos.server";
 
+// The bucket also holds each person's backups, so only the folders the app's images live in are served.
+const SERVED = ["exercises/", "meals/"];
+
 export async function media(_request: Request, [key]: string[]): Promise<Response> {
-  const obj = key ? await env.MEDIA.get(key) : null;
+  const obj = key && SERVED.some((p) => key.startsWith(p)) ? await env.MEDIA.get(key) : null;
   if (!obj) return new Response("Not found", { status: 404 });
   return new Response(obj.body, {
     headers: {

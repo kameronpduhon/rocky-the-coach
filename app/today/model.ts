@@ -10,7 +10,7 @@ import { pickSituation, renderMessage } from "~/domain/messages";
 import { nextUp, type NextUp } from "~/domain/next-up";
 import { nextSuggestion } from "~/domain/progression";
 import type { ISODate } from "~/domain/types";
-import { sevenDayAverage } from "~/domain/weight";
+import { trendReading } from "~/domain/trend";
 import { keyOf, type Row } from "~/sync/tables";
 import { resolveLifts, titleLines, workoutMinutes, workoutTitle } from "~/workout/lifts";
 import { doneDates, lastSession, loggedDates, sessionKey, type Rows } from "~/workout/sessions";
@@ -168,13 +168,11 @@ function countedLine(a: DayActivity, weighInTime: string | null, firstMeal: stri
 }
 
 function trendLine(weights: { date: ISODate; weight: number }[], date: ISODate): string | null {
-  const now = sevenDayAverage(weights, date);
-  if (now === null) return null;
-  const start = sevenDayAverage(weights, addDays(plan.phaseStart, 6));
-  if (start === null || date <= addDays(plan.phaseStart, 6)) return `Trend ${now} lb.`;
-  const diff = Math.round((now - start) * 10) / 10;
-  const change = diff < 0 ? `down ${Math.abs(diff)}` : diff > 0 ? `up ${diff}` : "level";
-  return `Trend ${now} lb, ${change} since ${monthDay(plan.phaseStart)}.`;
+  const t = trendReading(weights, date, plan.phaseStart);
+  if (!t) return null;
+  if (t.sinceFrom === null) return `Trend ${t.weight} lb.`;
+  const change = t.sinceFrom < 0 ? `down ${Math.abs(t.sinceFrom)}` : t.sinceFrom > 0 ? `up ${t.sinceFrom}` : "level";
+  return `Trend ${t.weight} lb, ${change} since ${monthDay(plan.phaseStart)}.`;
 }
 
 const firstMealName = (logs: Row[]): string | null => {

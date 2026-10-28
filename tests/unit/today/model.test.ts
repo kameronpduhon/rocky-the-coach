@@ -112,6 +112,21 @@ describe("buildToday", () => {
     expect(m.countedLine).toBe("Your 6:52am weigh-in made today count.");
   });
 
+  it("reads the trend weight, so one weigh-in a week still makes a line", () => {
+    // 207, 206, 205 and 204, a week or more apart. The trend moves a tenth of the way each time: 207, 206.9, 206.71, 206.439.
+    const weighIns: Row[] = (
+      [
+        ["2026-10-05", 207],
+        ["2026-10-12", 206],
+        ["2026-10-19", 205],
+        [WED, 204],
+      ] as const
+    ).map(([date, w]) => ({ date, weight_lb: w, logged_at: `${date}T12:00:00Z` }));
+    const line = (rows: Row[]) => asPlan(buildToday(rowsOf({ planned_meals: planned(WED), weigh_ins: rows }), at(WED, "09:00"), true)).trendLine;
+    expect(line(weighIns)).toBe("Trend 206.4 lb, down 0.6 since Oct 5.");
+    expect(line(weighIns.slice(2))).toBeNull();
+  });
+
   it("without a plan gives only the weigh-in, steps and streak", () => {
     const m = buildToday(rowsOf({ weigh_ins: [{ date: WED, weight_lb: 141.4, logged_at: `${WED}T12:10:00Z` }], steps_daily: [{ date: WED, steps: 5200, updated_at: "" }] }), at(WED, "09:00"), false);
     expect(m.hasPlan).toBe(false);

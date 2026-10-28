@@ -104,6 +104,26 @@ describe("buildMeal", () => {
     expect(last.leftover).toMatchObject({ portion: 3, closing: "Last portion." });
   });
 
+  it("offers a batch only when the main protein is weighed raw, since the batch weighs it cooked", () => {
+    const at7 = (slug: string, slot: "breakfast" | "dessert", hhmm: string) => buildMeal(rowsOf({ planned_meals: planned(WED) }), at(WED, hhmm), { slug, slot })!;
+    expect(at7("steak-and-eggs", "breakfast", "07:00").canCook).toBe(true);
+    expect(at7("protein-ice-cream", "dessert", "19:30")).toMatchObject({ state: "open", canCook: false });
+  });
+
+  it("counts eggs, scoops and fruit from the grams, so the meal's note never repeats it", () => {
+    const eggs = buildMeal(rowsOf({ planned_meals: planned(WED) }), at(WED, "07:00"), { slug: "steak-and-eggs", slot: "breakfast" })!;
+    expect(scaleRows(eggs, 1).map((r) => [r.name, r.sub])).toEqual([
+      ["Top sirloin, trimmed", "Raw"],
+      ["Eggs", "Raw, 2 eggs"],
+      ["Egg whites", "Raw"],
+      ["Butter", null],
+      ["Bananas", "1 banana, on the side"],
+    ]);
+    expect(scaleRows(eggs, 3)[1].sub).toBe("Raw, 100 g a portion, 6 eggs");
+    const bowl = buildMeal(rowsOf({}), at(WED, "07:00"), { slug: "greek-yogurt-power-bowl", slot: null })!;
+    expect(scaleRows(bowl, 1).find((r) => r.name === "Bananas")?.sub).toBe("About 1 banana");
+  });
+
   it("knows no meal it doesn't have, and finds each meal's main protein", () => {
     expect(buildMeal(rowsOf({}), at(WED, "13:00"), { slug: "nope", slot: null })).toBeNull();
     expect(mainProtein(meals.get(BOWL)!).food).toBe("chicken-breast-raw");

@@ -71,7 +71,7 @@ export interface MealModel {
   /** Why the grams moved, on the first changed row. Today's slot only. */
   wasNote: string | null;
   mainProtein: { food: string; name: string };
-  /** "Cooking for" shows: today's slot, unmarked, with no batch open. */
+  /** "Cooking for" shows: today's slot, unmarked, with no batch open, and a main protein that gets cooked. */
   canCook: boolean;
   /** A batch of this meal cooked today. */
   todayBatch: { portions: number; portionG: number; laterDays: string[] } | null;
@@ -218,7 +218,8 @@ export function buildMeal(rows: Rows, now: Date, p: { slug: string; slot: string
       items,
       wasNote: change && moved.length ? wasReason(change, moved) : null,
       mainProtein: { food: main.food, name: foods.get(main.food)!.name },
-      canCook: state === "open" && !batch,
+      // The batch is weighed by its cooked protein, which a shake or a yogurt bowl doesn't have.
+      canCook: state === "open" && !batch && foods.get(main.food)!.state === "raw",
       todayBatch,
       leftover,
       swaps: state === "open" ? swapOptions(rows, date, own.slot, meal, factor, (targets.kcal - eatenKcal) / open) : [],
@@ -276,8 +277,8 @@ export function scaleRows(m: MealModel, portions: number): ScaleRow[] {
     const parts = [
       i.state,
       portions > 1 ? `${i.grams} g a portion` : null,
+      each ? `${grams % i.eachG! === 0 ? "" : "about "}${each} ${i.eachLabel}${each === 1 ? "" : "s"}` : null,
       i.note,
-      each ? `about ${each} ${i.eachLabel}${each === 1 ? "" : "s"}` : null,
       m.mode === "browse" && wasG !== null ? `was ${wasG}` : null,
     ].filter((x): x is string => Boolean(x));
     return {

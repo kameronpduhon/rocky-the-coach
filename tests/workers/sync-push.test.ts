@@ -99,4 +99,48 @@ describe("push", () => {
     expect(res.rejected).toEqual([]);
     expect(await env.DB.prepare("SELECT count(*) AS n, max(weight_lb) AS w FROM set_logs WHERE session_id = ?").bind(session!.id).first()).toEqual({ n: 1, w: 105 });
   });
+
+  // November dates, so nothing the other push tests logged in October is already in the way.
+  it("starts a batch from the phone, numbers it, and eats from it the same day", async () => {
+    const tue = new Date("2026-11-03T18:00:00Z");
+    const res = await processPush(
+      env.DB,
+      {
+        clientId: "phone-batch",
+        mutations: [
+          { id: 1, name: "startBatch", args: { clientId: "b-push", date: "2026-11-03", slot: "lunch", mealSlug: "chicken-and-rice-bowl", portions: 3, cookedWeightG: 495 } },
+          { id: 2, name: "logMeal", args: { clientId: "m-push", date: "2026-11-03", slot: "lunch", mealSlug: "chicken-and-rice-bowl" } },
+        ],
+      },
+      tue,
+    );
+    expect(res.rejected).toEqual([]);
+    const batch = await env.DB.prepare("SELECT id, portion_g, portions_left, factor FROM batches WHERE client_id = 'b-push'").first<{ id: number }>();
+    expect(batch).toMatchObject({ portion_g: 165, portions_left: 2, factor: 1 });
+    expect(batch!.id).toBeGreaterThan(0);
+    expect(await env.DB.prepare("SELECT meal_slug, swapped FROM planned_meals WHERE date = '2026-11-04' AND slot = 'lunch'").first()).toEqual({ meal_slug: "chicken-and-rice-bowl", swapped: 1 });
+  });
+
+  it("logs a seeded usual order and counts the use", async () => {
+    const res = await processPush(env.DB, { clientId: "phone-usual", mutations: [{ id: 1, name: "logUsual", args: { clientId: "o-push", usual: "usual-ranch-water", date: "2026-10-27" } }] }, now);
+    expect(res.rejected).toEqual([]);
+    expect(await env.DB.prepare("SELECT name, kcal, category FROM meal_logs WHERE client_id = 'o-push'").first()).toEqual({ name: "Ranch Water", kcal: 100, category: "drink" });
+    expect(await env.DB.prepare("SELECT uses FROM usual_orders WHERE client_id = 'usual-ranch-water'").first()).toEqual({ uses: 1 });
+  });
+
+  it("closes out a day on the server, skipping what the phone skipped", async () => {
+    const res = await processPush(
+      env.DB,
+      {
+        clientId: "phone-close",
+        mutations: [{ id: 1, name: "closeOutDay", args: { date: "2026-11-09", eaten: [{ clientId: "c-push-1", slot: "dinner", mealSlug: "honey-glazed-chicken-thighs" }], skipped: [{ clientId: "c-push-2", slot: "dessert", mealSlug: "protein-ice-cream" }] } }],
+      },
+      new Date("2026-11-10T18:00:00Z"),
+    );
+    expect(res.rejected).toEqual([]);
+    expect((await env.DB.prepare("SELECT slot, category, kcal FROM meal_logs WHERE client_id LIKE 'c-push-%' ORDER BY slot").all()).results).toEqual([
+      { slot: "dessert", category: "skipped", kcal: 0 },
+      { slot: "dinner", category: "planned", kcal: meals.get("honey-glazed-chicken-thighs")!.kcal },
+    ]);
+  });
 });

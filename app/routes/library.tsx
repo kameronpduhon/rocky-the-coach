@@ -6,10 +6,12 @@ import { MealPhoto } from "~/components/MealPhoto";
 import { Segmented } from "~/components/Segmented";
 import { Card, Icon, LargeTitle, Screen, SectionTitle } from "~/components/ui";
 import { exerciseImage, exercises, GROUP_LABEL, meals, plan } from "~/content";
+import { factorFor, scaledMeal } from "~/content/scaled";
 import { userDb } from "~/server/current-user.server";
 import { exerciseOverrides, mealState } from "~/db/schema";
 import { localDate } from "~/domain/dates";
 import { serverNow } from "~/server/clock.server";
+import { targetsFor } from "~/server/targets.server";
 
 export function meta() {
   return [{ title: pageTitle("Library") }];
@@ -27,8 +29,9 @@ const EQUIPMENT: Record<string, string> = { barbell: "Barbell", "body-weight": "
 
 export async function loader(_args: Route.LoaderArgs) {
   const db = userDb();
-  const [state, overrides] = await Promise.all([db.select().from(mealState).all(), db.select().from(exerciseOverrides).all()]);
   const today = localDate(serverNow());
+  const [state, overrides, targets] = await Promise.all([db.select().from(mealState).all(), db.select().from(exerciseOverrides).all(), targetsFor(db, today)]);
+  const factor = factorFor(targets.kcal);
   const usedBy = new Map<string, string[]>();
   for (const [id, t] of Object.entries(plan.templates)) {
     t.exercises.forEach((e, position) => {
@@ -40,9 +43,10 @@ export async function loader(_args: Route.LoaderArgs) {
   return {
     meals: [...meals.values()]
       .map((m) => {
+        const scaled = scaledMeal(m, factor);
         const s = state.find((x) => x.slug === m.slug);
         const restedUntil = s?.restedUntil && s.restedUntil >= today ? short(s.restedUntil) : null;
-        return { slug: m.slug, name: m.name, pool: m.pool, weekendOnly: m.mode === "weekend", kcal: m.kcal, protein: m.protein, photoKey: s?.photoKey ?? null, restedUntil };
+        return { slug: m.slug, name: m.name, pool: m.pool, weekendOnly: m.mode === "weekend", kcal: scaled.kcal, protein: scaled.protein, photoKey: s?.photoKey ?? null, restedUntil };
       })
       .sort((a, b) => a.name.localeCompare(b.name)),
     exercises: [...exercises.values()]

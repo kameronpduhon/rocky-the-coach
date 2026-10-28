@@ -47,6 +47,10 @@ export const batches = sqliteTable("batches", {
   portionG: integer("portion_g").notNull(),
   createdOn: text("created_on").notNull(),
   portionsLeft: integer("portions_left").notNull(),
+  /** Made on the phone, so a batch can be started offline. v1 rows have none and sync as `id:<id>`. */
+  clientId: text("client_id").unique(),
+  /** The gram factor the batch was cooked at, so its portions keep their grams after a check-in. */
+  factor: real("factor").notNull().default(1),
 });
 
 export const workoutSessions = sqliteTable(
@@ -159,6 +163,11 @@ export const checkIns = sqliteTable("check_ins", {
   adherence: integer("adherence").notNull(),
   outcome: text("outcome").notNull(),
   completedAt: text("completed_at").notNull(),
+  /** The engine's burn estimate that week, and whether it was settling, updating or holding. Null on v1 rows. */
+  burn: integer("burn"),
+  burnState: text("burn_state"),
+  intakeAvg: integer("intake_avg"),
+  trackedDays: integer("tracked_days"),
 });
 
 export const pushSubscriptions = sqliteTable("push_subscriptions", {
@@ -235,4 +244,17 @@ export const exerciseNotes = sqliteTable("exercise_notes", {
   exerciseId: text("exercise_id").primaryKey(),
   note: text("note").notNull(),
   updatedAt: text("updated_at").notNull(),
+});
+
+/** An off-plan order saved for one-tap logging, such as a usual restaurant meal. */
+export const usualOrders = sqliteTable("usual_orders", {
+  clientId: text("client_id").primaryKey(),
+  name: text("name").notNull(),
+  category: text("category").notNull(),
+  kcal: integer("kcal").notNull(),
+  proteinG: integer("protein_g").notNull(),
+  relaxed: bool("relaxed").notNull().default(false),
+  uses: integer("uses").notNull().default(0),
+  lastUsedAt: text("last_used_at"),
+  createdAt: text("created_at").notNull(),
 });

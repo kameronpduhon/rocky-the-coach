@@ -6,6 +6,17 @@ import { exercises, foods, meals, messages, plan } from "~/content";
 const exercisesDoc = readFileSync(path.join(import.meta.dirname, "../../docs/exercises.md"), "utf8");
 
 describe("content", () => {
+  it("gives every food a role, with protein foods never scaling", () => {
+    expect(foods.get("chicken-breast-raw")?.role).toBe("protein");
+    expect(foods.get("egg-whole")?.role).toBe("protein");
+    expect(foods.get("white-rice-cooked")?.role).toBe("flex");
+    expect(foods.get("butter")?.role).toBe("flex");
+    expect(foods.get("banana")?.role).toBe("fixed");
+    expect(foods.get("salsa")?.role).toBe("fixed");
+    expect([...foods.values()].filter((f) => f.role === "flex")).toHaveLength(11);
+    expect([...foods.values()].filter((f) => f.role === "protein")).toHaveLength(12);
+  });
+
   it("loads the starter library", () => {
     expect(meals.size).toBe(25);
     expect(foods.size).toBeGreaterThanOrEqual(38);

@@ -7,6 +7,7 @@ import { Segmented } from "~/components/Segmented";
 import { Sheet } from "~/components/Sheet";
 import { BackButton, Card, FloatingBar, Icon } from "~/components/ui";
 import { foods, meals, plan } from "~/content";
+import { factorFor, scaledMeal } from "~/content/scaled";
 import { userDb } from "~/server/current-user.server";
 import { dayMode } from "~/domain/calendar";
 import { formatClock, mealDate, parseTime } from "~/domain/dates";
@@ -30,17 +31,20 @@ export function meta({ loaderData }: Route.MetaArgs) {
 const STATE_LABEL = { raw: "Raw", cooked: "Cooked", "as-is": "As is" } as const;
 
 export async function loader({ request, params }: Route.LoaderArgs) {
-  const meal = meals.get(params.slug);
-  if (!meal) throw new Response("Not found", { status: 404 });
+  const raw = meals.get(params.slug);
+  if (!raw) throw new Response("Not found", { status: 404 });
   const db = userDb();
   const now = serverNow();
   const date = mealDate(now);
   const [day, rested, photo, batch] = await Promise.all([
     loadDay(db, date, now),
     restedSlugs(db, date),
-    db.select().from(mealState).where(eq(mealState.slug, meal.slug)).get(),
-    openBatch(db, meal.slug, date),
+    db.select().from(mealState).where(eq(mealState.slug, raw.slug)).get(),
+    openBatch(db, raw.slug, date),
   ]);
+  const factor = factorFor(day.targets.kcal);
+  // A portion from a batch shows the grams it was cooked at.
+  const meal = scaledMeal(raw, batch?.factor ?? factor);
   const url = new URL(request.url);
   const requested = url.searchParams.get("slot") as Slot | null;
   const plannedSlot = day.slots.find((s) => s.meal.slug === meal.slug && (!requested || s.slot === requested));
@@ -50,6 +54,7 @@ export async function loader({ request, params }: Route.LoaderArgs) {
   const unlogged = day.slots.filter((s) => s.logId === null).length || 1;
   const perSlot = (day.targets.kcal - day.totals.kcal) / unlogged;
   const swapOptions = [...meals.values()]
+    .map((m) => scaledMeal(m, factor))
     .filter((m) => m.pool === meal.pool && m.slug !== meal.slug && (m.mode === "any" || mode === "weekend") && !rested.includes(m.slug))
     .sort((a, b) => Math.abs(a.kcal - perSlot) - 2 * a.protein - (Math.abs(b.kcal - perSlot) - 2 * b.protein));
 

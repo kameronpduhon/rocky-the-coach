@@ -1,10 +1,12 @@
 import { describe, expect, it } from "vitest";
 import { meals } from "~/content";
-import { checkIns, setLogs, workoutSessions } from "~/db/schema";
+import { factorFor, scaledMeal } from "~/content/scaled";
+import { checkIns, mealLogs, setLogs, workoutSessions } from "~/db/schema";
 import { upsertSteps } from "~/server/body.server";
 import { loadDay } from "~/server/day.server";
 import { dayResults } from "~/server/history.server";
 import { logOffPlan, logPlannedMeal } from "~/server/meals.server";
+import { setTargetsFrom } from "~/server/targets.server";
 import { endSession } from "~/server/workouts.server";
 import { chicago, db } from "./helpers";
 
@@ -96,5 +98,15 @@ describe("check-in on Today", () => {
     await db().insert(checkIns).values({ weekStart: "2026-10-19", adherence: 6, outcome: "{}", completedAt: new Date().toISOString() });
     expect((await loadDay(db(), "2026-10-25", chicago("2026-10-25", "18:00"))).checkInDue).toBe(false);
     expect((await loadDay(db(), "2026-10-26", chicago("2026-10-26", "13:00"))).checkInSkipped).toBe(false);
+  });
+});
+
+describe("loadDay at a trimmed target", () => {
+  it("shows trimmed grams and leaves skipped meals out of off-plan", async () => {
+    await setTargetsFrom(db(), "2026-11-02", { kcal: 2300, proteinG: 180, stepGoal: 7000 });
+    await db().insert(mealLogs).values({ date: "2026-11-03", slot: "dinner", mealSlug: null, name: "Dinner", category: "skipped", kcal: 0, proteinG: 0, loggedAt: "2026-11-04T01:00:00Z" });
+    const day = await loadDay(db(), "2026-11-03", new Date("2026-11-03T18:00:00Z"));
+    for (const s of day.slots) expect(s.meal).toEqual(scaledMeal(meals.get(s.meal.slug)!, factorFor(2300)));
+    expect(day.offPlan).toEqual([]);
   });
 });

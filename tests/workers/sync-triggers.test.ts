@@ -9,10 +9,12 @@ const changes = async () =>
 
 describe("sync triggers", () => {
   it("logs puts and deletes made by v1 server code", async () => {
+    // The migrations' seeded rows are logged too, so look only at what this test writes.
+    const before = (await changes()).length;
     await logWeighIn(db(), "2026-10-27", 205.1, new Date());
     await logWeighIn(db(), "2026-10-27", 204.9, new Date());
     await deleteWeighIn(db(), "2026-10-27");
-    expect(await changes()).toEqual([
+    expect((await changes()).slice(before)).toEqual([
       { table_name: "weigh_ins", row_key: "2026-10-27", op: "put" },
       { table_name: "weigh_ins", row_key: "2026-10-27", op: "put" },
       { table_name: "weigh_ins", row_key: "2026-10-27", op: "del" },
@@ -39,6 +41,15 @@ describe("sync triggers", () => {
       { table_name: "workout_sessions", row_key: "w-t", op: "put" },
       { table_name: "exercise_checks", row_key: "w-t|leg-curl", op: "put" },
       { table_name: "exercise_notes", row_key: "leg-press", op: "put" },
+    ]);
+  });
+
+  it("keys batches by their phone id and logs usual orders", async () => {
+    await env.DB.prepare("INSERT INTO batches (client_id, meal_slug, portions, cooked_weight_g, portion_g, created_on, portions_left, factor) VALUES ('b-t', 'chicken-and-rice-bowl', 2, 400, 200, '2026-10-27', 2, 1)").run();
+    await env.DB.prepare("INSERT INTO usual_orders (client_id, name, category, kcal, protein_g, relaxed, uses, created_at) VALUES ('u-t', 'Quest bar', 'snack', 190, 21, 0, 0, '2026-10-27T00:00:00Z')").run();
+    expect((await changes()).slice(-2)).toEqual([
+      { table_name: "batches", row_key: "b-t", op: "put" },
+      { table_name: "usual_orders", row_key: "u-t", op: "put" },
     ]);
   });
 });

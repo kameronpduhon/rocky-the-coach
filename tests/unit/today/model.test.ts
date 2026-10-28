@@ -1,5 +1,6 @@
 import { describe, expect, it } from "vitest";
 import { exercises, meals, plan } from "~/content";
+import { factorFor, scaledMeal } from "~/content/scaled";
 import type { SlotModel } from "~/today/model";
 import { buildToday, type PlanToday } from "~/today/model";
 import type { Row } from "~/sync/tables";
@@ -32,6 +33,19 @@ const legs = plan.templates["wed-legs-shoulders"]!;
 const firstLift = exercises.get(legs.exercises[0].exercise)!;
 
 describe("buildToday", () => {
+  it("shows the day's meals at the trimmed grams after a cut", () => {
+    const targets: Row[] = [{ effective_from: "2026-10-26", kcal: 2300, protein_g: 180, step_goal: 8500 }];
+    const m = asPlan(buildToday(rowsOf({ planned_meals: planned(WED), targets }), at(WED, "08:00"), true));
+    for (const s of m.slots) expect(s.meal).toEqual(scaledMeal(meals.get(SLUGS[s.slot])!, factorFor(2300)));
+  });
+
+  it("leaves a skipped meal out of the off-plan list and the counted day", () => {
+    const skip: Row = { id: 5, client_id: null, date: WED, slot: "lunch", meal_slug: null, name: "Lunch", category: "skipped", kcal: 0, protein_g: 0, relaxed: 0, portions: 1, logged_at: `${WED}T19:00:00Z` };
+    const m = asPlan(buildToday(rowsOf({ planned_meals: planned(WED), meal_logs: [skip] }), at(WED, "20:00"), true));
+    expect(m.offPlan).toEqual([]);
+    expect(m.week.find((d) => d.today)!.counted).toBe(false);
+  });
+
   it("before the lift shows the workout poster with the split, sets and week", () => {
     const m = asPlan(buildToday(rowsOf({ planned_meals: planned(WED), meal_logs: [ate(WED, "breakfast", 1, `${WED}T12:40:00Z`)] }), at(WED, "09:00"), true));
     expect(m.next).toEqual({ kind: "workout", templateId: "wed-legs-shoulders", started: false });

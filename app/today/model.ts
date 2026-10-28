@@ -1,5 +1,6 @@
 // Everything Today shows, worked out from the phone's copy of the data. Pure: the browser and the unit tests both run it.
 import { exercises, foods, meals, messages, plan, type MealWithMacros } from "~/content";
+import { factorFor, scaledMeal } from "~/content/scaled";
 import { resolveTargets, type Targets } from "~/content/targets";
 import { dayMode, isRelaxedDay, isTrainingDay, optionalTemplateFor, setsFor, templateFor, weekNumber, weekType, type Moves } from "~/domain/calendar";
 import { checkInWindow } from "~/domain/checkin";
@@ -192,6 +193,11 @@ function trendLine(weights: { date: ISODate; weight: number }[], date: ISODate):
   return `Trend ${now} lb, ${change} since ${monthDay(plan.phaseStart)}.`;
 }
 
+const firstMealName = (logs: Row[]): string | null => {
+  const first = logs.find((l) => l.category !== "skipped");
+  return first ? s(first, "name") : null;
+};
+
 export function buildToday(rows: Rows, now: Date, hasPlan: boolean): TodayModel {
   const date = mealDate(now);
   const minutes = localMinutes(now) + (localDate(now) === date ? 0 : 24 * 60);
@@ -207,7 +213,8 @@ export function buildToday(rows: Rows, now: Date, hasPlan: boolean): TodayModel 
   const sessions = rows("workout_sessions");
   const workoutDates = loggedDates(rows);
   const weighDates = new Set(weighInRows.map((r) => s(r, "date")));
-  const mealDates = new Set(mealLogs.map((r) => s(r, "date")));
+  // A skip answers the slot but isn't a meal, so it doesn't make a day count.
+  const mealDates = new Set(mealLogs.filter((r) => r.category !== "skipped").map((r) => s(r, "date")));
   const activity = (d: ISODate): DayActivity => ({
     weighIn: weighDates.has(d),
     mealLogged: mealDates.has(d),
@@ -227,6 +234,7 @@ export function buildToday(rows: Rows, now: Date, hasPlan: boolean): TodayModel 
       .sort((a, b) => a.effectiveFrom.localeCompare(b.effectiveFrom)),
     date,
   );
+  const factor = factorFor(targets.kcal);
   const relaxed = isRelaxedDay(plan, date);
 
   const rested = new Set(rows("meal_state").filter((r) => typeof r.rested_until === "string" && s(r, "rested_until") >= date).map((r) => s(r, "slug")));
@@ -235,13 +243,13 @@ export function buildToday(rows: Rows, now: Date, hasPlan: boolean): TodayModel 
   const base = SLOTS.map((slot) => {
     const at = parseTime(plan.slotTimes[slot]);
     const log = todayLogs.find((l) => l.slot === slot && l.category === "planned");
-    return { slot, minutes: at, time: shortClock(at), meal: meals.get(plannedBySlot.get(slot) ?? "") ?? fallbackMeal(slot, date, rested), logKey: log ? keyOf("meal_logs", log) : null };
+    return { slot, minutes: at, time: shortClock(at), meal: scaledMeal(meals.get(plannedBySlot.get(slot) ?? "") ?? fallbackMeal(slot, date, rested), factor), logKey: log ? keyOf("meal_logs", log) : null };
   });
   // "Next" in the list: the first uneaten meal whose window (until the next slot begins) is still open.
   const nextIndex = base.findIndex((x, i) => x.logKey === null && minutes < (base[i + 1]?.minutes ?? 27 * 60));
   const slots: SlotModel[] = base.map((x, i) => ({ ...x, next: i === nextIndex }));
   const totals = todayLogs.reduce<{ kcal: number; proteinG: number }>((t, l) => ({ kcal: t.kcal + n(l, "kcal"), proteinG: t.proteinG + n(l, "protein_g") }), { kcal: 0, proteinG: 0 });
-  const offPlan = todayLogs.filter((l) => l.category !== "planned").map((l) => ({ key: keyOf("meal_logs", l), name: s(l, "name"), kcal: n(l, "kcal"), proteinG: n(l, "protein_g") }));
+  const offPlan = todayLogs.filter((l) => l.category !== "planned" && l.category !== "skipped").map((l) => ({ key: keyOf("meal_logs", l), name: s(l, "name"), kcal: n(l, "kcal"), proteinG: n(l, "protein_g") }));
 
   const monday = weekStart(date);
   const desserts = mealLogs.filter((r) => r.category === "dessert" && !r.relaxed).map((r) => ({ date: s(r, "date"), at: s(r, "logged_at") }));
@@ -319,7 +327,7 @@ export function buildToday(rows: Rows, now: Date, hasPlan: boolean): TodayModel 
     week,
     countedSoFar: week.filter((d) => d.counted).length,
     daysSoFar: week.filter((d) => d.date < date).length + (todayCounted ? 1 : 0),
-    countedLine: countedLine(activity(date), weighIn?.time ?? null, todayLogs[0] ? s(todayLogs[0], "name") : null, relaxed),
+    countedLine: countedLine(activity(date), weighIn?.time ?? null, firstMealName(todayLogs), relaxed),
     trendLine: trendLine(weighInRows.map((r) => ({ date: s(r, "date"), weight: n(r, "weight_lb") })), date),
   };
 }

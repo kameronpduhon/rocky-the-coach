@@ -1,10 +1,15 @@
 import { z } from "zod";
 import { exercises, meals, plan } from "~/content";
+import { factorFor, scaledMeal } from "~/content/scaled";
+import { resolveTargets } from "~/content/targets";
 import { swapWorkouts, templateFor } from "~/domain/calendar";
 import { addDays, daysBetween, weekStart } from "~/domain/dates";
+import { batchPortion } from "~/domain/macros";
+import { swapFits } from "~/domain/next-week";
 import { DEFAULT_REMINDERS } from "~/domain/reminders";
-import { CUSTOM_WORKOUT, SLOTS } from "~/domain/types";
-import { keyOf } from "./tables";
+import type { RotationMeal } from "~/domain/rotation";
+import { CUSTOM_WORKOUT, SLOTS, type Slot } from "~/domain/types";
+import { keyOf, type Row } from "./tables";
 import type { Tx } from "./tx";
 
 export class MutationRejected extends Error {}
@@ -66,6 +71,100 @@ async function workoutDates(tx: Tx): Promise<Set<string>> {
   return out;
 }
 
+const slot = z.enum(SLOTS as [string, ...string[]]);
+const mealSlug = z.string().min(1);
+
+const rotationMeals = (): RotationMeal[] => [...meals.values()].map((m) => ({ slug: m.slug, pool: m.pool, mode: m.mode, tags: m.tags }));
+
+/** The gram factor for a date's calorie target, from the targets this copy holds. */
+async function dayFactor(tx: Tx, date: string): Promise<number> {
+  const rows = (await tx.scan("targets"))
+    .map((r) => ({ effectiveFrom: r.effective_from as string, kcal: r.kcal as number, proteinG: r.protein_g as number, stepGoal: r.step_goal as number }))
+    .sort((a, b) => a.effectiveFrom.localeCompare(b.effectiveFrom));
+  return factorFor(resolveTargets(rows, date).kcal);
+}
+
+/** Same rule as openBatch in meals.server.ts: the newest batch of this meal with portions left, cooked up to 3 days ago. */
+async function openBatchRow(tx: Tx, slug: string, date: string): Promise<Row | undefined> {
+  // A batch started on this phone has no id until the server numbers it, so it sorts as the newest.
+  const order = (b: Row) => (b.id as number | undefined) ?? Number.MAX_SAFE_INTEGER;
+  return (await tx.scan("batches"))
+    .filter((b) => b.meal_slug === slug && (b.portions_left as number) > 0 && (b.created_on as string) >= addDays(date, -3) && (b.created_on as string) <= date)
+    .sort((x, y) => (y.created_on as string).localeCompare(x.created_on as string) || order(y) - order(x))[0];
+}
+
+/** A slot is resolved once it is eaten or skipped. */
+async function slotResolved(tx: Tx, date: string, s: string): Promise<boolean> {
+  return (await tx.scan("meal_logs")).some((l) => l.date === date && l.slot === s && (l.category === "planned" || l.category === "skipped"));
+}
+
+async function restedOn(tx: Tx, date: string): Promise<string[]> {
+  return (await tx.scan("meal_state")).filter((r) => typeof r.rested_until === "string" && (r.rested_until as string) >= date).map((r) => r.slug as string);
+}
+
+/** "Ate it": logs the planned meal at the day's grams, or at its batch's, and uses up a batch portion. */
+async function eatPlanned(tx: Tx, a: { clientId: string; date: string; slot: string; mealSlug: string }, ctx: MutationContext): Promise<void> {
+  const raw = meals.get(a.mealSlug);
+  if (!raw) throw new MutationRejected("That meal isn't in the library.");
+  if (await slotResolved(tx, a.date, a.slot)) return;
+  const batch = await openBatchRow(tx, raw.slug, a.date);
+  const meal = scaledMeal(raw, batch ? ((batch.factor as number | undefined) ?? 1) : await dayFactor(tx, a.date));
+  tx.put("meal_logs", {
+    client_id: a.clientId,
+    date: a.date,
+    slot: a.slot,
+    meal_slug: meal.slug,
+    name: meal.name,
+    category: "planned",
+    kcal: meal.kcal,
+    protein_g: meal.protein,
+    relaxed: 0,
+    portions: 1,
+    logged_at: ctx.now,
+  });
+  if (batch) tx.put("batches", { ...batch, portions_left: (batch.portions_left as number) - 1 });
+}
+
+/** A skipped meal: nothing eaten, but the slot is answered, so the day can count as tracked. */
+function putSkipped(tx: Tx, a: { clientId: string; date: string; slot: string; mealSlug: string }, ctx: MutationContext): void {
+  tx.put("meal_logs", {
+    client_id: a.clientId,
+    date: a.date,
+    slot: a.slot,
+    // No slug, so the rotation and the check-in's repeat counts never take a skip for a meal eaten.
+    meal_slug: null,
+    name: meals.get(a.mealSlug)?.name ?? a.slot,
+    category: "skipped",
+    kcal: 0,
+    protein_g: 0,
+    relaxed: 0,
+    portions: 1,
+    logged_at: ctx.now,
+  });
+}
+
+function putOffPlan(
+  tx: Tx,
+  e: { clientId: string; date: string; name: string; category: string; kcal: number; protein_g: number; relaxed: number },
+  ctx: MutationContext,
+): void {
+  tx.put("meal_logs", {
+    client_id: e.clientId,
+    date: e.date,
+    slot: null,
+    meal_slug: null,
+    name: e.name,
+    category: e.category,
+    kcal: e.kcal,
+    protein_g: e.protein_g,
+    relaxed: e.relaxed,
+    portions: 1,
+    logged_at: ctx.now,
+  });
+}
+
+const closeOutEntry = z.object({ clientId, slot, mealSlug });
+
 const defs = {
   logWeighIn: {
     args: z.object({ date, weightLb: z.number().min(80).max(500) }),
@@ -89,31 +188,74 @@ const defs = {
     },
   },
   logMeal: {
-    args: z.object({ clientId, date, slot: z.enum(SLOTS as [string, ...string[]]), mealSlug: z.string().min(1) }),
+    args: z.object({ clientId, date, slot, mealSlug }),
     async run(tx: Tx, a: { clientId: string; date: string; slot: string; mealSlug: string }, ctx: MutationContext) {
+      notFuture(a.date, ctx);
+      await eatPlanned(tx, a, ctx);
+    },
+  },
+  skipMeal: {
+    args: z.object({ clientId, date, slot, mealSlug }),
+    async run(tx: Tx, a: { clientId: string; date: string; slot: string; mealSlug: string }, ctx: MutationContext) {
+      notFuture(a.date, ctx);
+      if (await slotResolved(tx, a.date, a.slot)) throw new MutationRejected("That meal is already marked.");
+      putSkipped(tx, a, ctx);
+    },
+  },
+  closeOutDay: {
+    args: z.object({ date, eaten: z.array(closeOutEntry).max(5), skipped: z.array(closeOutEntry).max(5) }),
+    async run(tx: Tx, a: { date: string; eaten: z.infer<typeof closeOutEntry>[]; skipped: z.infer<typeof closeOutEntry>[] }, ctx: MutationContext) {
+      notFuture(a.date, ctx);
+      // Yesterday, or the day before it while the 3am rule still files late meals under it.
+      if (daysBetween(a.date, ctx.today) > 2) throw new MutationRejected("That day is too long ago to close out.");
+      for (const e of a.eaten) await eatPlanned(tx, { ...e, date: a.date }, ctx);
+      for (const e of a.skipped) if (!(await slotResolved(tx, a.date, e.slot))) putSkipped(tx, { ...e, date: a.date }, ctx);
+    },
+  },
+  swapMeal: {
+    args: z.object({ date, slot, mealSlug, always: z.boolean() }),
+    async run(tx: Tx, a: { date: string; slot: string; mealSlug: string; always: boolean }, ctx: MutationContext) {
+      notFuture(a.date, ctx);
+      if (!swapFits({ date: a.date, slot: a.slot as Slot, slug: a.mealSlug }, rotationMeals(), await restedOn(tx, a.date))) {
+        throw new MutationRejected("That meal doesn't fit this slot.");
+      }
+      if ((await tx.scan("meal_logs")).some((l) => l.date === a.date && l.slot === a.slot && l.category === "planned")) {
+        throw new MutationRejected("That meal is already eaten.");
+      }
+      const current = await tx.get("planned_meals", `${a.date}|${a.slot}`);
+      tx.put("planned_meals", { date: a.date, slot: a.slot, meal_slug: a.mealSlug, swapped: 1 });
+      if (a.always && current && current.meal_slug !== a.mealSlug) {
+        const old = current.meal_slug as string;
+        const state = await tx.get("meal_state", old);
+        tx.put("meal_state", { slug: old, photo_key: (state?.photo_key as string | null | undefined) ?? null, rested_until: addDays(ctx.today, 28) });
+      }
+    },
+  },
+  startBatch: {
+    args: z.object({ clientId, date, slot, mealSlug, portions: z.union([z.literal(2), z.literal(3)]), cookedWeightG: z.number().int().min(1).max(10_000) }),
+    async run(tx: Tx, a: { clientId: string; date: string; slot: string; mealSlug: string; portions: number; cookedWeightG: number }, ctx: MutationContext) {
       notFuture(a.date, ctx);
       const meal = meals.get(a.mealSlug);
       if (!meal) throw new MutationRejected("That meal isn't in the library.");
-      const logs = await tx.scan("meal_logs");
-      if (logs.some((l) => l.date === a.date && l.slot === a.slot && l.category === "planned")) return;
-      tx.put("meal_logs", {
+      tx.put("batches", {
         client_id: a.clientId,
-        date: a.date,
-        slot: a.slot,
         meal_slug: meal.slug,
-        name: meal.name,
-        category: "planned",
-        kcal: meal.kcal,
-        protein_g: meal.protein,
-        relaxed: 0,
-        portions: 1,
-        logged_at: ctx.now,
+        portions: a.portions,
+        cooked_weight_g: a.cookedWeightG,
+        portion_g: batchPortion(a.cookedWeightG, a.portions),
+        created_on: a.date,
+        portions_left: a.portions,
+        factor: await dayFactor(tx, a.date),
       });
-      // Same rule as openBatch in meals.server.ts: the newest batch of this meal with portions left, cooked up to 3 days ago.
-      const batch = (await tx.scan("batches"))
-        .filter((b) => b.meal_slug === meal.slug && (b.portions_left as number) > 0 && (b.created_on as string) >= addDays(a.date, -3) && (b.created_on as string) <= a.date)
-        .sort((x, y) => (y.id as number) - (x.id as number))[0];
-      if (batch) tx.put("batches", { ...batch, portions_left: (batch.portions_left as number) - 1 });
+      // The next days of the batch eat it too. Only this week: a row in next week would stop its plan being generated.
+      const sunday = addDays(weekStart(a.date), 6);
+      for (let i = 1; i < a.portions; i++) {
+        const d = addDays(a.date, i);
+        if (d > sunday || (await slotResolved(tx, d, a.slot))) continue;
+        // Resting doesn't matter here: it's already cooked.
+        if (!swapFits({ date: d, slot: a.slot as Slot, slug: meal.slug }, rotationMeals(), [])) continue;
+        tx.put("planned_meals", { date: d, slot: a.slot, meal_slug: meal.slug, swapped: 1 });
+      }
     },
   },
   unlogMeal: {
@@ -131,26 +273,45 @@ const defs = {
       kcal: z.number().int().min(0).max(5000),
       proteinG: z.number().int().min(0).max(400),
       relaxed: z.boolean(),
+      /** Also save it as a usual order under this phone-made key. */
+      usualId: clientId.optional(),
     }),
     async run(
       tx: Tx,
-      a: { clientId: string; date: string; name: string; category: string; kcal: number; proteinG: number; relaxed: boolean },
+      a: { clientId: string; date: string; name: string; category: string; kcal: number; proteinG: number; relaxed: boolean; usualId?: string },
       ctx: MutationContext,
     ) {
       notFuture(a.date, ctx);
-      tx.put("meal_logs", {
-        client_id: a.clientId,
-        date: a.date,
-        slot: null,
-        meal_slug: null,
-        name: a.name,
-        category: a.category,
-        kcal: a.kcal,
-        protein_g: a.proteinG,
-        relaxed: a.relaxed ? 1 : 0,
-        portions: 1,
-        logged_at: ctx.now,
-      });
+      putOffPlan(tx, { clientId: a.clientId, date: a.date, name: a.name, category: a.category, kcal: a.kcal, protein_g: a.proteinG, relaxed: a.relaxed ? 1 : 0 }, ctx);
+      if (a.usualId) {
+        tx.put("usual_orders", {
+          client_id: a.usualId,
+          name: a.name,
+          category: a.category,
+          kcal: a.kcal,
+          protein_g: a.proteinG,
+          relaxed: a.relaxed ? 1 : 0,
+          uses: 1,
+          last_used_at: ctx.now,
+          created_at: ctx.now,
+        });
+      }
+    },
+  },
+  logUsual: {
+    args: z.object({ clientId, usual: key, date }),
+    async run(tx: Tx, a: { clientId: string; usual: string; date: string }, ctx: MutationContext) {
+      notFuture(a.date, ctx);
+      const u = await tx.get("usual_orders", a.usual);
+      if (!u) throw new MutationRejected("That usual order isn't saved.");
+      putOffPlan(tx, { clientId: a.clientId, date: a.date, name: u.name as string, category: u.category as string, kcal: u.kcal as number, protein_g: u.protein_g as number, relaxed: u.relaxed as number }, ctx);
+      tx.put("usual_orders", { ...u, uses: ((u.uses as number | undefined) ?? 0) + 1, last_used_at: ctx.now });
+    },
+  },
+  removeUsual: {
+    args: z.object({ key }),
+    async run(tx: Tx, a: { key: string }) {
+      tx.delete("usual_orders", a.key);
     },
   },
   deleteOffPlan: {
@@ -354,8 +515,14 @@ export const MUTATION_LABELS: Record<MutationName, string> = {
   deleteWeighIn: "Weigh-in removal",
   logMeal: "Meal",
   unlogMeal: "Meal undo",
+  skipMeal: "Skipped meal",
+  closeOutDay: "Close-out",
+  swapMeal: "Meal swap",
+  startBatch: "Batch",
   logOffPlan: "Off-plan item",
   deleteOffPlan: "Off-plan removal",
+  logUsual: "Usual order",
+  removeUsual: "Usual order removal",
   setReminder: "Reminder",
   setVoice: "Voice setting",
   planWorkout: "Workout plan",

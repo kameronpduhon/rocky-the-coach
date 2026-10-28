@@ -41,7 +41,7 @@ function decode(part: string): string {
 export async function routeApi(request: Request): Promise<Response | null> {
   const { pathname } = new URL(request.url);
   const onPath = ROUTES.filter((r) => r.path.test(pathname));
-  if (!onPath.length) return null;
+  if (!onPath.length) return /^\/(api|media)(\/|$)/.test(pathname) ? Response.json({ error: "Not found" }, { status: 404 }) : null;
   const route = onPath.find((r) => r.method === request.method);
   if (!route) return new Response("Method not allowed", { status: 405, headers: { Allow: onPath.map((r) => r.method).join(", ") } });
   const params = route.path.exec(pathname)!.slice(1).map(decode);

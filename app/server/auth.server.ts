@@ -1,31 +1,24 @@
-import { redirect } from "react-router";
 import { commitSession, getSession } from "./session.server";
 import { userByBinding, userById, type User } from "./users.server";
 
-const PUBLIC_PATHS = [/^\/login$/, /^\/api\/ingest\//];
+export type Auth = { user: User; setCookie?: string };
 
-export type Auth = { user: User; setCookie?: string } | null;
-
-/** The signed-in user for a request. Public paths give null; anything else without a valid session redirects to /login (API paths get a 401). */
-export async function authenticate(request: Request): Promise<Auth> {
-  const pathname = new URL(request.url).pathname.replace(/\.data$/, "");
-  if (PUBLIC_PATHS.some((re) => re.test(pathname))) return null;
+/** The signed-in person for a request, or null when signed out. A v1 cookie is upgraded to Kameron's id. */
+export async function authenticate(request: Request): Promise<Auth | null> {
   const session = await getSession(request.headers.get("Cookie"));
   const userId = session.get("userId");
   if (userId) {
     const user = await userById(userId);
-    if (user) return { user };
-  } else if (session.get("signedIn")) {
-    const user = await userByBinding("DB");
-    if (user) {
-      session.unset("signedIn");
-      session.set("userId", user.id);
-      return { user, setCookie: await commitSession(session) };
-    }
+    return user ? { user } : null;
   }
-  // API callers use fetch(), which would follow the redirect and read the login page as data.
-  if (pathname.startsWith("/api/")) throw new Response(null, { status: 401 });
-  throw redirect("/login");
+  if (session.get("signedIn")) {
+    const user = await userByBinding("DB");
+    if (!user) return null;
+    session.unset("signedIn");
+    session.set("userId", user.id);
+    return { user, setCookie: await commitSession(session) };
+  }
+  return null;
 }
 
 export function clientIp(request: Request): string {

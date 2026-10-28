@@ -12,18 +12,7 @@ import "@fontsource/barlow-semi-condensed/latin-600.css";
 import "@fontsource/barlow-semi-condensed/latin-700.css";
 import barlowWoff2 from "@fontsource/barlow/files/barlow-latin-400-normal.woff2?url";
 import numWoff2 from "@fontsource/barlow-semi-condensed/files/barlow-semi-condensed-latin-700-normal.woff2?url";
-import { authenticate } from "~/server/auth.server";
-import { runAsUser } from "~/server/current-user.server";
-
-export const middleware: Route.MiddlewareFunction[] = [
-  async ({ request }, next) => {
-    const auth = await authenticate(request);
-    if (!auth) return next();
-    const response = await runAsUser(auth.user, next);
-    if (auth.setCookie) response.headers.append("Set-Cookie", auth.setCookie);
-    return response;
-  },
-];
+import { btn } from "~/ui/button";
 
 const preloadFont = (href: string) => ({ rel: "preload", href, as: "font", type: "font/woff2", crossOrigin: "anonymous" as const });
 
@@ -83,7 +72,11 @@ export function ErrorBoundary({ error }: Route.ErrorBoundaryProps) {
   return (
     <main className="mx-auto max-w-md px-4 pt-24">
       <h1 className="text-3xl font-bold">{message}</h1>
-      <p className="mt-2 text-label-2">{details}</p>
+      <p className="mt-2 text-ink-3">{details}</p>
+      {/* A phone still on an older build can fail to load a screen after a deploy. A full load picks up the new one. */}
+      <button type="button" onClick={() => window.location.reload()} className={`${btn.outline} mt-6 h-14 w-full text-[17px]`}>
+        Reload
+      </button>
     </main>
   );
 }

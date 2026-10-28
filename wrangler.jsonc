@@ -20,8 +20,8 @@
 	// One rest timer per person, so a locked phone still gets pinged when a rest ends.
 	"durable_objects": { "bindings": [{ "name": "REST_TIMER", "class_name": "RestTimer" }] },
 	"migrations": [{ "tag": "v1", "new_sqlite_classes": ["RestTimer"] }],
-	// DEV_NOW: dev-only clock pin, overridden from .dev.vars. TEST_USER_DB: lets tests call loaders without the auth
-	// middleware. Both are empty here, and production never sets them.
+	// DEV_NOW: dev-only clock pin, overridden from .dev.vars. TEST_USER_DB: lets tests call server code outside a
+	// signed-in request. Both are empty here, and production never sets them.
 	"vars": { "DEV_NOW": "", "TEST_USER_DB": "" },
 	"secrets": {
 		"required": ["SESSION_SECRET", "INGEST_TOKEN", "VAPID_PUBLIC_KEY", "VAPID_PRIVATE_KEY"]

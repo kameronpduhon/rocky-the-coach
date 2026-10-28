@@ -12,7 +12,7 @@ export function runAsUser<T>(user: User, fn: () => T): T {
 export function currentUser(): User {
   const user = scope.getStore();
   if (user) return user;
-  // Tests call loaders and actions directly, without the root middleware. Production leaves TEST_USER_DB empty.
+  // Tests call server code directly, outside a signed-in request. Production leaves TEST_USER_DB empty.
   if (env.TEST_USER_DB) return { id: 1, name: "Kameron", dbBinding: env.TEST_USER_DB as PersonBinding, planKey: "kameron", ingestToken: null };
   throw new Error("No signed-in user in this request");
 }

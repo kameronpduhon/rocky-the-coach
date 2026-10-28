@@ -40,6 +40,14 @@ describe("routeApi", () => {
     expect(await routeApi(new Request("http://localhost/plan"))).toBeNull();
     expect(await routeApi(new Request("http://localhost/"))).toBeNull();
   });
+
+  it("answers an unknown API or media path with a JSON 404, never the app", async () => {
+    for (const path of ["/api/nope", "/api/sync", "/media"]) {
+      const res = (await routeApi(new Request(`http://localhost${path}`)))!;
+      expect(res.status, path).toBe(404);
+      expect(await res.json(), path).toEqual({ error: "Not found" });
+    }
+  });
 });
 
 const signIn = (name: string, password: string, ip: string) =>

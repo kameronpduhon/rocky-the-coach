@@ -101,3 +101,33 @@ describe("meal mutators", () => {
     expect(await tx.get("planned_meals", "2026-11-02|lunch")).toBeNull();
   });
 });
+
+describe("usual orders", () => {
+  const order = { date: "2026-10-27", name: "Chipotle bowl, double chicken", category: "meal", kcal: 1050, proteinG: 75, relaxed: true };
+
+  it("saves an off-plan entry as a usual, then logs it in one tap", async () => {
+    const tx = trimmed();
+    await run(tx, "logOffPlan", { clientId: "o-1", ...order, usualId: "u-1" });
+    expect(await tx.get("usual_orders", "u-1")).toEqual({
+      client_id: "u-1", name: order.name, category: "meal", kcal: 1050, protein_g: 75, relaxed: 1, uses: 1, last_used_at: ctx.now, created_at: ctx.now,
+    });
+    const later = { now: "2026-10-28T01:00:00.000Z", today: "2026-10-27" };
+    await run(tx, "logUsual", { clientId: "o-2", usual: "u-1", date: "2026-10-27" }, later);
+    expect(await tx.get("meal_logs", "o-2")).toMatchObject({ slot: null, meal_slug: null, name: order.name, category: "meal", kcal: 1050, protein_g: 75, relaxed: 1 });
+    expect(await tx.get("usual_orders", "u-1")).toMatchObject({ uses: 2, last_used_at: later.now });
+  });
+
+  it("logs off-plan without saving a usual by default", async () => {
+    const tx = trimmed();
+    await run(tx, "logOffPlan", { clientId: "o-1", ...order });
+    expect(await tx.scan("usual_orders")).toEqual([]);
+  });
+
+  it("refuses an unknown usual, and removes one", async () => {
+    const tx = trimmed();
+    await expect(run(tx, "logUsual", { clientId: "o-1", usual: "nope", date: "2026-10-27" })).rejects.toThrow("isn't saved");
+    await run(tx, "logOffPlan", { clientId: "o-1", ...order, usualId: "u-1" });
+    await run(tx, "removeUsual", { key: "u-1" });
+    expect(await tx.get("usual_orders", "u-1")).toBeNull();
+  });
+});

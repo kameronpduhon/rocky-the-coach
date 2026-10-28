@@ -143,6 +143,26 @@ function putSkipped(tx: Tx, a: { clientId: string; date: string; slot: string; m
   });
 }
 
+function putOffPlan(
+  tx: Tx,
+  e: { clientId: string; date: string; name: string; category: string; kcal: number; protein_g: number; relaxed: number },
+  ctx: MutationContext,
+): void {
+  tx.put("meal_logs", {
+    client_id: e.clientId,
+    date: e.date,
+    slot: null,
+    meal_slug: null,
+    name: e.name,
+    category: e.category,
+    kcal: e.kcal,
+    protein_g: e.protein_g,
+    relaxed: e.relaxed,
+    portions: 1,
+    logged_at: ctx.now,
+  });
+}
+
 const closeOutEntry = z.object({ clientId, slot, mealSlug });
 
 const defs = {
@@ -253,26 +273,45 @@ const defs = {
       kcal: z.number().int().min(0).max(5000),
       proteinG: z.number().int().min(0).max(400),
       relaxed: z.boolean(),
+      /** Also save it as a usual order under this phone-made key. */
+      usualId: clientId.optional(),
     }),
     async run(
       tx: Tx,
-      a: { clientId: string; date: string; name: string; category: string; kcal: number; proteinG: number; relaxed: boolean },
+      a: { clientId: string; date: string; name: string; category: string; kcal: number; proteinG: number; relaxed: boolean; usualId?: string },
       ctx: MutationContext,
     ) {
       notFuture(a.date, ctx);
-      tx.put("meal_logs", {
-        client_id: a.clientId,
-        date: a.date,
-        slot: null,
-        meal_slug: null,
-        name: a.name,
-        category: a.category,
-        kcal: a.kcal,
-        protein_g: a.proteinG,
-        relaxed: a.relaxed ? 1 : 0,
-        portions: 1,
-        logged_at: ctx.now,
-      });
+      putOffPlan(tx, { clientId: a.clientId, date: a.date, name: a.name, category: a.category, kcal: a.kcal, protein_g: a.proteinG, relaxed: a.relaxed ? 1 : 0 }, ctx);
+      if (a.usualId) {
+        tx.put("usual_orders", {
+          client_id: a.usualId,
+          name: a.name,
+          category: a.category,
+          kcal: a.kcal,
+          protein_g: a.proteinG,
+          relaxed: a.relaxed ? 1 : 0,
+          uses: 1,
+          last_used_at: ctx.now,
+          created_at: ctx.now,
+        });
+      }
+    },
+  },
+  logUsual: {
+    args: z.object({ clientId, usual: key, date }),
+    async run(tx: Tx, a: { clientId: string; usual: string; date: string }, ctx: MutationContext) {
+      notFuture(a.date, ctx);
+      const u = await tx.get("usual_orders", a.usual);
+      if (!u) throw new MutationRejected("That usual order isn't saved.");
+      putOffPlan(tx, { clientId: a.clientId, date: a.date, name: u.name as string, category: u.category as string, kcal: u.kcal as number, protein_g: u.protein_g as number, relaxed: u.relaxed as number }, ctx);
+      tx.put("usual_orders", { ...u, uses: ((u.uses as number | undefined) ?? 0) + 1, last_used_at: ctx.now });
+    },
+  },
+  removeUsual: {
+    args: z.object({ key }),
+    async run(tx: Tx, a: { key: string }) {
+      tx.delete("usual_orders", a.key);
     },
   },
   deleteOffPlan: {
@@ -482,6 +521,8 @@ export const MUTATION_LABELS: Record<MutationName, string> = {
   startBatch: "Batch",
   logOffPlan: "Off-plan item",
   deleteOffPlan: "Off-plan removal",
+  logUsual: "Usual order",
+  removeUsual: "Usual order removal",
   setReminder: "Reminder",
   setVoice: "Voice setting",
   planWorkout: "Workout plan",

@@ -57,6 +57,20 @@
       "when": 1793136224428,
       "tag": "0007_workout_sync",
       "breakpoints": true
+    },
+    {
+      "idx": 8,
+      "version": "6",
+      "when": 1793155087278,
+      "tag": "0008_nutrition_data",
+      "breakpoints": true
+    },
+    {
+      "idx": 9,
+      "version": "6",
+      "when": 1793155093206,
+      "tag": "0009_nutrition_sync",
+      "breakpoints": true
     }
   ]
 }

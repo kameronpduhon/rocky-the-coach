@@ -9,10 +9,12 @@ const changes = async () =>
 
 describe("sync triggers", () => {
   it("logs puts and deletes made by v1 server code", async () => {
+    // The migrations' seeded rows are logged too, so look only at what this test writes.
+    const before = (await changes()).length;
     await logWeighIn(db(), "2026-10-27", 205.1, new Date());
     await logWeighIn(db(), "2026-10-27", 204.9, new Date());
     await deleteWeighIn(db(), "2026-10-27");
-    expect(await changes()).toEqual([
+    expect((await changes()).slice(before)).toEqual([
       { table_name: "weigh_ins", row_key: "2026-10-27", op: "put" },
       { table_name: "weigh_ins", row_key: "2026-10-27", op: "put" },
       { table_name: "weigh_ins", row_key: "2026-10-27", op: "del" },

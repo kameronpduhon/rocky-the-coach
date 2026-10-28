@@ -61,6 +61,8 @@ export const PlanSchema = z.object({
   planB: z.string(),
   startingTargets: z.object({ kcal: z.number(), proteinG: z.number(), stepGoal: z.number() }),
   maintenanceKcal: z.number(),
+  /** The phase's checkpoint: the date, and the weight range to land in. */
+  goal: z.object({ date: z.string(), low: z.number(), high: z.number() }),
   slotTimes: z.object({ breakfast: hhmm, lunch: hhmm, snack: hhmm, dinner: hhmm, dessert: hhmm }),
   poolRanges: z.record(
     z.enum(["breakfast", "main", "snack", "dessert"]),

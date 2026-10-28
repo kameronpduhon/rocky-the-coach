@@ -43,3 +43,27 @@ export const GROUP_LABEL: Record<string, string> = {
   quads: "Quads",
   hamstrings: "Hamstrings",
 };
+
+export type BodyPart = "chest" | "back" | "shoulders" | "arms" | "legs";
+
+/** The five body parts lists group exercises by, in list order. */
+export const BODY_PARTS: { id: BodyPart; label: string }[] = [
+  { id: "chest", label: "Chest" },
+  { id: "back", label: "Back" },
+  { id: "shoulders", label: "Shoulders" },
+  { id: "arms", label: "Arms" },
+  { id: "legs", label: "Legs" },
+];
+
+/** The 9 muscle groups folded into the 5 body parts. */
+export const BODY_PART: Record<Exercise["group"], BodyPart> = {
+  chest: "chest",
+  back: "back",
+  "shoulder-press": "shoulders",
+  "side-delts": "shoulders",
+  "rear-delts": "shoulders",
+  biceps: "arms",
+  triceps: "arms",
+  quads: "legs",
+  hamstrings: "legs",
+};

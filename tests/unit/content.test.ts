@@ -1,7 +1,7 @@
 import { readFileSync } from "node:fs";
 import path from "node:path";
 import { describe, expect, it } from "vitest";
-import { exercises, foods, meals, messages, plan } from "~/content";
+import { BODY_PART, BODY_PARTS, exercises, foods, meals, messages, plan } from "~/content";
 
 const exercisesDoc = readFileSync(path.join(import.meta.dirname, "../../docs/exercises.md"), "utf8");
 
@@ -81,5 +81,19 @@ describe("content", () => {
     for (const key of ["relaxed-day", "missed-twice", "missed-today", "weigh-in-missing", "training-day-morning", "protein-behind", "steps-behind", "kitchen-closed", "on-plan", "default"]) {
       expect(messages[key]?.length, key).toBeGreaterThanOrEqual(3);
     }
+  });
+});
+
+describe("goal and body parts", () => {
+  it("reads the Jan 1 goal from the plan", () => {
+    expect(plan.goal).toEqual({ date: "2027-01-01", low: 195, high: 198 });
+  });
+
+  it("folds the 9 muscle groups into 5 body parts, in list order", () => {
+    expect(BODY_PARTS.map((b) => b.label)).toEqual(["Chest", "Back", "Shoulders", "Arms", "Legs"]);
+    const count = new Map<string, number>();
+    for (const e of exercises.values()) count.set(BODY_PART[e.group], (count.get(BODY_PART[e.group]) ?? 0) + 1);
+    // Chest 12; back 6; shoulder press, side and rear delts 3 each; biceps and triceps 7 each; quads and hamstrings 4 each.
+    expect(Object.fromEntries(count)).toEqual({ chest: 12, back: 6, shoulders: 9, arms: 14, legs: 8 });
   });
 });

@@ -88,6 +88,27 @@ export async function aiStatus(request: Request): Promise<Response> {
   return Response.json({ available, probe: { ok: result.ok, reason: result.ok ? null : result.reason } }, { headers: NO_STORE });
 }
 
+// A label photo is at most 5,000,000 base64 characters (the schema's limit); the rest is a few bytes of JSON.
+const LABEL_BODY_BYTES = 7_000_000;
+const BODY_BYTES = 64 * 1024;
+
+/**
+ * The parsed JSON body, null when it isn't JSON, or a 413 past `max` bytes. Content-Length is checked before anything
+ * is read; a body sent without one is measured as it arrives.
+ */
+async function jsonBody(request: Request, max = BODY_BYTES): Promise<{ json: unknown } | Response> {
+  const tooBig = () => Response.json({ error: "Too big" }, { status: 413, headers: NO_STORE });
+  if (Number(request.headers.get("Content-Length") ?? 0) > max) return tooBig();
+  const bytes = await request.arrayBuffer().catch(() => null);
+  if (!bytes) return { json: null };
+  if (bytes.byteLength > max) return tooBig();
+  try {
+    return { json: JSON.parse(new TextDecoder().decode(bytes)) };
+  } catch {
+    return { json: null };
+  }
+}
+
 /** What Rocky knows, oldest first, for a prompt. */
 export async function factTexts(d1: D1Database): Promise<string[]> {
   return (await d1.prepare("SELECT text FROM facts ORDER BY created_at, client_id").all<{ text: string }>()).results.map((f) => f.text);
@@ -108,7 +129,9 @@ const TakeBody = z.object({
 export async function aiTake(request: Request): Promise<Response> {
   const call = await aiGate();
   if (call instanceof Response) return call;
-  const body = TakeBody.safeParse(await request.json().catch(() => null));
+  const sent = await jsonBody(request);
+  if (sent instanceof Response) return sent;
+  const body = TakeBody.safeParse(sent.json);
   if (!body.success) return Response.json({ error: "Bad take" }, { status: 400 });
   const { weekStart, lines, voice } = body.data;
   const hash = await takeHash(lines, voice);
@@ -142,7 +165,7 @@ const TellBody = z.object({
     days: z
       .array(z.object({ date: z.string().max(10), weekday: z.string().max(12), workout: z.string().max(80), templateId: z.string().max(64).nullable(), logged: z.boolean() }))
       .max(8),
-    templates: z.record(z.string().max(64), z.array(z.string().max(64)).max(30)),
+    templates: z.record(z.string().max(64), z.array(z.string().max(64)).max(30)).refine((t) => Object.keys(t).length <= 8, "Too many templates"),
   }),
 });
 
@@ -153,7 +176,9 @@ const TellBody = z.object({
 export async function aiTell(request: Request): Promise<Response> {
   const call = await aiGate();
   if (call instanceof Response) return call;
-  const body = TellBody.safeParse(await request.json().catch(() => null));
+  const sent = await jsonBody(request);
+  if (sent instanceof Response) return sent;
+  const body = TellBody.safeParse(sent.json);
   if (!body.success) return Response.json({ error: "Bad note" }, { status: 400 });
   const hasPlan = Boolean(currentUser().planKey);
   const { text, today, context } = body.data;
@@ -173,7 +198,9 @@ const LabelBody = z.object({ image: z.string().min(4).max(5_000_000).regex(/^[A-
 export async function aiLabel(request: Request): Promise<Response> {
   const call = await aiGate();
   if (call instanceof Response) return call;
-  const body = LabelBody.safeParse(await request.json().catch(() => null));
+  const sent = await jsonBody(request, LABEL_BODY_BYTES);
+  if (sent instanceof Response) return sent;
+  const body = LabelBody.safeParse(sent.json);
   if (!body.success) return Response.json({ error: "Bad photo" }, { status: 400, headers: NO_STORE });
   const row = await claim(call, "label");
   if (row === null) return fallback("cap");
@@ -188,7 +215,9 @@ const DescribeBody = z.object({ text: z.string().trim().min(1).max(300) });
 export async function aiDescribe(request: Request): Promise<Response> {
   const call = await aiGate();
   if (call instanceof Response) return call;
-  const body = DescribeBody.safeParse(await request.json().catch(() => null));
+  const sent = await jsonBody(request);
+  if (sent instanceof Response) return sent;
+  const body = DescribeBody.safeParse(sent.json);
   if (!body.success) return Response.json({ error: "Bad description" }, { status: 400, headers: NO_STORE });
   const row = await claim(call, "describe");
   if (row === null) return fallback("cap");

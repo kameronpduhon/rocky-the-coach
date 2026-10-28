@@ -1,8 +1,11 @@
 import { describe, expect, it } from "vitest";
-import { checkProposals, proposalCards, resultLine, runAccept, sendButton, tellContext, TELL_FAILED, type Proposal, type RawProposal } from "~/ai/proposals";
+import { checkProposals, proposalCards, refreshCards, resultLine, runAccept, sendButton, tellContext, TELL_FAILED, type Proposal, type RawProposal } from "~/ai/proposals";
 import { COACH_NAME } from "~/brand";
 import { plan } from "~/content";
+import { runMutation } from "~/sync/mutators";
 import type { Row } from "~/sync/tables";
+import { MemoryTx } from "~/sync/tx";
+import type { Lift } from "~/workout/lifts";
 
 const LEGS = "wed-legs-shoulders";
 const PRESS = "seated-dumbbell-shoulder-press";
@@ -108,6 +111,8 @@ describe("proposalCards (the phone, against its copy)", () => {
     expect(proposalCards(rowsOf(), [swap("always")], TODAY, true)).toEqual([
       {
         id: "p0",
+        proposal: swap("always"),
+        fits: true,
         scope: "From now on",
         title: TITLE,
         sub: "Legs, Shoulders, from Wednesday, Oct 28 on. Swap back from the workout any time.",
@@ -123,14 +128,25 @@ describe("proposalCards (the phone, against its copy)", () => {
 
   it("a move names both days, and the workout that trades places", () => {
     expect(proposalCards(rowsOf(), [{ kind: "move", from: "2026-10-28", to: "2026-10-29" }, { kind: "move", from: "2026-10-28", to: "2026-10-30" }], TODAY, true)).toEqual([
-      { id: "p0", scope: null, title: "Move Wednesday's Legs, Shoulders to Thursday", sub: "Oct 28 to Oct 29.", done: "Moved.", accept: { kind: "move", a: "2026-10-28", b: "2026-10-29" } },
+      {
+        id: "p0",
+        proposal: { kind: "move", from: "2026-10-28", to: "2026-10-29" },
+        fits: true,
+        scope: null,
+        title: "Move Wednesday's Legs, Shoulders to Thursday",
+        sub: "Oct 28 to Oct 29.",
+        done: "Moved.",
+        accept: { kind: "move", a: "2026-10-28", b: "2026-10-29", carry: [] },
+      },
       {
         id: "p1",
+        proposal: { kind: "move", from: "2026-10-28", to: "2026-10-30" },
+        fits: true,
         scope: null,
         title: "Move Wednesday's Legs, Shoulders to Friday",
         sub: "Oct 28 to Oct 30. Friday's Chest, Shoulders, Arms moves to Wednesday.",
         done: "Moved.",
-        accept: { kind: "move", a: "2026-10-28", b: "2026-10-30" },
+        accept: { kind: "move", a: "2026-10-28", b: "2026-10-30", carry: [] },
       },
     ]);
   });
@@ -148,7 +164,16 @@ describe("proposalCards (the phone, against its copy)", () => {
 
   it("a fact is dated today, and dropped when What Rocky knows is full", () => {
     expect(proposalCards(rowsOf(), [FACT], TODAY, true)).toEqual([
-      { id: "p0", scope: null, title: "Remember: Left shoulder sore (Oct 27)", sub: `Goes in What ${COACH_NAME} knows. Forget it there any time.`, done: "Remembered.", accept: { kind: "fact", text: "Left shoulder sore" } },
+      {
+        id: "p0",
+        proposal: FACT,
+        fits: true,
+        scope: null,
+        title: "Remember: Left shoulder sore (Oct 27)",
+        sub: `Goes in What ${COACH_NAME} knows. Forget it there any time.`,
+        done: "Remembered.",
+        accept: { kind: "fact", text: "Left shoulder sore" },
+      },
     ]);
     const facts = Array.from({ length: 30 }, (_, i) => ({ client_id: `f-${i}`, text: `Fact ${i}`, dated: 0, created_at: "2026-10-20T15:00:00.000Z" }));
     expect(proposalCards(rowsOf({ facts }), [FACT], TODAY, true)).toEqual([]);
@@ -189,7 +214,7 @@ describe("runAccept", () => {
     expect(await runAccept(card.accept, mutate, ids(), now)).toBe(true);
     const legs = plan.templates[LEGS]!.exercises;
     expect(calls).toEqual([
-      ["planWorkout", { clientId: "w-new", date: "2026-10-28", templateId: LEGS, at: "2026-10-27T21:00:00.000Z" }],
+      ["planWorkout", { clientId: "w-new", date: "2026-10-28", templateId: LEGS, at: "2026-10-27T21:00:00.000Z", scheduled: true }],
       [
         "setLifts",
         {
@@ -222,6 +247,66 @@ describe("runAccept", () => {
       ["moveWorkout", { a: "2026-10-28", b: "2026-10-29" }],
       ["rememberFact", { clientId: "f-new", text: "Left shoulder sore", dated: true }],
     ]);
+  });
+});
+
+describe("accepting one card after another", () => {
+  const ctx = { now: "2026-10-27T21:00:00.000Z", today: TODAY };
+  /** The phone's store: each Accept really runs, and the cards read the rows it leaves. */
+  function store() {
+    const tx = new MemoryTx(new Map());
+    const rows = (name: string): Row[] => [...(tx.tables.get(name)?.values() ?? [])];
+    const mutate = async (name: string, args: unknown) => {
+      try {
+        await runMutation(tx, name, args, ctx);
+        return true;
+      } catch {
+        return false;
+      }
+    };
+    let n = 0;
+    const accept = (a: Parameters<typeof runAccept>[0]) => runAccept(a, mutate, () => `w-${++n}`, () => new Date(ctx.now));
+    const sessions = () => rows("workout_sessions").map((r) => ({ date: r.date, template: r.template_id, lifts: r.lifts ? (JSON.parse(String(r.lifts)) as Lift[]).find((l) => l.position === 4)?.exercise : null }));
+    return { tx, rows, accept, sessions };
+  }
+
+  it("a Move, then a this-week Swap: the swap follows the workout to its new day", async () => {
+    const s = store();
+    const cards = proposalCards(s.rows, [MOVE, swap("week")], TODAY, true);
+    expect(await s.accept(cards[0].accept)).toBe(true);
+    const [, swapCard] = refreshCards(s.rows, cards, TODAY, true);
+    expect(swapCard.fits).toBe(true);
+    expect(swapCard.sub).toBe("Legs, Shoulders on Thursday, Oct 29. Next week goes back to normal.");
+    expect(await s.accept(swapCard.accept)).toBe(true);
+    expect(s.sessions()).toEqual([{ date: "2026-10-29", template: LEGS, lifts: RAISE }]);
+  });
+
+  it("refuses the swap as first built, rather than plan Wednesday's old workout on a day that now rests", async () => {
+    const s = store();
+    const cards = proposalCards(s.rows, [MOVE, swap("week")], TODAY, true);
+    await s.accept(cards[0].accept);
+    expect(await s.accept(cards[1].accept)).toBe(false);
+    expect(s.sessions()).toEqual([]);
+  });
+
+  it("a this-week Swap, then a Move: the swapped workout moves with its swap", async () => {
+    const s = store();
+    const cards = proposalCards(s.rows, [swap("week"), MOVE], TODAY, true);
+    expect(await s.accept(cards[0].accept)).toBe(true);
+    expect(s.sessions()).toEqual([{ date: "2026-10-28", template: LEGS, lifts: RAISE }]);
+    const [, moveCard] = refreshCards(s.rows, cards, TODAY, true);
+    expect(moveCard.fits).toBe(true);
+    expect(await s.accept(moveCard.accept)).toBe(true);
+    expect(s.sessions()).toEqual([{ date: "2026-10-29", template: LEGS, lifts: RAISE }]);
+  });
+
+  it("marks a card that no longer fits, so it can't be accepted", async () => {
+    const s = store();
+    const cards = proposalCards(s.rows, [MOVE, { kind: "move", from: "2026-10-28", to: "2026-10-30" }], TODAY, true);
+    await s.accept(cards[0].accept);
+    // Wednesday rests now, so there is nothing left there to move.
+    const [, second] = refreshCards(s.rows, cards, TODAY, true);
+    expect(second).toMatchObject({ fits: false, title: cards[1].title });
   });
 });
 

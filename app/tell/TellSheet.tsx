@@ -1,7 +1,7 @@
 import { useState } from "react";
 import { postAi } from "~/ai/client";
 import { FACT_LIMIT, FACT_MAX } from "~/ai/facts";
-import { proposalCards, resultLine, runAccept, sendButton, tellContext, TELL_FAILED, type Proposal, type ProposalCard } from "~/ai/proposals";
+import { NO_LONGER_FITS, proposalCards, refreshCards, resultLine, runAccept, sendButton, tellContext, TELL_FAILED, type Proposal, type ProposalCard } from "~/ai/proposals";
 import { useAi, type AiState } from "~/ai/use-ai";
 import { PHONE_WAIT_MS } from "~/ai/waits";
 import { COACH_NAME } from "~/brand";
@@ -75,7 +75,7 @@ function SaveAsWritten({ onClose }: { onClose: () => void }) {
   );
 }
 
-type Phase = { kind: "edit" } | { kind: "reading" } | { kind: "failed" } | { kind: "result"; cards: ProposalCard[] };
+type Phase = { kind: "edit" } | { kind: "reading" } | { kind: "failed" } | { kind: "result"; cards: ProposalCard[]; today: string };
 
 function AskRocky({ ai, onClose }: { ai: AiState; onClose: () => void }) {
   const client = useSyncClient();
@@ -93,7 +93,7 @@ function AskRocky({ ai, onClose }: { ai: AiState; onClose: () => void }) {
     setSettled({});
     const reply = await postAi<{ proposals: Proposal[] | null }>("/api/ai/tell", { text, today, context: tellContext(rows, today, hasPlan) }, TELL_WAIT_MS);
     // The proposals are checked against the phone's copy as it is now, just before they show.
-    setPhase(reply?.proposals ? { kind: "result", cards: proposalCards(rows, reply.proposals, today, hasPlan) } : { kind: "failed" });
+    setPhase(reply?.proposals ? { kind: "result", cards: proposalCards(rows, reply.proposals, today, hasPlan), today } : { kind: "failed" });
   }
 
   async function remember() {
@@ -104,6 +104,9 @@ function AskRocky({ ai, onClose }: { ai: AiState; onClose: () => void }) {
     if (await runAccept(card.accept, mutate)) setSettled((s) => ({ ...s, [card.id]: "done" }));
   }
 
+  // Rebuilt from the store on every render (useStoreVersion), so a card acts on the days as an earlier Accept or a
+  // sync left them, not as they were when the reply came.
+  const cards = phase.kind === "result" ? refreshCards(rows, phase.cards, phase.today, hasPlan) : [];
   const reading = phase.kind === "reading";
   const sendAs = sendButton(ai, reading);
   return (
@@ -115,14 +118,14 @@ function AskRocky({ ai, onClose }: { ai: AiState; onClose: () => void }) {
         </button>
       </div>
       {phase.kind === "failed" && <KeepIt line={TELL_FAILED} text={text} onRemember={remember} />}
-      {phase.kind === "result" && phase.cards.length === 0 && <KeepIt line={resultLine(0)} text={text} onRemember={remember} />}
-      {phase.kind === "result" && phase.cards.length > 0 && (
+      {phase.kind === "result" && cards.length === 0 && <KeepIt line={resultLine(0)} text={text} onRemember={remember} />}
+      {phase.kind === "result" && cards.length > 0 && (
         <>
           <p aria-live="polite" className="text-[15px] leading-[1.4] text-ink-3">
-            {resultLine(phase.cards.length)}
+            {resultLine(cards.length)}
           </p>
           <ul className="flex flex-col gap-3">
-            {phase.cards
+            {cards
               .filter((c) => settled[c.id] !== "gone")
               .map((c) =>
                 settled[c.id] === "done" ? (
@@ -135,9 +138,13 @@ function AskRocky({ ai, onClose }: { ai: AiState; onClose: () => void }) {
                     <span className="text-[17px] font-bold leading-[1.3]">{c.title}</span>
                     <span className="text-[14px] leading-[1.35] text-ink-3">{c.sub}</span>
                     <span className="flex items-center gap-[18px]">
-                      <button type="button" onClick={() => void accept(c)} className={OUTLINE}>
-                        Accept
-                      </button>
+                      {c.fits ? (
+                        <button type="button" onClick={() => void accept(c)} className={OUTLINE}>
+                          Accept
+                        </button>
+                      ) : (
+                        <span className="text-[15px] text-ink-3">{NO_LONGER_FITS}.</span>
+                      )}
                       <button type="button" onClick={() => setSettled((s) => ({ ...s, [c.id]: "gone" }))} className={`${btn.quiet} self-center`}>
                         Dismiss
                       </button>

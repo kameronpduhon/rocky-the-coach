@@ -120,14 +120,24 @@ export interface WeekDay {
   position: number;
 }
 
+/** A saved workout with its own list (a this-week swap) that a move takes along to the other day. */
+export interface Carry {
+  date: ISODate;
+  templateId: string;
+  lifts: Lift[];
+}
+
 export type Accept =
   | { kind: "swapAlways"; templateId: string; position: number; exercise: string }
   | { kind: "swapWeek"; exercise: string; days: WeekDay[] }
-  | { kind: "move"; a: ISODate; b: ISODate }
+  | { kind: "move"; a: ISODate; b: ISODate; carry: Carry[] }
   | { kind: "fact"; text: string };
 
 export interface ProposalCard {
   id: string;
+  proposal: Proposal;
+  /** False once an earlier Accept or a sync has left the card nothing to act on: it can't be accepted. */
+  fits: boolean;
   /** "This week only" or "From now on" on a swap. */
   scope: string | null;
   title: string;
@@ -165,7 +175,7 @@ function nextDayOf(rows: Rows, today: ISODate, templateId: string): ISODate | nu
   return null;
 }
 
-function cardFor(rows: Rows, p: Proposal, today: ISODate, hasPlan: boolean): Omit<ProposalCard, "id"> | null {
+function cardFor(rows: Rows, p: Proposal, today: ISODate, hasPlan: boolean): Omit<ProposalCard, "id" | "proposal" | "fits"> | null {
   if (p.kind === "fact") {
     if (rows("facts").length >= FACT_LIMIT) return null;
     return { scope: null, title: `Remember: ${p.text} (${monthDay(today)})`, sub: `Goes in What ${COACH_NAME} knows. Forget it there any time.`, done: "Remembered.", accept: { kind: "fact", text: p.text } };
@@ -199,12 +209,23 @@ function cardFor(rows: Rows, p: Proposal, today: ISODate, hasPlan: boolean): Omi
   const done = doneDates(rows, today);
   if (!onFrom || weekStart(p.from) !== weekStart(p.to) || p.from < today || p.to < today || done.has(p.from) || done.has(p.to)) return null;
   const trade = onTo ? ` ${dayName(p.to)}'s ${workoutTitle(onTo)} moves to ${dayName(p.from)}.` : "";
+  // moveWorkout drops a workout saved but not started, so the day replans from the schedule. One with its own list
+  // (a this-week swap accepted a moment ago) is planned again on its new day with that list.
+  const carry = [
+    [p.from, p.to],
+    [p.to, p.from],
+  ].flatMap(([d, other]): Carry[] => {
+    const session = sessionOn(rows, d);
+    const templateId = templateFor(plan, d, moves);
+    if (!session?.lifts || session.started_at || session.ended_at || !templateId || session.template_id !== templateId) return [];
+    return [{ date: other, templateId, lifts: resolveLifts(rows, session, templateId, d) }];
+  });
   return {
     scope: null,
     title: `Move ${dayName(p.from)}'s ${workoutTitle(onFrom)} to ${dayName(p.to)}`,
     sub: `${monthDay(p.from)} to ${monthDay(p.to)}.${trade}`,
     done: "Moved.",
-    accept: { kind: "move", a: p.from, b: p.to },
+    accept: { kind: "move", a: p.from, b: p.to, carry },
   };
 }
 
@@ -213,10 +234,24 @@ export function proposalCards(rows: Rows, proposals: Proposal[], today: ISODate,
   const cards: ProposalCard[] = [];
   for (const p of proposals) {
     const card = cardFor(rows, p, today, hasPlan);
-    if (card) cards.push({ ...card, id: `p${cards.length}` });
+    if (card) cards.push({ ...card, id: `p${cards.length}`, proposal: p, fits: true });
   }
   return cards;
 }
+
+/**
+ * The shown cards again, from the store as it is now: after each Accept, and after a sync. Each is rebuilt from its
+ * proposal, so it acts on the days as they are now (a swap follows its workout to the day it moved to). One that no
+ * longer fits keeps its words and can't be accepted.
+ */
+export function refreshCards(rows: Rows, cards: ProposalCard[], today: ISODate, hasPlan: boolean): ProposalCard[] {
+  return cards.map((c) => {
+    const card = cardFor(rows, c.proposal, today, hasPlan);
+    return card ? { ...card, id: c.id, proposal: c.proposal, fits: true } : { ...c, fits: false };
+  });
+}
+
+export const NO_LONGER_FITS = "No longer fits";
 
 export function resultLine(count: number): string {
   if (count === 0) return `${COACH_NAME} has nothing to change for that. Keep it in What ${COACH_NAME} knows?`;
@@ -237,11 +272,19 @@ export const TELL_FAILED = `${COACH_NAME} couldn't read that just now. Keep it a
 /** Runs an accepted proposal as named changes. False at the first one the rules refuse; the sync notice says why. */
 export async function runAccept(a: Accept, mutate: Mutate, newId: () => string = () => crypto.randomUUID(), now: () => Date = () => new Date()): Promise<boolean> {
   if (a.kind === "swapAlways") return mutate("swapAlways", { templateId: a.templateId, position: a.position, exercise: a.exercise });
-  if (a.kind === "move") return mutate("moveWorkout", { a: a.a, b: a.b });
   if (a.kind === "fact") return mutate("rememberFact", { clientId: newId(), text: a.text, dated: true });
+  if (a.kind === "move") {
+    if (!(await mutate("moveWorkout", { a: a.a, b: a.b }))) return false;
+    for (const c of a.carry) {
+      const key = newId();
+      if (!(await mutate("planWorkout", { clientId: key, date: c.date, templateId: c.templateId, at: now().toISOString(), scheduled: true }))) return false;
+      if (!(await mutate("setLifts", { workout: key, lifts: c.lifts }))) return false;
+    }
+    return true;
+  }
   for (const d of a.days) {
     const key = d.workout ?? newId();
-    if (!d.workout && !(await mutate("planWorkout", { clientId: key, date: d.date, templateId: d.templateId, at: now().toISOString() }))) return false;
+    if (!d.workout && !(await mutate("planWorkout", { clientId: key, date: d.date, templateId: d.templateId, at: now().toISOString(), scheduled: true }))) return false;
     if (!(await mutate("setLifts", { workout: key, lifts: swapToday(d.lifts, d.position, a.exercise) }))) return false;
   }
   return true;

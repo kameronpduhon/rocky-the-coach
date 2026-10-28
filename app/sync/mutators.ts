@@ -536,11 +536,20 @@ const defs = {
     },
   },
   planWorkout: {
-    args: z.object({ clientId, date, templateId, at }),
-    async run(tx: Tx, a: { clientId: string; date: string; templateId: string; at: string }, ctx: MutationContext) {
+    /**
+     * `scheduled` is for a change made on the day's scheduled workout, worked out earlier (Tell Rocky's this-week swap):
+     * it is refused once the schedule has moved that workout off the day, unless the day's workout already is it. The
+     * workout screen's picker plans any workout and leaves it out.
+     */
+    args: z.object({ clientId, date, templateId, at, scheduled: z.boolean().optional() }),
+    async run(tx: Tx, a: { clientId: string; date: string; templateId: string; at: string; scheduled?: boolean }, ctx: MutationContext) {
       notPastWeekAhead(a.date, ctx);
       checkTime(a.at, ctx);
       const open = (await tx.scan("workout_sessions")).find((r) => r.date === a.date && !r.ended_at);
+      if (a.scheduled && open?.template_id !== a.templateId) {
+        const moves: Record<string, string | null> = Object.fromEntries((await tx.scan("schedule_moves")).map((r) => [r.date as string, (r.template_id as string | null) ?? null]));
+        if (templateFor(plan, a.date, moves) !== a.templateId) throw new MutationRejected("That day's workout has changed.");
+      }
       if (open?.started_at) {
         if (open.template_id === a.templateId) return;
         throw new MutationRejected("Today's workout has already started.");

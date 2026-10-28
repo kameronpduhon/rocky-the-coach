@@ -2,6 +2,7 @@
 // null, and each screen shows its rule-written or typed path for null. No AI request is ever queued or retried.
 import { z } from "zod";
 import type { Product } from "./barcode";
+import { DescribeSchema, type DescribeReply } from "./describe";
 import { LabelSchema, type LabelRead } from "./label";
 
 const STATUS_WAIT_MS = 5_000;
@@ -90,5 +91,13 @@ export async function findBarcode(code: string, timeoutMs = BARCODE_MS, send: ty
 /** What the label photo says, or null for any fallback: the caller shows "Couldn't read that label." */
 export async function readLabel(image: string, timeoutMs = LABEL_MS, send: typeof fetch = fetch): Promise<LabelRead | null> {
   const parsed = LabelSchema.safeParse(await postAi<unknown>("/api/ai/label", { image }, timeoutMs, send));
+  return parsed.success ? parsed.data : null;
+}
+
+const DESCRIBE_MS = 20_000;
+
+/** The model's foods for a description, or null for any fallback (P5a's postAi) or no plate. The phone computes every number from the table. */
+export async function describeMeal(text: string, timeoutMs = DESCRIBE_MS, send: typeof fetch = fetch): Promise<DescribeReply | null> {
+  const parsed = DescribeSchema.safeParse(await postAi<unknown>("/api/ai/describe", { text }, timeoutMs, send));
   return parsed.success ? parsed.data : null;
 }

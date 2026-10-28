@@ -1,22 +1,35 @@
 import { describe, expect, it } from "vitest";
-import { cardEdit, cardFromProduct, cardLog, labelOutcome, offPlanChoices, sourceLine, stepperFor, type CardSource } from "~/today/offplan";
+import { cardEdit, cardFromProduct, cardLog, describeProblem, labelOutcome, offPlanChoices, sourceLine, stepperFor, type CardSource } from "~/today/offplan";
 
 const SHAKE: CardSource = { name: "fa!rlife CORE POWER HIGH PROTEIN MILK SHAKE", servingText: "1 bottle (414 g)", kcal: 170, proteinG: 26, from: "barcode", drink: true };
 const NUTELLA: CardSource = { name: "Nutella", servingText: null, kcal: 539, proteinG: 6.3, from: "barcode", drink: false };
 const BAR: CardSource = { name: "Barebells protein bar, cookies and cream", servingText: "1 bar (55 g)", kcal: 200, proteinG: 20, from: "label", drink: false };
 
 describe("offPlanChoices", () => {
-  it("offers Scan for a barcode or a label with the AI on and a signal", () => {
-    expect(offPlanChoices({ aiReady: true, online: true })).toEqual([{ kind: "scan", label: "Scan", sub: "Barcode or label", disabled: false }]);
+  const describeIt = { kind: "describe", label: "Describe it", sub: "Type it like a text", disabled: false };
+
+  it("offers Describe it and Scan with the AI on and a signal", () => {
+    expect(offPlanChoices({ aiReady: true, online: true })).toEqual([describeIt, { kind: "scan", label: "Scan", sub: "Barcode or label", disabled: false }]);
   });
 
-  it("offers a barcode only with the AI off or no key", () => {
+  it("hides Describe it and offers a barcode only with the AI off or no key", () => {
     expect(offPlanChoices({ aiReady: false, online: true })).toEqual([{ kind: "scan", label: "Scan a barcode", sub: "Looks it up in Open Food Facts", disabled: false }]);
   });
 
-  it("needs a signal", () => {
-    expect(offPlanChoices({ aiReady: true, online: false })).toEqual([{ kind: "scan", label: "Scan", sub: "Needs a signal", disabled: true }]);
+  it("needs a signal for both", () => {
+    expect(offPlanChoices({ aiReady: true, online: false })).toEqual([
+      { kind: "describe", label: "Describe it", sub: "Needs a signal", disabled: true },
+      { kind: "scan", label: "Scan", sub: "Needs a signal", disabled: true },
+    ]);
     expect(offPlanChoices({ aiReady: false, online: false })).toEqual([{ kind: "scan", label: "Scan a barcode", sub: "Needs a signal", disabled: true }]);
+  });
+});
+
+describe("describeProblem", () => {
+  it("says why there is no plate, or nothing when there is one", () => {
+    expect(describeProblem(null)).toBe("Rocky couldn't build that plate just now. Try again, or type the numbers.");
+    expect(describeProblem({ name: "Lunch", category: "meal", items: [] })).toBe("Rocky couldn't find any foods in that. Try naming each one.");
+    expect(describeProblem({ name: "Lunch", category: "meal", items: [{ label: "Rice", foodId: "white-rice-cooked", grams: 150 }] })).toBeNull();
   });
 });
 

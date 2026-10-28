@@ -1,9 +1,11 @@
 // "Ate something else" after its usual orders: the choice rows and the product card (options 1C and 3B).
 import type { Product } from "~/ai/barcode";
 import { labelSane, type LabelRead } from "~/ai/label";
+import type { DescribeReply } from "~/ai/describe";
+import { COACH_NAME } from "~/brand";
 
 export interface Choice {
-  kind: "scan";
+  kind: "describe" | "scan";
   label: string;
   sub: string;
   disabled: boolean;
@@ -11,9 +13,20 @@ export interface Choice {
 
 /** The rows under "Not in your usuals?". `aiReady`: the person's switch is on and the server has a key. */
 export function offPlanChoices({ aiReady, online }: { aiReady: boolean; online: boolean }): Choice[] {
-  const label = aiReady ? "Scan" : "Scan a barcode";
-  if (!online) return [{ kind: "scan", label, sub: "Needs a signal", disabled: true }];
-  return [{ kind: "scan", label, sub: aiReady ? "Barcode or label" : "Looks it up in Open Food Facts", disabled: false }];
+  const scanLabel = aiReady ? "Scan" : "Scan a barcode";
+  if (!online) {
+    const scan: Choice = { kind: "scan", label: scanLabel, sub: "Needs a signal", disabled: true };
+    return aiReady ? [{ kind: "describe", label: "Describe it", sub: "Needs a signal", disabled: true }, scan] : [scan];
+  }
+  const scan: Choice = { kind: "scan", label: scanLabel, sub: aiReady ? "Barcode or label" : "Looks it up in Open Food Facts", disabled: false };
+  return aiReady ? [{ kind: "describe", label: "Describe it", sub: "Type it like a text", disabled: false }, scan] : [scan];
+}
+
+/** Why Describe it has no plate to show, or null when it has one. */
+export function describeProblem(reply: DescribeReply | null): string | null {
+  if (!reply) return `${COACH_NAME} couldn't build that plate just now. Try again, or type the numbers.`;
+  if (reply.items.length === 0) return `${COACH_NAME} couldn't find any foods in that. Try naming each one.`;
+  return null;
 }
 
 /** What the product card shows, from a barcode or a label. Numbers are per serving, or per 100 g with no serving. */

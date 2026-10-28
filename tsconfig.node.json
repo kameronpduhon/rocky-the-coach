@@ -8,7 +8,8 @@
     "scripts/**/*.ts",
     "app/domain/**/*.ts",
     "app/server/password.ts",
-    "app/sync/tables.ts"
+    "app/sync/tables.ts",
+    "app/content/schema.ts"
   ],
   "compilerOptions": {
     "composite": true,

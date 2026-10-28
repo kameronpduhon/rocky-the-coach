@@ -113,6 +113,17 @@ describe("ruleTake", () => {
     expect(ruleTake(make((d) => (d.weight.change = null))).call).toBe("Burn is near 2,580, so calories go to 2,300 from Monday.");
   });
 
+  it("follows the pick on the page: walking when it is chosen, calories when Rocky's walking pick is turned down", () => {
+    expect(ruleTake(base(), "steps").call).toBe(`${LEAD} Burn is near 2,580, so calories hold at 2,400 and steps go to 9,500.`);
+    expect(ruleTake(base(), "calories").call).toBe(`${LEAD} Burn is near 2,580, so calories go to 2,300 from Monday.`);
+    const hungry = make((d) => (d.call = { ...d.call, pick: "steps", hungry: true }));
+    expect(ruleTake(hungry, "steps").call).toBe(`${LEAD} You were hungry two Sundays running, so ${COACH_NAME} picks 9,500 steps over less food.`);
+    expect(ruleTake(hungry, "calories").call).toBe(`${LEAD} Burn is near 2,580, so calories go to 2,300 from Monday.`);
+    // With no walking option the steps pick can't apply.
+    expect(ruleTake(make((d) => (d.call = { ...d.call, kind: "on-pace", state: "updating", steadyBy: null, steps: null })), "steps").call).toBe(`${LEAD} Right on pace, so 2,300 holds.`);
+    for (const pick of ["calories", "steps"] as const) for (const n of numbersIn(ruleTake(base(), pick).call)) expect(digestNumbers(base()).has(n)).toBe(true);
+  });
+
   it("says 1 and 0 days in words that read right", () => {
     expect(ruleTake(make((d) => (d.days.tracked = 1))).fix).toBe("Only 1 day was closed out in full. Close out each night so the burn can update.");
     expect(ruleTake(make((d) => (d.days.tracked = 0))).fix).toBe("No days were closed out in full. Close out each night so the burn can update.");
@@ -124,6 +135,9 @@ describe("ruleTake", () => {
       fix: "Friday's workout was missed. Get the next one in.",
       call: "Trend down 0.4 lb. Burn is near 2,680, so calories go to 2,300 from Monday.",
     });
+    expect(ruleTake(buildDigest(rowsOf(weekThree()), "2026-10-19", { hunger: null, energy: null, sleep: null, rest: null }), "steps").call).toBe(
+      "Trend down 0.4 lb. Burn is near 2,680, so calories hold at 2,400 and steps go to 8,000.",
+    );
   });
 
   it("prints no number that isn't in the digest", () => {

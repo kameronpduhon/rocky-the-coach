@@ -80,6 +80,7 @@ describe("buildCheckIn: the window is open", () => {
     const choices: PageChoices = { week: "2026-10-19", hunger: "fine", energy: null, sleep: "great", pick: "steps", rest: [], lifts: { [SHOULDER]: "drop" } };
     const m = buildCheckIn(rows, SUNDAY_6PM, choices);
     expect(m.call!.view).toMatchObject({ kcal: 2400, was: "holds", steps: "Steps 8,000" });
+    expect(m.take!.call).toBe("Trend down 0.4 lb. Burn is near 2,680, so calories hold at 2,400 and steps go to 8,000.");
     expect(m.next!.repeats[0]).toMatchObject({ rest: false, sub: "4 times · staying in" });
     expect(m.next!.stuck[0].plan).toBe("drop");
     expect(m.next!.groceries.href).toBe("/groceries?week=2026-10-26&from=check-in&kcal=2400&rest=");
@@ -140,6 +141,7 @@ describe("buildCheckIn: finished", () => {
     expect(m).toMatchObject({ phase: "finished", readOnly: true, finish: null, dock: { note: "Done. New numbers start Monday morning.", action: "today", change: true } });
     expect(m.choices).toMatchObject({ hunger: "fine", pick: "steps", rest: [], lifts: { [SHOULDER]: "drop" } });
     expect(m.call).toMatchObject({ choice: "steps", view: { kcal: 2400 } });
+    expect(m.take!.call).toBe("Trend down 0.4 lb. Burn is near 2,680, so calories hold at 2,400 and steps go to 8,000.");
     expect(m.waist.editable).toBe(false);
     expect(m.next!.groceries.sub).toMatch(/^\d+ items for Oct 26 to Nov 1$/);
   });

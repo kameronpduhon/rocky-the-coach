@@ -13,16 +13,6 @@
     --card: var(--raised);
     border-top: 2px solid var(--ink);
   }
-  .segment-on {
-    background: var(--ink);
-    color: var(--paper);
-  }
-  /* Outline ink: the secondary action. */
-  .btn-secondary {
-    background: transparent;
-    color: var(--ink);
-    border: 1.5px solid var(--ink);
-  }
   /* The primary action, the only red fill. */
   .btn-prominent {
     background: var(--red);

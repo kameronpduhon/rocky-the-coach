@@ -29,21 +29,16 @@
   --color-on-ink-2: var(--on-ink-2);
 
   /* v1 names, until each screen is rebuilt. */
-  --color-bg: var(--bg);
   --color-card: var(--card);
   --color-fill: var(--fill);
   --color-separator: var(--separator);
   --color-label: var(--label);
   --color-label-2: var(--label-2);
-  --color-label-3: var(--label-3);
   --color-label-4: var(--label-4);
-  --color-calories: var(--calories);
   --color-protein: var(--protein);
   --color-steps: var(--steps);
   --color-steps-text: var(--steps-text);
   --color-label-on-fill: var(--label-on-fill);
-  --color-label-on-glass: var(--label-on-glass);
-  --color-warn: var(--warn);
 }
 
 html,

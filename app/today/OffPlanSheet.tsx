@@ -1,10 +1,14 @@
 import { useRef, useState } from "react";
+import { FOOD_BY_ID } from "~/ai/food-table";
+import { startPlate, type PlateRow } from "~/ai/plate";
 import { useAi } from "~/ai/use-ai";
 import { Sheet } from "~/components/Sheet";
 import { Icon } from "~/components/ui";
 import { useMutate } from "~/sync/react";
 import { btn } from "~/ui/button";
+import { DescribeView } from "./DescribeView";
 import { offPlanChoices, type CardSource, type FormValues } from "./offplan";
+import { PlateTitle, PlateView } from "./PlateView";
 import { ProductCard } from "./ProductCard";
 import { ScanView } from "./ScanView";
 import { SomethingNewForm } from "./SomethingNewForm";
@@ -12,21 +16,33 @@ import { USUALS_SHOWN, type UsualModel } from "./usuals";
 
 const LONG_PRESS_MS = 500;
 
-type View = { kind: "usuals" } | { kind: "form"; initial?: FormValues; note?: string } | { kind: "scan" } | { kind: "card"; card: CardSource };
+type View =
+  | { kind: "usuals" }
+  | { kind: "form"; initial?: FormValues; note?: string }
+  | { kind: "scan" }
+  | { kind: "card"; card: CardSource }
+  | { kind: "describe"; text: string }
+  | { kind: "plate"; text: string; title: string; category: FormValues["category"]; rows: PlateRow[] };
 
-const TITLE: Record<View["kind"], string> = { usuals: "Ate something else", form: "Something new", scan: "Scan", card: "Ate something else" };
+const TITLE: Record<Exclude<View["kind"], "plate">, string> = { usuals: "Ate something else", form: "Something new", scan: "Scan", card: "Ate something else", describe: "Describe it" };
 
 /** "Ate something else": usual orders first, then Scan and typing (option 1C). Every later view has a back button. */
 export function OffPlanSheet({ date, usuals, onClose }: { date: string; usuals: UsualModel[]; onClose: () => void }) {
   const [view, setView] = useState<View>({ kind: "usuals" });
   const ai = useAi();
-  // The label and (in P5e) Describe it need the switch on and a key; each choice also needs a signal.
+  // The label and Describe it need the switch on and a key; each choice also needs a signal.
   const aiReady = ai.on && ai.available === true;
   const online = ai.online;
   const toForm = (initial?: FormValues, note?: string) => setView({ kind: "form", initial, note });
 
   return (
-    <Sheet open onClose={onClose} title={TITLE[view.kind]} onBack={view.kind === "usuals" ? undefined : () => setView({ kind: "usuals" })}>
+    <Sheet
+      open
+      onClose={onClose}
+      title={view.kind === "plate" ? view.title : TITLE[view.kind]}
+      heading={view.kind === "plate" ? <PlateTitle title={view.title} onRename={(title) => setView({ ...view, title })} /> : undefined}
+      onBack={view.kind === "usuals" ? undefined : () => setView({ kind: "usuals" })}
+    >
       {view.kind === "usuals" && (
         <div className="flex flex-col gap-6">
           <UsualOrders date={date} usuals={usuals} onLogged={onClose} />
@@ -40,10 +56,10 @@ export function OffPlanSheet({ date, usuals, onClose }: { date: string; usuals: 
                   key={c.kind}
                   type="button"
                   disabled={c.disabled}
-                  onClick={() => setView({ kind: "scan" })}
+                  onClick={() => setView(c.kind === "describe" ? { kind: "describe", text: "" } : { kind: "scan" })}
                   className="flex min-h-16 items-center gap-2.5 rounded-[6px] border-[1.5px] border-ink px-3 py-2 text-left disabled:border-border disabled:text-muted"
                 >
-                  <Icon name="barcode" size={20} strokeWidth={2} />
+                  <Icon name={c.kind === "describe" ? "pencil" : "barcode"} size={20} strokeWidth={2} />
                   <span className="flex flex-col">
                     <span className="font-num text-[17px] font-bold">{c.label}</span>
                     <span className="text-[13px] text-ink-3">{c.sub}</span>
@@ -60,6 +76,25 @@ export function OffPlanSheet({ date, usuals, onClose }: { date: string; usuals: 
       {view.kind === "form" && <SomethingNewForm date={date} initial={view.initial} note={view.note} onDone={onClose} />}
       {view.kind === "scan" && <ScanView ai={aiReady} onCard={(card) => setView({ kind: "card", card })} onForm={toForm} />}
       {view.kind === "card" && <ProductCard date={date} card={view.card} onEdit={(values) => toForm(values)} onDone={onClose} />}
+      {view.kind === "describe" && (
+        <DescribeView
+          startText={view.text}
+          onType={() => toForm()}
+          onPlate={(text, reply) => setView({ kind: "plate", text, title: reply.name.trim().slice(0, 60) || "Something else", category: reply.category, rows: startPlate(reply.items, FOOD_BY_ID) })}
+        />
+      )}
+      {view.kind === "plate" && (
+        <PlateView
+          key={view.text}
+          date={date}
+          said={view.text}
+          title={view.title}
+          startRows={view.rows}
+          startCategory={view.category}
+          onEdit={() => setView({ kind: "describe", text: view.text })}
+          onDone={onClose}
+        />
+      )}
     </Sheet>
   );
 }

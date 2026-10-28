@@ -1,19 +1,11 @@
 import { useEffect, useRef, useState } from "react";
-import { APP_NAME } from "~/brand";
 import { groupDigits } from "~/ai/barcode";
 import { findBarcode, readLabel } from "~/ai/client";
 import { jpegForUpload } from "~/ai/photo";
 import { loadDetector, startScanning } from "~/ai/scanner";
 import { btn } from "~/ui/button";
 import { cardFromProduct, labelOutcome, type CardSource, type FormValues } from "./offplan";
-
-type ScanState =
-  | { kind: "camera" }
-  | { kind: "blocked" }
-  | { kind: "looking"; code: string }
-  | { kind: "notFound"; code: string; down: boolean }
-  | { kind: "reading" }
-  | { kind: "unreadable" };
+import { isEnded, scanFailure, scanOutcome, type ScanDo, type ScanState } from "./scan";
 
 const LINE = "text-[15px] leading-[1.4] text-ink-3";
 
@@ -39,8 +31,8 @@ export function ScanView({ ai, onCard, onForm }: { ai: boolean; onCard: (card: C
         const detector = await loadDetector();
         if (gone) return;
         stop = startScanning(() => detector.detect(el), (code) => setState({ kind: "looking", code }));
-      } catch {
-        if (!gone) setState({ kind: "blocked" });
+      } catch (err) {
+        if (!gone) setState({ kind: scanFailure(err) });
       }
     })();
     return () => {
@@ -56,7 +48,7 @@ export function ScanView({ ai, onCard, onForm }: { ai: boolean; onCard: (card: C
     void findBarcode(state.code).then((r) => {
       if (gone) return;
       if (r.found) onCard(cardFromProduct(r.product));
-      else setState({ kind: "notFound", code: state.code, down: r.down });
+      else setState({ kind: r.down ? "down" : "notFound", code: state.code });
     });
     return () => {
       gone = true;
@@ -79,11 +71,13 @@ export function ScanView({ ai, onCard, onForm }: { ai: boolean; onCard: (card: C
     else setState({ kind: "unreadable" });
   };
   const pickPhoto = () => picker.current?.click();
-  const typeIt = (
-    <button type="button" onClick={() => onForm()} className={btn.quiet}>
-      Type the numbers
-    </button>
-  );
+  const run = (what: ScanDo) => {
+    if (what === "label") pickPhoto();
+    else if (what === "type") onForm();
+    else if (what === "retry" && (state.kind === "down" || state.kind === "notFound")) setState({ kind: "looking", code: state.code });
+    else setState({ kind: "camera" });
+  };
+  const ending = isEnded(state) ? scanOutcome(state, ai) : null;
 
   return (
     <div className="flex flex-col gap-4">
@@ -120,36 +114,17 @@ export function ScanView({ ai, onCard, onForm }: { ai: boolean; onCard: (card: C
         </p>
       )}
 
-      {state.kind === "notFound" && (
+      {ending && (
         <>
           <div className="flex flex-col gap-1">
-            <p className="text-[17px] font-bold">Not in Open Food Facts.</p>
-            <p className={LINE}>
-              {state.down
-                ? "Open Food Facts didn't answer. Try again in a minute."
-                : ai
-                  ? `Barcode ${groupDigits(state.code)} has no listing. A photo of the nutrition label works instead.`
-                  : `Barcode ${groupDigits(state.code)} has no listing.`}
-            </p>
+            {ending.heading && <p className="text-[17px] font-bold">{ending.heading}</p>}
+            <p className={LINE}>{ending.line}</p>
           </div>
-          {ai && (
-            <button type="button" onClick={pickPhoto} className={`${btn.outline} h-14 text-[17px]`}>
-              Read the label instead
+          {ending.actions.map((a) => (
+            <button key={a.do} type="button" onClick={() => run(a.do)} className={a.main ? `${btn.outline} h-14 text-[17px]` : btn.quiet}>
+              {a.label}
             </button>
-          )}
-          {typeIt}
-        </>
-      )}
-
-      {state.kind === "blocked" && (
-        <>
-          <p className={LINE}>The camera is off for {APP_NAME}. Allow it in your iPhone's settings, or type the numbers.</p>
-          {ai && (
-            <button type="button" onClick={pickPhoto} className={`${btn.outline} h-14 text-[17px]`}>
-              Read the label
-            </button>
-          )}
-          {typeIt}
+          ))}
         </>
       )}
 
@@ -159,15 +134,6 @@ export function ScanView({ ai, onCard, onForm }: { ai: boolean; onCard: (card: C
         </p>
       )}
 
-      {state.kind === "unreadable" && (
-        <>
-          <p className={LINE}>Couldn't read that label. Try again with the panel flat and in focus.</p>
-          <button type="button" onClick={pickPhoto} className={`${btn.outline} h-14 text-[17px]`}>
-            Take another photo
-          </button>
-          {typeIt}
-        </>
-      )}
     </div>
   );
 }

@@ -59,6 +59,9 @@ export const SYNCED: TableDef[] = [
   { name: "exercise_notes", ...cols("exercise_id") },
   { name: "usual_orders", ...cols("client_id") },
   { name: "lift_drops", ...cols("exercise_id") },
+  { name: "facts", ...cols("client_id") },
+  // Written only by the Worker (Rocky's AI take); phones read it.
+  { name: "takes", ...cols("week_start") },
 ];
 
 const BY_NAME = new Map(SYNCED.map((d) => [d.name, d]));

@@ -85,6 +85,20 @@
       "when": 1793212650594,
       "tag": "0011_checkin_sync",
       "breakpoints": true
+    },
+    {
+      "idx": 12,
+      "version": "6",
+      "when": 1793215668768,
+      "tag": "0012_ai_data",
+      "breakpoints": true
+    },
+    {
+      "idx": 13,
+      "version": "6",
+      "when": 1793215675473,
+      "tag": "0013_ai_sync",
+      "breakpoints": true
     }
   ]
 }

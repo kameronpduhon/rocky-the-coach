@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { yScale } from '~/components/WeightChart';
+import { yScale } from '~/ui/TrendChart';
 
 describe('yScale', () => {
   it('puts labelled gridlines at or beyond every plotted value', () => {

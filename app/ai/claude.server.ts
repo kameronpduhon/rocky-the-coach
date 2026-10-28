@@ -5,6 +5,9 @@ import { zodOutputFormat } from "@anthropic-ai/sdk/helpers/zod";
 import type { z } from "zod";
 import { PROBE_SYSTEM, takeSystem, takeUser } from "./prompts.server";
 import type { Voice } from "./take";
+import type { ISODate } from "~/domain/types";
+import { libraryBlock, tellRules, tellUser } from "./prompts.server";
+import { TellReply, type TellContext } from "./proposals";
 
 /** One constant, so a model change is one line. */
 export const AI_MODEL = "claude-sonnet-5-5";
@@ -27,12 +30,23 @@ export interface TakeInput {
   facts: string[];
 }
 
+export interface TellInput {
+  note: string;
+  today: ISODate;
+  context: TellContext;
+  /** What Rocky knows, oldest first. */
+  facts: string[];
+  hasPlan: boolean;
+}
+
 /** The calls the AI routes make. Worker tests hand the routes a fake. Each step of project 5 adds its call here. */
 export interface AiClient {
   /** A tiny call that proves the key and the model work, for the wire check. */
   probe(): Promise<AiResult<string>>;
   /** Rocky's take: plain text, checked by the route before it is stored. */
   take(input: TakeInput): Promise<AiResult<string>>;
+  /** Tell Rocky: proposals in TellReply's shape, checked by the route before they reach the phone. */
+  tell(input: TellInput): Promise<AiResult<TellReply>>;
 }
 
 export interface ClientOptions {
@@ -133,5 +147,14 @@ export function anthropicClient(key: string, opts: ClientOptions = {}): AiClient
     probe: () => textCall(client, { system: [{ type: "text", text: PROBE_SYSTEM }], content: [{ type: "text", text: "Are you there?" }], effort: "low", maxTokens: 1000 }),
     // Too small and too rare to cache.
     take: (i) => textCall(client, { system: [{ type: "text", text: takeSystem(i.voice) }], content: [{ type: "text", text: takeUser(i.lines, i.facts) }], effort: "medium", maxTokens: 2000 }),
+    tell: (i) =>
+      structuredCall(client, {
+        // The library is the same for every note, so it is cached; a second note inside 5 minutes reads it from cache.
+        system: i.hasPlan ? [{ type: "text", text: tellRules(true) }, { type: "text", text: libraryBlock(), cache_control: { type: "ephemeral" } }] : [{ type: "text", text: tellRules(false) }],
+        content: [{ type: "text", text: tellUser(i) }],
+        effort: "low",
+        maxTokens: 3000,
+        schema: TellReply,
+      }),
   };
 }

@@ -1,3 +1,4 @@
+import { env } from "cloudflare:test";
 import { eq } from "drizzle-orm";
 import { describe, expect, it } from "vitest";
 import { plannedMeals } from "~/db/schema";
@@ -10,6 +11,17 @@ describe("meal plan", () => {
     await ensureWeekPlan(db(), "2026-10-12");
     const rows = await db().select().from(plannedMeals).all();
     expect(rows.filter((r) => r.date >= "2026-10-12" && r.date <= "2026-10-18")).toHaveLength(35);
+  });
+
+  it("writes the week whole or not at all, so a write cut off mid-week can't leave days missing", async () => {
+    await env.DB.exec(
+      "CREATE TRIGGER cut_off BEFORE INSERT ON planned_meals WHEN NEW.date = '2026-10-29' BEGIN SELECT RAISE(ABORT, 'cut off'); END",
+    );
+    await expect(ensureWeekPlan(db(), "2026-10-26")).rejects.toThrow();
+    await env.DB.exec("DROP TRIGGER cut_off");
+    await ensureWeekPlan(db(), "2026-10-26");
+    const rows = await db().select().from(plannedMeals).all();
+    expect(rows.filter((r) => r.date >= "2026-10-26" && r.date <= "2026-11-01")).toHaveLength(35);
   });
 
   it("returns a day's slots in order, generating the week on demand", async () => {

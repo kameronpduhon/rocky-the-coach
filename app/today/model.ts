@@ -8,12 +8,12 @@ import { addDays, formatClock, localDate, localMinutes, mealDate, weekStart, wee
 import { countedDay, dessertAllowance, fullDay, habitStreak, overAllowanceDates, type DayActivity } from "~/domain/habits";
 import { pickSituation, renderMessage } from "~/domain/messages";
 import { nextUp, type NextUp } from "~/domain/next-up";
-import { nextSuggestion } from "~/domain/progression";
+import { nextSuggestion, withDrop } from "~/domain/progression";
 import type { ISODate } from "~/domain/types";
-import { sevenDayAverage } from "~/domain/weight";
+import { trendReading } from "~/domain/trend";
 import { keyOf, type Row } from "~/sync/tables";
 import { resolveLifts, titleLines, workoutMinutes, workoutTitle } from "~/workout/lifts";
-import { doneDates, lastSession, loggedDates, sessionKey, type Rows } from "~/workout/sessions";
+import { doneDates, dropFor, lastSession, loggedDates, sessionKey, type Rows } from "~/workout/sessions";
 import { closeOutDays, type CloseOutModel } from "./closeout";
 import { DAY_NAME, daySlots, targetsOn, type DaySlot } from "./slots";
 import { usualOrders, type UsualModel } from "./usuals";
@@ -120,7 +120,7 @@ function trainingModel(rows: Rows, date: ISODate, templateId: string, open: Row 
   for (const l of list) {
     const ex = exercises.get(l.exercise)!;
     const last = lastSession(rows, l.exercise, date);
-    const next = nextSuggestion(last?.sets ?? null, { repMax: l.repMax, increment: ex.increment, deload }, last?.feel ?? null);
+    const next = withDrop(nextSuggestion(last?.sets ?? null, { repMax: l.repMax, increment: ex.increment, deload }, last?.feel ?? null), dropFor(rows, l.exercise), last?.date ?? null, date);
     if (last && next.goUp && next.weight !== null) {
       const top = Math.max(...last.sets.map((x) => x.weight));
       goUp = `${ex.name}: ${setsWord(last.sets.length)} hit ${l.repMax} last time${last.feel === "easy" ? " and it felt easy" : ""}. Add ${next.weight - top} lb today.`;
@@ -168,19 +168,27 @@ function countedLine(a: DayActivity, weighInTime: string | null, firstMeal: stri
 }
 
 function trendLine(weights: { date: ISODate; weight: number }[], date: ISODate): string | null {
-  const now = sevenDayAverage(weights, date);
-  if (now === null) return null;
-  const start = sevenDayAverage(weights, addDays(plan.phaseStart, 6));
-  if (start === null || date <= addDays(plan.phaseStart, 6)) return `Trend ${now} lb.`;
-  const diff = Math.round((now - start) * 10) / 10;
-  const change = diff < 0 ? `down ${Math.abs(diff)}` : diff > 0 ? `up ${diff}` : "level";
-  return `Trend ${now} lb, ${change} since ${monthDay(plan.phaseStart)}.`;
+  const t = trendReading(weights, date, plan.phaseStart);
+  if (!t) return null;
+  if (t.sinceFrom === null) return `Trend ${t.weight} lb.`;
+  const change = t.sinceFrom < 0 ? `down ${Math.abs(t.sinceFrom)}` : t.sinceFrom > 0 ? `up ${t.sinceFrom}` : "level";
+  return `Trend ${t.weight} lb, ${change} since ${monthDay(plan.phaseStart)}.`;
 }
 
 const firstMealName = (logs: Row[]): string | null => {
   const first = logs.find((l) => l.category !== "skipped");
   return first ? s(first, "name") : null;
 };
+
+/** What happened on each day, for the counted-day rule. Progress counts days with it too. */
+export function dayActivity(rows: Rows, hasPlan: boolean): (d: ISODate) => DayActivity {
+  const weighDates = new Set(rows("weigh_ins").map((r) => s(r, "date")));
+  // A skip answers the slot but isn't a meal, so it doesn't make a day count.
+  const mealDates = new Set(rows("meal_logs").filter((r) => r.category !== "skipped").map((r) => s(r, "date")));
+  const workoutDates = loggedDates(rows);
+  const steps = new Map(rows("steps_daily").map((r) => [s(r, "date"), n(r, "steps")]));
+  return (d) => ({ weighIn: weighDates.has(d), mealLogged: mealDates.has(d), workout: workoutDates.has(d), steps: steps.get(d) ?? 0, relaxed: hasPlan && isRelaxedDay(plan, d) });
+}
 
 export function buildToday(rows: Rows, now: Date, hasPlan: boolean): TodayModel {
   const date = mealDate(now);
@@ -199,13 +207,7 @@ export function buildToday(rows: Rows, now: Date, hasPlan: boolean): TodayModel 
   const weighDates = new Set(weighInRows.map((r) => s(r, "date")));
   // A skip answers the slot but isn't a meal, so it doesn't make a day count.
   const mealDates = new Set(mealLogs.filter((r) => r.category !== "skipped").map((r) => s(r, "date")));
-  const activity = (d: ISODate): DayActivity => ({
-    weighIn: weighDates.has(d),
-    mealLogged: mealDates.has(d),
-    workout: workoutDates.has(d),
-    steps: stepsByDate.get(d) ?? 0,
-    relaxed: hasPlan && isRelaxedDay(plan, d),
-  });
+  const activity = dayActivity(rows, hasPlan);
   const counted = (d: ISODate) => countedDay(activity(d));
   const firstDay = [...weighDates, ...mealDates, ...workoutDates, ...stepsByDate.keys()].reduce((a, b) => (b < a ? b : a), date);
   const streak = habitStreak(counted, date, firstDay);

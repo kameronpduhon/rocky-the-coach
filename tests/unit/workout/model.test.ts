@@ -2,7 +2,7 @@ import { describe, expect, it } from "vitest";
 import { meals, plan } from "~/content";
 import { parseTime } from "~/domain/dates";
 import type { Row } from "~/sync/tables";
-import { buildWorkout, lastLine, nextOpen, nextTarget, restLeft, setsText, standingLine } from "~/workout/model";
+import { buildWorkout, lastLine, nextOpen, nextTarget, restLeft, setsText, standingLine, workoutBack } from "~/workout/model";
 
 const WED = "2026-10-28";
 const LAST_WED = "2026-10-21";
@@ -141,5 +141,31 @@ describe("buildWorkout", () => {
     const m = buildWorkout(rowsOf({ workout_sessions: [session({ date: TUE })] }), at(TUE, "09:00"));
     expect(m.templateId).toBe(LEGS);
     expect(m.choices.map((c) => c.templateId)).toContain(optional);
+  });
+
+  it("starts a lift dropped at the check-in at the dropped weight, in plain ink", () => {
+    // Leg press hit the top last Wednesday, but Sunday's check-in dropped it to 240 from Monday Oct 26.
+    const dropped = merge(history(), { lift_drops: [{ exercise_id: "leg-press", weight_lb: 240, from_date: "2026-10-26", created_at: "2026-10-25T23:00:00Z" }] });
+    const m = buildWorkout(rowsOf(dropped), at(WED, "08:00"));
+    expect(m.lifts[0]).toMatchObject({ suggestion: { weight: 240, goUp: false }, drop: { weight: 240, from: "2026-10-26" } });
+    expect(lastLine(m.lifts[0], m.date)).toEqual({ goUp: false, text: "Last Wednesday: 270 × 12, 12. Dropped to 240 at Sunday's check-in. Build back from here." });
+    expect(nextTarget(m.lifts[0], m.setsPerLift)?.weight).toBe(240);
+  });
+
+  it("runs the usual rule again once a session at the dropped weight is logged", () => {
+    const monday = { workout_sessions: [session({ id: 10, client_id: null, date: "2026-10-26", template_id: LEGS, started_at: "2026-10-26T17:00:00Z", ended_at: "2026-10-26T18:00:00Z" })], set_logs: [set({ session_key: "id:10", weight_lb: 240, reps: 10, logged_at: "2026-10-26T17:05:00Z" })] };
+    const rows = merge(history(), monday, { lift_drops: [{ exercise_id: "leg-press", weight_lb: 240, from_date: "2026-10-26", created_at: "2026-10-25T23:00:00Z" }] });
+    const m = buildWorkout(rowsOf(rows), at(WED, "08:00"));
+    expect(m.lifts[0]).toMatchObject({ suggestion: { weight: 240, goUp: false }, drop: null });
+    expect(lastLine(m.lifts[0], m.date).text).toBe("Last Monday: 240 × 10. Beat it today.");
+  });
+});
+
+describe("workoutBack", () => {
+  it("goes back to the lift page that opened the workout, or to the screen named by from", () => {
+    expect(workoutBack(null, "/lift/pec-deck?from=progress")).toBe("/lift/pec-deck?from=progress");
+    expect(workoutBack("plan", null)).toBe("/plan");
+    expect(workoutBack("progress", "https://example.com/")).toBe("/progress");
+    expect(workoutBack(null, "/lift/pec-deck?from=elsewhere")).toBe("/");
   });
 });

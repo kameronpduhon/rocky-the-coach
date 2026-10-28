@@ -1,5 +1,4 @@
-import { useEffect } from "react";
-import { useFetcher } from "react-router";
+import { useState } from "react";
 import { Icon } from "~/components/ui";
 import { useSyncClient, useSyncStatus } from "~/sync/react";
 
@@ -16,22 +15,29 @@ async function shrink(file: File): Promise<File> {
 
 /** The meal's photo, or a place to add one. The photo goes to R2, so this is the meal screen's one server request. */
 export function PhotoBox({ slug, photoKey, alt }: { slug: string; photoKey: string | null; alt: string }) {
-  const fetcher = useFetcher<{ ok?: true; error?: string }>();
   const client = useSyncClient();
   const offline = useSyncStatus()?.online === false;
-  const busy = fetcher.state !== "idle";
-  // The new photo_key comes down with the next pull, like any other change.
-  useEffect(() => {
-    if (fetcher.state === "idle" && fetcher.data?.ok) void client?.sync();
-  }, [fetcher.state, fetcher.data, client]);
+  const [busy, setBusy] = useState(false);
+  const [error, setError] = useState<string | null>(null);
 
   async function onChange(e: React.ChangeEvent<HTMLInputElement>) {
     const file = e.target.files?.[0];
     if (!file) return;
-    const body = new FormData();
-    body.set("intent", "photo");
-    body.set("photo", await shrink(file));
-    fetcher.submit(body, { method: "post", action: `/meal/${slug}`, encType: "multipart/form-data" });
+    setBusy(true);
+    setError(null);
+    try {
+      const body = new FormData();
+      body.set("photo", await shrink(file));
+      const res = await fetch(`/api/meals/${encodeURIComponent(slug)}/photo`, { method: "POST", body });
+      const reply = (await res.json().catch(() => ({}))) as { ok?: true; error?: string };
+      // The new photo_key comes down with the next pull, like any other change.
+      if (reply.ok) void client?.sync();
+      else setError(reply.error ?? "That photo didn't save.");
+    } catch {
+      setError("Photos need a signal");
+    } finally {
+      setBusy(false);
+    }
   }
   const input = <input type="file" accept="image/*" capture="environment" disabled={offline || busy} onChange={onChange} className="sr-only" />;
   const label = offline ? "Photos need a signal" : busy ? "Uploading..." : null;
@@ -58,7 +64,7 @@ export function PhotoBox({ slug, photoKey, alt }: { slug: string; photoKey: stri
         </div>
       )}
       {photoKey && label && <p className="text-[14px] text-ink-3">{label}</p>}
-      {fetcher.data?.error && <p className="text-[14px] text-ink-2">{fetcher.data.error}</p>}
+      {error && <p className="text-[14px] text-ink-2">{error}</p>}
     </div>
   );
 }

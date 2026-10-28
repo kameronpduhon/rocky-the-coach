@@ -18,35 +18,23 @@
   --brass-on: #fbf6ea;
   --brass-border: #9c7a2e;
   --brass-fill: #f8f1e1;
+  /* Row dividers inside the brass MOVED UP card. Never text. */
+  --brass-rule: #e3d3ae;
   --coral: #f08a7e;
   --on-ink-2: #d9d0c0;
 
   /* v1 names, pointed at the new palette until each screen is rebuilt. The three data colours become three inks:
      protein is the one number, and red never marks food. */
   --bg: var(--paper);
-  --sheet-bg: var(--paper);
   --card: var(--raised);
-  --sheet-card: var(--raised);
-  --calories-chip-bg: var(--raised);
-  --protein-chip-bg: var(--raised);
   --fill: var(--well);
-  --toggle-off: var(--well);
-  --glass-selected: var(--well);
   --separator: var(--rule);
   --label: var(--ink);
   --protein: var(--ink);
   --label-2: var(--ink-3);
   --label-on-fill: var(--ink-3);
-  --label-on-glass: var(--ink-3);
   --steps: var(--ink-3);
   --steps-text: var(--ink-3);
-  --label-3: var(--muted);
-  --calories: var(--muted);
-  --chart-dot: var(--muted);
-  --warn: var(--ink-2);
   --label-4: var(--border);
-  --timeline-past: var(--border);
-  --prominent-fill: var(--red);
-  --prominent-label: var(--on-red);
   color-scheme: light;
 }

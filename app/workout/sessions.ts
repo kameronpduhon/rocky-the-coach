@@ -1,6 +1,6 @@
 // How workouts read from the phone's copy: their keys, when one counts as finished, and an exercise's last sets.
 // Pure, so Today, the workout screens and the unit tests all share one reading.
-import type { Feel, LoggedSet } from "~/domain/progression";
+import type { Feel, LiftDrop, LoggedSet } from "~/domain/progression";
 import type { ISODate } from "~/domain/types";
 import { keyOf, type Row } from "~/sync/tables";
 
@@ -79,4 +79,10 @@ export function lastSession(rows: Rows, exerciseId: string, before: ISODate): La
       .sort((a, b) => n(a.r, "set_number") - n(b.r, "set_number"))
       .map((x) => ({ weight: n(x.r, "weight_lb"), reps: n(x.r, "reps") })),
   };
+}
+
+/** The check-in's drop for a lift, if one was set. Whether it still applies is `dropApplies`'s call. */
+export function dropFor(rows: Rows, exerciseId: string): LiftDrop | null {
+  const r = rows("lift_drops").find((d) => d.exercise_id === exerciseId);
+  return r ? { weight: n(r, "weight_lb"), from: s(r, "from_date") } : null;
 }

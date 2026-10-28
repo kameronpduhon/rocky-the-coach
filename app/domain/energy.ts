@@ -5,13 +5,16 @@ import type { ISODate } from "./types";
 export type BurnState = "settling" | "updating" | "holding";
 
 export const KCAL_PER_LB = 3500;
-const WINDOW_DAYS = 21;
-const MIN_TRACKED_IN_WINDOW = 10;
-const MIN_TRACKED_IN_WEEK = 4;
-const MIN_WEIGH_INS = 8;
+export const WINDOW_DAYS = 21;
+export const MIN_TRACKED_IN_WINDOW = 10;
+export const MIN_TRACKED_IN_WEEK = 4;
+export const MIN_WEIGH_INS = 8;
 const SMOOTHING = 0.5;
 const MAX_BURN_MOVE = 250;
-const SETTLING_UPDATES = 4;
+export const SETTLING_UPDATES = 4;
+/** The most the target moves in a week while the burn is settling, and after. */
+export const SETTLING_CAP = 100;
+export const SETTLED_CAP = 150;
 
 export interface EnergyInput {
   /** The Monday the phase began. */
@@ -40,6 +43,7 @@ export interface EnergyWeek {
   trackedDays: number;
   windowTrackedDays: number;
   weighIns: number;
+  /** The trend the day before the window starts, and on its last day (Sunday). */
   trendStart: number | null;
   trendEnd: number | null;
 }
@@ -63,7 +67,8 @@ export function energyHistory(input: EnergyInput): EnergyWeek[] {
     });
     const trackedDays = tracked.filter((t) => t.d >= monday).length;
     const weighIns = days.filter(input.weighedIn).length;
-    const trendStart = input.trend(start);
+    // The spec's slope: from the trend the day before the window to its last day, over the window's 21 days.
+    const trendStart = input.trend(addDays(start, -1));
     const trendEnd = input.trend(sunday);
     const intakeAvg = tracked.length ? tracked.reduce((sum, t) => sum + t.kcal, 0) / tracked.length : null;
 
@@ -77,7 +82,7 @@ export function energyHistory(input: EnergyInput): EnergyWeek[] {
       trendEnd !== null;
     let observed: number | null = null;
     if (enough) {
-      observed = intakeAvg - (KCAL_PER_LB * (trendEnd - trendStart)) / (WINDOW_DAYS - 1);
+      observed = intakeAvg - (KCAL_PER_LB * (trendEnd - trendStart)) / WINDOW_DAYS;
       const move = Math.max(-MAX_BURN_MOVE, Math.min(MAX_BURN_MOVE, SMOOTHING * (observed - burn)));
       burn = Math.round((burn + move) / 10) * 10;
       updates++;
@@ -102,6 +107,9 @@ export function energyHistory(input: EnergyInput): EnergyWeek[] {
 export const KCAL_FLOOR = 2000;
 /** The goal pace: 0.5% of trend weight a week. */
 export const GOAL_RATE = 0.005;
+
+/** Losing more than this two weeks running holds a cut (the fast-loss guardrail). */
+export const FAST_LOSS_LB = 2;
 const STEP_BUMP = 1000;
 
 export interface CallInput {
@@ -111,15 +119,19 @@ export interface CallInput {
   currentKcal: number;
   /** Next week's step goal, after v1's ramp. */
   stepGoal: number;
+  /** The step goal now, before the ramp. Walking more adds 1,000 to it, as v1 did. */
+  baseStepGoal: number;
   /** This week's and last week's trend change in lb. Negative is a loss. */
   changes: [number | null, number | null];
   maintenanceNext: boolean;
   /** The lowest target that keeps flex foods at half portions (HALF_PORTION_KCAL). */
   halfPortionKcal: number;
+  /** Hunger was High at this check-in and the last one: Rocky picks walking over a cut. */
+  hungry: boolean;
 }
 
 export type CallKind = "hold" | "cut" | "raise" | "on-pace" | "maintenance";
-export type Guardrail = "fast-loss" | "floor" | "half-portions";
+export type Guardrail = "fast-loss" | "no-surplus" | "floor" | "half-portions";
 
 export interface CallOption {
   kcal: number;
@@ -137,8 +149,10 @@ export interface Call {
   /** Keep the calories and walk 1,000 more. Only offered with a cut, or at half portions, while steps are under 10,000. */
   steps: CallOption | null;
   pick: "calories" | "steps";
-  /** What the maintenance week eats. The base target stays as it is. */
+  /** What the maintenance week eats: the burn as stored. The base target stays as it is. */
   maintenanceKcal: number | null;
+  /** True when two hungry Sundays moved Rocky's pick from calories to steps. The numbers are the same either way. */
+  hungry: boolean;
 }
 
 const floor50 = (n: number) => Math.floor(n / 50) * 50;
@@ -147,25 +161,32 @@ export function nextTarget(input: CallInput): Call {
   const { week, currentKcal, stepGoal } = input;
   const goalLbPerWeek = GOAL_RATE * input.trendWeight;
   const keep: CallOption = { kcal: currentKcal, stepGoal };
-  const base = { goalLbPerWeek, guardrail: null, calories: keep, steps: null, pick: "calories" as const, maintenanceKcal: null };
-  if (input.maintenanceNext) return { ...base, kind: "maintenance", ideal: null, maintenanceKcal: Math.round(week.burn / 50) * 50 };
+  const base = { goalLbPerWeek, guardrail: null, calories: keep, steps: null, pick: "calories" as const, maintenanceKcal: null, hungry: false };
+  if (input.maintenanceNext) return { ...base, kind: "maintenance", ideal: null, maintenanceKcal: week.burn };
   if (week.state === "holding") return { ...base, kind: "hold", ideal: null };
 
   const ideal = floor50(week.burn - (goalLbPerWeek * KCAL_PER_LB) / 7);
-  const cap = week.state === "settling" ? 100 : 150;
+  const cap = week.state === "settling" ? SETTLING_CAP : SETTLED_CAP;
   let kcal = currentKcal + Math.max(-cap, Math.min(cap, ideal - currentKcal));
   let guardrail: Guardrail | null = null;
 
   const [thisWeek, lastWeek] = input.changes;
-  if (kcal < currentKcal && thisWeek !== null && lastWeek !== null && thisWeek < -2 && lastWeek < -2) {
+  if (kcal < currentKcal && thisWeek !== null && lastWeek !== null && thisWeek < -FAST_LOSS_LB && lastWeek < -FAST_LOSS_LB) {
     kcal = currentKcal;
     guardrail = "fast-loss";
+  }
+  if (kcal > week.burn) {
+    // The rounded-down ideal sits under the burn, but a capped move from above can stop short of it.
+    kcal = floor50(week.burn);
+    guardrail = "no-surplus";
   }
   if (kcal < KCAL_FLOOR) {
     kcal = KCAL_FLOOR;
     guardrail = "floor";
   }
-  const walkMore = stepGoal < STEP_CAP ? { kcal: currentKcal, stepGoal: Math.min(stepGoal + STEP_BUMP, STEP_CAP) } : null;
+  // Walking more doesn't stack on the ramp: it offers this week's goal plus 1,000, and only if that beats the ramp.
+  const walkGoal = Math.min(STEP_CAP, Math.max(stepGoal, input.baseStepGoal + STEP_BUMP));
+  const walkMore = walkGoal > stepGoal ? { kcal: currentKcal, stepGoal: walkGoal } : null;
   let pick: Call["pick"] = "calories";
   if (kcal < input.halfPortionKcal) {
     // Past half portions the food can't give more, so the rest of the cut comes from walking.
@@ -176,5 +197,7 @@ export function nextTarget(input: CallInput): Call {
 
   const kind: CallKind = kcal < currentKcal ? "cut" : kcal > currentKcal ? "raise" : guardrail ? "hold" : "on-pace";
   const steps = kcal < currentKcal || guardrail === "half-portions" ? walkMore : null;
-  return { ...base, kind, ideal, guardrail, calories: { kcal, stepGoal }, steps, pick };
+  // Two hungry Sundays running: walking takes over a cut, when walking is on offer. Nothing else changes.
+  const hungry = input.hungry && kind === "cut" && pick === "calories" && steps !== null;
+  return { ...base, kind, ideal, guardrail, calories: { kcal, stepGoal }, steps, pick: hungry ? "steps" : pick, hungry };
 }

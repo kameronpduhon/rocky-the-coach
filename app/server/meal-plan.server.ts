@@ -48,11 +48,15 @@ export async function ensureWeekPlan(db: Db, start: ISODate): Promise<void> {
     lastEaten: await lastEaten(db, start),
     rested: await restedSlugs(db, start),
   });
-  // D1 caps bound parameters per statement, so insert one day (5 rows) at a time.
-  for (let d = 0; d < 7; d++) {
-    const day = week.slice(d * 5, d * 5 + 5).map((p) => ({ date: p.date, slot: p.slot, mealSlug: p.slug, swapped: false }));
-    await db.insert(plannedMeals).values(day).onConflictDoNothing();
-  }
+  // D1 caps bound parameters per statement, so one insert per day (5 rows), all in one batch: D1 runs a batch as a
+  // transaction, so a write cut off partway leaves no week half made for the check above to take as generated.
+  const [first, ...rest] = Array.from({ length: 7 }, (_, d) =>
+    db
+      .insert(plannedMeals)
+      .values(week.slice(d * 5, d * 5 + 5).map((p) => ({ date: p.date, slot: p.slot, mealSlug: p.slug, swapped: false })))
+      .onConflictDoNothing(),
+  );
+  await db.batch([first, ...rest]);
 }
 
 function fallbackMeal(slot: Slot, date: ISODate, rested: string[]): MealWithMacros {

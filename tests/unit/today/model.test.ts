@@ -68,6 +68,24 @@ describe("buildToday", () => {
     expect(m.training?.goUp).toBe(`${firstLift.name}: both sets hit ${legs.exercises[0].repMax} last time. Add ${firstLift.increment} lb today.`);
   });
 
+  it("says nothing goes up for a lift dropped back at the check-in", () => {
+    const lastWed = "2026-10-21";
+    const sets: Row[] = [1, 2].map((n) => ({ id: n, session_id: 9, session_key: "id:9", exercise_id: firstLift.id, position: 0, set_number: n, weight_lb: 270, reps: legs.exercises[0].repMax, logged_at: `${lastWed}T17:00:00Z`, client_id: null }));
+    const m = asPlan(
+      buildToday(
+        rowsOf({
+          planned_meals: planned(WED),
+          workout_sessions: [{ id: 9, date: lastWed, template_id: "wed-legs-shoulders", started_at: `${lastWed}T17:00:00Z`, ended_at: `${lastWed}T18:00:00Z`, exercises: null }],
+          set_logs: sets,
+          lift_drops: [{ exercise_id: firstLift.id, weight_lb: 240, from_date: "2026-10-26", created_at: "2026-10-25T23:00:00Z" }],
+        }),
+        at(WED, "09:00"),
+        true,
+      ),
+    );
+    expect(m.training?.goUp).toBeNull();
+  });
+
   it("shows the next meal with its scale grams when breakfast is due", () => {
     const m = asPlan(buildToday(rowsOf({ planned_meals: planned(WED) }), at(WED, "08:00"), true));
     expect(m.next).toEqual({ kind: "meal", slot: "breakfast" });
@@ -110,6 +128,21 @@ describe("buildToday", () => {
     expect(m.week.map((d) => d.counted)).toEqual([true, true, true, false, false, false, false]);
     expect([m.countedSoFar, m.daysSoFar]).toEqual([3, 3]);
     expect(m.countedLine).toBe("Your 6:52am weigh-in made today count.");
+  });
+
+  it("reads the trend weight, so one weigh-in a week still makes a line", () => {
+    // 207, 206, 205 and 204, a week or more apart. The trend moves a tenth of the way each time: 207, 206.9, 206.71, 206.439.
+    const weighIns: Row[] = (
+      [
+        ["2026-10-05", 207],
+        ["2026-10-12", 206],
+        ["2026-10-19", 205],
+        [WED, 204],
+      ] as const
+    ).map(([date, w]) => ({ date, weight_lb: w, logged_at: `${date}T12:00:00Z` }));
+    const line = (rows: Row[]) => asPlan(buildToday(rowsOf({ planned_meals: planned(WED), weigh_ins: rows }), at(WED, "09:00"), true)).trendLine;
+    expect(line(weighIns)).toBe("Trend 206.4 lb, down 0.6 since Oct 5.");
+    expect(line(weighIns.slice(2))).toBeNull();
   });
 
   it("without a plan gives only the weigh-in, steps and streak", () => {

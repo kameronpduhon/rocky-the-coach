@@ -1,13 +1,18 @@
 import { z } from "zod";
-import { exercises, meals, plan } from "~/content";
+import { FACT_LIMIT, FACT_MAX } from "~/ai/facts";
+import { COACH_NAME } from "~/brand";
+import { buildDigest } from "~/checkin/digest";
+import { lastEatenBefore, restUntil } from "~/checkin/meals";
+import { exercises, foods, meals, plan } from "~/content";
 import { factorFor, scaledMeal } from "~/content/scaled";
-import { resolveTargets } from "~/content/targets";
+import { burnEntries, resolveTargets } from "~/content/targets";
 import { swapWorkouts, templateFor } from "~/domain/calendar";
-import { addDays, daysBetween, weekStart } from "~/domain/dates";
+import { checkInWindow } from "~/domain/checkin";
+import { addDays, daysBetween, mealDate, weekAheadEnd, weekStart, weekday } from "~/domain/dates";
 import { batchPortion } from "~/domain/macros";
 import { swapFits } from "~/domain/next-week";
 import { DEFAULT_REMINDERS } from "~/domain/reminders";
-import type { RotationMeal } from "~/domain/rotation";
+import { generateWeek, type RotationMeal } from "~/domain/rotation";
 import { CUSTOM_WORKOUT, SLOTS, type Slot } from "~/domain/types";
 import { keyOf, type Row } from "./tables";
 import type { Tx } from "./tx";
@@ -28,6 +33,11 @@ const round1 = (n: number) => Math.round(n * 10) / 10;
 
 function notFuture(d: string, ctx: MutationContext) {
   if (daysBetween(ctx.today, d) > 1) throw new MutationRejected("That date is in the future.");
+}
+
+/** Up to the end of the week ahead, so Tell Rocky's this-week swap can give Friday's workout its own lift list. */
+function notPastWeekAhead(d: string, ctx: MutationContext) {
+  if (d > weekAheadEnd(ctx.today)) throw new MutationRejected("That date is in the future.");
 }
 
 const at = z.iso.datetime();
@@ -81,7 +91,8 @@ async function dayFactor(tx: Tx, date: string): Promise<number> {
   const rows = (await tx.scan("targets"))
     .map((r) => ({ effectiveFrom: r.effective_from as string, kcal: r.kcal as number, proteinG: r.protein_g as number, stepGoal: r.step_goal as number }))
     .sort((a, b) => a.effectiveFrom.localeCompare(b.effectiveFrom));
-  return factorFor(resolveTargets(rows, date).kcal);
+  // A maintenance week eats the latest check-in's burn.
+  return factorFor(resolveTargets(rows, date, burnEntries(await tx.scan("check_ins"))).kcal);
 }
 
 /** Same rule as openBatch in meals.server.ts: the newest batch of this meal with portions left, cooked up to 3 days ago. */
@@ -164,6 +175,60 @@ function putOffPlan(
 }
 
 const closeOutEntry = z.object({ clientId, slot, mealSlug });
+
+/** The tables the check-in's rules read, scanned once before Finish writes anything. */
+const CHECK_IN_TABLES = [
+  "weigh_ins",
+  "meal_logs",
+  "targets",
+  "steps_daily",
+  "check_ins",
+  "workout_sessions",
+  "set_logs",
+  "exercise_checks",
+  "exercise_overrides",
+  "exercise_swaps",
+  "schedule_moves",
+  "waist_logs",
+  "meal_state",
+];
+
+async function snapshot(tx: Tx): Promise<(table: string) => Row[]> {
+  const tables = new Map<string, Row[]>();
+  for (const t of CHECK_IN_TABLES) tables.set(t, await tx.scan(t));
+  return (t) => tables.get(t) ?? [];
+}
+
+/** What an earlier finish of the same week rested and dropped, from its outcome. */
+function earlierFinish(row: Row | null): { rest: string[]; drops: string[] } {
+  try {
+    const o = JSON.parse(String(row?.outcome ?? "{}")) as { rest?: unknown; lifts?: unknown };
+    const rest = Array.isArray(o.rest) ? o.rest.filter((s): s is string => typeof s === "string") : [];
+    const lifts = Array.isArray(o.lifts) ? (o.lifts as { exercise?: unknown; plan?: unknown }[]) : [];
+    return { rest, drops: lifts.filter((l) => l?.plan === "drop" && typeof l.exercise === "string").map((l) => l.exercise as string) };
+  } catch {
+    return { rest: [], drops: [] };
+  }
+}
+
+const level = z.enum(["low", "fine", "high"]).nullable();
+const liftPlan = z.object({ exercise: exerciseId, plan: z.enum(["hold", "drop"]) });
+type FinishArgs = {
+  week: string;
+  at: string;
+  pick: "calories" | "steps";
+  hunger: "low" | "fine" | "high" | null;
+  energy: "low" | "fine" | "high" | null;
+  sleep: "poor" | "fine" | "great" | null;
+  rest: string[];
+  lifts: { exercise: string; plan: "hold" | "drop" }[];
+};
+
+function factText(raw: string): string {
+  const text = raw.trim();
+  if (!text || text.length > FACT_MAX) throw new MutationRejected(`A fact is 1 to ${FACT_MAX} characters.`);
+  return text;
+}
 
 const defs = {
   logWeighIn: {
@@ -320,6 +385,107 @@ const defs = {
       tx.delete("meal_logs", a.key);
     },
   },
+  logWaist: {
+    args: z.object({ date, inches: z.number().min(20).max(60) }),
+    async run(tx: Tx, a: { date: string; inches: number }, ctx: MutationContext) {
+      // A waist is measured, never planned, so unlike meals it can't be logged for tomorrow.
+      if (a.date > ctx.today) throw new MutationRejected("That date is in the future.");
+      tx.put("waist_logs", { date: a.date, inches: Math.round(a.inches * 100) / 100 });
+    },
+  },
+  checkGrocery: {
+    args: z.object({ week: date, food: z.string().refine((id) => foods.has(id), "That food isn't in the list."), checked: z.boolean() }),
+    async run(tx: Tx, a: { week: string; food: string; checked: boolean }) {
+      if (weekday(a.week) !== 1) throw new MutationRejected("That week doesn't start on a Monday.");
+      if (a.checked) tx.put("grocery_checks", { week_start: a.week, food_id: a.food });
+      else tx.delete("grocery_checks", `${a.week}|${a.food}`);
+    },
+  },
+  finishCheckIn: {
+    args: z.object({
+      week: date,
+      at,
+      pick: z.enum(["calories", "steps"]),
+      hunger: level,
+      energy: level,
+      sleep: z.enum(["poor", "fine", "great"]).nullable(),
+      rest: z.array(mealSlug).max(40),
+      lifts: z.array(liftPlan).max(30),
+    }),
+    async run(tx: Tx, a: FinishArgs, ctx: MutationContext) {
+      // 1. Checks. The window is judged by the phone's time, which may be up to 2 days old.
+      checkTime(a.at, ctx);
+      const at = new Date(a.at);
+      if (checkInWindow(at) !== a.week) throw new MutationRejected("That week's check-in has closed.");
+      const next = addDays(a.week, 7);
+      const saved = await tx.get("check_ins", a.week);
+      // Finishing again replaces the first, until the new week starts at Monday 3am (mealDate's rule).
+      if (saved && mealDate(at) >= next) throw new MutationRejected("That check-in is already finished.");
+
+      // 2. The call, worked out again from the rows. The args never carry a number.
+      const rows = await snapshot(tx);
+      const rest = [...new Set(a.rest)].filter((slug) => meals.has(slug));
+      const d = buildDigest(rows, a.week, { hunger: a.hunger, energy: a.energy, sleep: a.sleep, rest });
+      const { call } = d;
+
+      // 3. Monday's targets. Only a call with a walking option can take it; protein stays.
+      const pick = a.pick === "steps" && call.steps ? "steps" : "calories";
+      const chosen = pick === "steps" && call.steps ? call.steps : call.calories;
+      tx.put("targets", { effective_from: next, kcal: chosen.kcal, protein_g: d.protein.target, step_goal: chosen.stepGoal });
+
+      // Undo what an earlier finish of this week set and this one doesn't, if nothing has changed it since.
+      const until = restUntil(a.week);
+      const stuck = new Map(d.lifts.stuck.map((s) => [s.exercise, s]));
+      const drops = [...new Set(a.lifts.filter((l) => l.plan === "drop" && stuck.has(l.exercise)).map((l) => l.exercise))];
+      const earlier = earlierFinish(saved);
+      for (const slug of earlier.rest) {
+        if (rest.includes(slug)) continue;
+        const state = await tx.get("meal_state", slug);
+        if (state?.rested_until === until) tx.put("meal_state", { ...state, rested_until: null });
+      }
+      for (const exercise of earlier.drops) {
+        if (drops.includes(exercise)) continue;
+        if ((await tx.get("lift_drops", exercise))?.from_date === next) tx.delete("lift_drops", exercise);
+      }
+
+      // 4. The row. completed_at keeps the first finish.
+      const lifts = a.lifts.map((l) => ({ exercise: l.exercise, plan: drops.includes(l.exercise) ? "drop" : "hold" }));
+      tx.put("check_ins", {
+        week_start: a.week,
+        avg_weight: d.weight.trend,
+        change: d.weight.change,
+        adherence: d.days.full,
+        outcome: JSON.stringify({ call, pick, rest, lifts }),
+        completed_at: (saved?.completed_at as string | undefined) ?? a.at,
+        burn: call.burn,
+        burn_state: call.state,
+        intake_avg: call.intakeAvg,
+        tracked_days: call.trackedDays,
+        hunger: a.hunger,
+        energy: a.energy,
+        sleep: a.sleep,
+      });
+
+      // 5. Rests, keeping each meal's photo.
+      for (const slug of rest) {
+        const state = await tx.get("meal_state", slug);
+        tx.put("meal_state", { slug, photo_key: (state?.photo_key as string | null | undefined) ?? null, rested_until: until });
+      }
+
+      // 6. Drops, for the next session from Monday.
+      for (const exercise of drops) tx.put("lift_drops", { exercise_id: exercise, weight_lb: stuck.get(exercise)!.drop, from_date: next, created_at: ctx.now });
+
+      // 7. Next week's meals, keeping any slot already eaten, skipped or swapped.
+      const week = generateWeek({ weekStart: next, meals: rotationMeals(), lastEaten: lastEatenBefore(rows, next), rested: await restedOn(tx, next) });
+      const logs = await tx.scan("meal_logs");
+      const planned = new Map((await tx.scan("planned_meals")).map((r) => [`${r.date}|${r.slot}`, r]));
+      for (const p of week) {
+        const answered = logs.some((l) => l.date === p.date && l.slot === p.slot && (l.category === "planned" || l.category === "skipped"));
+        if (answered || Number(planned.get(`${p.date}|${p.slot}`)?.swapped ?? 0) === 1) continue;
+        tx.put("planned_meals", { date: p.date, slot: p.slot, meal_slug: p.slug, swapped: 0 });
+      }
+    },
+  },
   setReminder: {
     args: z.object({
       kind: z.enum(DEFAULT_REMINDERS.map((r) => r.kind) as [string, ...string[]]),
@@ -333,15 +499,57 @@ const defs = {
   setVoice: {
     args: z.object({ voice: z.enum(["corner", "plain"]) }),
     async run(tx: Tx, a: { voice: string }) {
-      tx.put("profile", { id: "me", voice: a.voice });
+      // The phone's copy replaces the whole row on put, so the switch is carried over, not dropped.
+      const row = await tx.get("profile", "me");
+      tx.put("profile", { ...(row ?? {}), id: "me", voice: a.voice });
+    },
+  },
+  setAi: {
+    args: z.object({ on: z.boolean() }),
+    async run(tx: Tx, a: { on: boolean }) {
+      const row = await tx.get("profile", "me");
+      tx.put("profile", { voice: "corner", ...(row ?? {}), id: "me", ai: a.on ? 1 : 0 });
+    },
+  },
+  rememberFact: {
+    args: z.object({ clientId, text: z.string().max(1000), dated: z.boolean() }),
+    async run(tx: Tx, a: { clientId: string; text: string; dated: boolean }, ctx: MutationContext) {
+      if (await tx.get("facts", a.clientId)) return;
+      const text = factText(a.text);
+      if ((await tx.scan("facts")).length >= FACT_LIMIT) throw new MutationRejected(`${COACH_NAME} knows ${FACT_LIMIT} things. Forget one first.`);
+      tx.put("facts", { client_id: a.clientId, text, dated: a.dated ? 1 : 0, created_at: ctx.now, updated_at: ctx.now });
+    },
+  },
+  editFact: {
+    args: z.object({ key, text: z.string().max(1000) }),
+    async run(tx: Tx, a: { key: string; text: string }, ctx: MutationContext) {
+      const row = await tx.get("facts", a.key);
+      if (!row) throw new MutationRejected("That fact isn't saved.");
+      if (!a.text.trim()) return tx.delete("facts", a.key);
+      tx.put("facts", { ...row, text: factText(a.text), updated_at: ctx.now });
+    },
+  },
+  forgetFact: {
+    args: z.object({ key }),
+    async run(tx: Tx, a: { key: string }) {
+      tx.delete("facts", a.key);
     },
   },
   planWorkout: {
-    args: z.object({ clientId, date, templateId, at }),
-    async run(tx: Tx, a: { clientId: string; date: string; templateId: string; at: string }, ctx: MutationContext) {
-      notFuture(a.date, ctx);
+    /**
+     * `scheduled` is for a change made on the day's scheduled workout, worked out earlier (Tell Rocky's this-week swap):
+     * it is refused once the schedule has moved that workout off the day, unless the day's workout already is it. The
+     * workout screen's picker plans any workout and leaves it out.
+     */
+    args: z.object({ clientId, date, templateId, at, scheduled: z.boolean().optional() }),
+    async run(tx: Tx, a: { clientId: string; date: string; templateId: string; at: string; scheduled?: boolean }, ctx: MutationContext) {
+      notPastWeekAhead(a.date, ctx);
       checkTime(a.at, ctx);
       const open = (await tx.scan("workout_sessions")).find((r) => r.date === a.date && !r.ended_at);
+      if (a.scheduled && open?.template_id !== a.templateId) {
+        const moves: Record<string, string | null> = Object.fromEntries((await tx.scan("schedule_moves")).map((r) => [r.date as string, (r.template_id as string | null) ?? null]));
+        if (templateFor(plan, a.date, moves) !== a.templateId) throw new MutationRejected("That day's workout has changed.");
+      }
       if (open?.started_at) {
         if (open.template_id === a.templateId) return;
         throw new MutationRejected("Today's workout has already started.");
@@ -521,10 +729,17 @@ export const MUTATION_LABELS: Record<MutationName, string> = {
   startBatch: "Batch",
   logOffPlan: "Off-plan item",
   deleteOffPlan: "Off-plan removal",
+  logWaist: "Waist",
+  checkGrocery: "Grocery check",
+  finishCheckIn: "Check-in",
   logUsual: "Usual order",
   removeUsual: "Usual order removal",
   setReminder: "Reminder",
   setVoice: "Voice setting",
+  setAi: "AI setting",
+  rememberFact: "Fact",
+  editFact: "Fact change",
+  forgetFact: "Fact removal",
   planWorkout: "Workout plan",
   setLifts: "Lift change",
   startWorkout: "Workout start",

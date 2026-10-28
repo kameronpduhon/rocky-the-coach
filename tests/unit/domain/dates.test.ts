@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { addDays, daysBetween, formatClock, localDate, localMinutes, mealDate, weekStart, weekday } from '~/domain/dates';
+import { addDays, daysBetween, formatClock, localDate, localMinutes, mealDate, weekAheadEnd, weekStart, weekday } from '~/domain/dates';
 
 describe('dates', () => {
   it('gives the Chicago calendar date, not the UTC one', () => {
@@ -44,5 +44,12 @@ describe('dates', () => {
     expect(formatClock(7 * 60 + 12)).toBe('7:12am');
     expect(formatClock(0)).toBe('12:00am');
     expect(formatClock(12 * 60 + 5)).toBe('12:05pm');
+  });
+
+  it('ends the week ahead on the coming Sunday, or on a Sunday the next one', () => {
+    expect(weekAheadEnd('2026-10-27')).toBe('2026-11-01');
+    expect(weekAheadEnd('2026-10-31')).toBe('2026-11-01');
+    expect(weekAheadEnd('2026-10-25')).toBe('2026-11-01');
+    expect(weekAheadEnd('2026-10-26')).toBe('2026-11-01');
   });
 });

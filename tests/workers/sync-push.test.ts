@@ -183,4 +183,29 @@ describe("push", () => {
       ["2026-11-25", "lunch", "chicken-and-rice-bowl"],
     ]);
   });
+
+  it("applies the AI switch and the fact changes through push, keeping the voice", async () => {
+    const res = await processPush(
+      env.DB,
+      {
+        clientId: "phone-ai-facts",
+        mutations: [
+          { id: 1, name: "setVoice", args: { voice: "plain" } },
+          { id: 2, name: "setAi", args: { on: false } },
+          { id: 3, name: "rememberFact", args: { clientId: "f-push-1", text: "  No squats or lunges.  ", dated: false } },
+          { id: 4, name: "rememberFact", args: { clientId: "f-push-2", text: "Left shoulder sore", dated: true } },
+          { id: 5, name: "editFact", args: { key: "f-push-2", text: "Left shoulder sore, no overhead pressing" } },
+          { id: 6, name: "forgetFact", args: { key: "f-push-1" } },
+        ],
+      },
+      new Date("2026-10-28T18:00:00Z"),
+    );
+    expect(res.rejected).toEqual([]);
+    expect((await env.DB.prepare("SELECT id, voice, ai FROM profile").all()).results).toEqual([{ id: "me", voice: "plain", ai: 0 }]);
+    expect((await env.DB.prepare("SELECT client_id, text, dated FROM facts").all()).results).toEqual([
+      { client_id: "f-push-2", text: "Left shoulder sore, no overhead pressing", dated: 1 },
+    ]);
+    // Put the switch back, so later tests in this file see the default.
+    await env.DB.prepare("UPDATE profile SET ai = 1, voice = 'corner'").run();
+  });
 });

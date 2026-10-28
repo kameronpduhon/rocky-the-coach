@@ -20,17 +20,20 @@
     "seed:demo": "tsx scripts/seed-demo.ts"
   },
   "dependencies": {
+    "@anthropic-ai/sdk": "^1.3.0",
     "@block65/webcrypto-web-push": "^2.0.0",
     "@fontsource/anton": "^5.3.0",
     "@fontsource/barlow": "^5.3.0",
     "@fontsource/barlow-semi-condensed": "^5.3.0",
+    "barcode-detector": "3.2.3",
     "drizzle-orm": "^0.45.3",
     "isbot": "^5.1.36",
     "react": "^19.2.8",
     "react-dom": "^19.2.8",
     "react-router": "^8.4.0",
     "web-vitals": "^6.2.3",
-    "zod": "^4.6.5"
+    "zod": "^4.6.5",
+    "zxing-wasm": "3.1.6"
   },
   "devDependencies": {
     "@cloudflare/vite-plugin": "^1.62.5",

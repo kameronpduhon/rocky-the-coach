@@ -1,4 +1,4 @@
-import { between, desc, eq } from "drizzle-orm";
+import { between, desc, eq, lte } from "drizzle-orm";
 import type { Db } from "~/db/client";
 import { stepsDaily, waistLogs, weighIns } from "~/db/schema";
 import type { ISODate } from "~/domain/types";
@@ -35,6 +35,11 @@ export async function latestWeighIn(db: Db): Promise<{ date: ISODate; weightLb: 
 
 export function weighInsBetween(db: Db, from: ISODate, to: ISODate) {
   return db.select().from(weighIns).where(between(weighIns.date, from, to)).orderBy(weighIns.date).all();
+}
+
+/** Every weigh-in up to a date. The trend starts at the first one ever. */
+export function weighInsThrough(db: Db, to: ISODate) {
+  return db.select().from(weighIns).where(lte(weighIns.date, to)).orderBy(weighIns.date).all();
 }
 
 export async function logWaist(db: Db, date: ISODate, inches: number): Promise<void> {

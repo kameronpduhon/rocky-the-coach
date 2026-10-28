@@ -2,7 +2,7 @@ import { describe, expect, it } from "vitest";
 import { plan } from "~/content";
 import { CUSTOM_WORKOUT } from "~/domain/types";
 import type { Row } from "~/sync/tables";
-import { addLifts, choiceLabel, dropLift, resolveLifts, swapForGood, swapOptions, swapToday, titleLines, undoSwap, workoutMinutes, workoutTitle } from "~/workout/lifts";
+import { addLifts, choiceLabel, dayWords, dropLift, resolveLifts, swapForGood, swapOptions, swapScope, swapToday, titleLines, undoSwap, workoutMinutes, workoutTitle } from "~/workout/lifts";
 
 const rowsOf = (t: Record<string, Row[]>) => (name: string) => t[name] ?? [];
 const LEGS = "wed-legs-shoulders";
@@ -48,5 +48,26 @@ describe("lift lists", () => {
     expect([LEGS, "mon-chest-back-arms", plan.planB, CUSTOM_WORKOUT].map(choiceLabel)).toEqual(["Legs, shoulders", "Chest, back, arms", "Short, home", "Your own"]);
     expect(workoutMinutes(12)).toBe(45);
     expect(workoutMinutes(14)).toBe(55);
+  });
+});
+
+describe("swapScope", () => {
+  it("says today only on the day itself, and names the day otherwise", () => {
+    expect(swapScope(WED, true)).toBe("today only");
+    expect(swapScope("2026-10-30", false)).toBe("Friday only");
+    expect(swapScope("2026-10-26", false)).toBe("Monday only");
+  });
+});
+
+describe("dayWords", () => {
+  it("speaks of today on the day itself", () => {
+    expect(dayWords(WED, true)).toEqual({ scope: "today only", added: "added today", mode: "Today", only: "Only today changes.", skip: "Skip today", skipLift: (expect.any(Function) as unknown) });
+    expect(dayWords(WED, true).skipLift("leg press")).toBe("Skip leg press today");
+  });
+
+  it("names a day ahead, as a this-week change opened from the plan reads it", () => {
+    const fri = dayWords("2026-10-30", false);
+    expect(fri).toMatchObject({ scope: "Friday only", added: "added for Friday", mode: "Friday", only: "Only Friday changes.", skip: "Skip Friday" });
+    expect(fri.skipLift("leg press")).toBe("Skip leg press on Friday");
   });
 });

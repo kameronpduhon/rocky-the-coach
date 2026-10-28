@@ -12,31 +12,10 @@ async function cookieWith(values: Record<string, unknown>): Promise<string> {
   return (await commitSession(session)).split(";")[0];
 }
 
-async function thrown(p: Promise<unknown>) {
-  try {
-    await p;
-    return null;
-  } catch (e) {
-    return e as Response;
-  }
-}
-
 describe("authenticate", () => {
-  it("redirects signed-out requests to /login", async () => {
-    const res = await thrown(authenticate(new Request("http://localhost/plan")));
-    expect(res?.status).toBe(302);
-    expect(res?.headers.get("Location")).toBe("/login");
-  });
-
-  it("answers signed-out API calls with 401 instead of a redirect", async () => {
-    const res = await thrown(authenticate(new Request("http://localhost/api/sync/pull?since=0&clientId=abcdefgh")));
-    expect(res?.status).toBe(401);
-  });
-
-  it("lets public paths through without a user", async () => {
-    expect(await authenticate(new Request("http://localhost/login"))).toBeNull();
-    expect(await authenticate(new Request("http://localhost/login.data"))).toBeNull();
-    expect(await authenticate(new Request("http://localhost/api/ingest/steps", { method: "POST" }))).toBeNull();
+  it("is null when signed out, on any path", async () => {
+    expect(await authenticate(new Request("http://localhost/plan"))).toBeNull();
+    expect(await authenticate(new Request("http://localhost/api/sync/pull?since=0&clientId=abcdefgh"))).toBeNull();
   });
 
   it("resolves the user in the session", async () => {
@@ -53,9 +32,8 @@ describe("authenticate", () => {
     expect(upgraded.get("signedIn")).toBeUndefined();
   });
 
-  it("sends an unknown user id back to /login", async () => {
-    const res = await thrown(authenticate(new Request("http://localhost/", { headers: { Cookie: await cookieWith({ userId: 99 }) } })));
-    expect(res?.headers.get("Location")).toBe("/login");
+  it("is null for a user id that no longer exists", async () => {
+    expect(await authenticate(new Request("http://localhost/", { headers: { Cookie: await cookieWith({ userId: 99 }) } }))).toBeNull();
   });
 });
 

@@ -2,18 +2,12 @@ import { index, layout, route, type RouteConfig } from "@react-router/dev/routes
 
 export default [
   route("login", "routes/login.tsx"),
-  route("logout", "routes/logout.tsx"),
-  route("media/*", "routes/media.tsx"),
-  route("api/push/subscribe", "routes/api.push.subscribe.ts"),
-  route("api/ingest/steps", "routes/api.ingest.steps.ts"),
-  route("api/sync/push", "routes/api.sync.push.ts"),
-  route("api/sync/pull", "routes/api.sync.pull.ts"),
-  route("api/vitals", "routes/api.vitals.ts"),
-  route("api/rest", "routes/api.rest.ts"),
   layout("routes/app-layout.tsx", [
     index("routes/today.tsx"),
     route("plan", "routes/plan.tsx"),
     route("progress", "routes/progress.tsx"),
+    route("progress/lifts", "routes/progress.lifts.tsx"),
+    route("lift/:id", "routes/lift.tsx"),
     route("library", "routes/library.tsx"),
     route("settings", "routes/settings.tsx"),
     route("meal/:slug", "routes/meal.tsx"),

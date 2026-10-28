@@ -61,6 +61,8 @@ export const PlanSchema = z.object({
   planB: z.string(),
   startingTargets: z.object({ kcal: z.number(), proteinG: z.number(), stepGoal: z.number() }),
   maintenanceKcal: z.number(),
+  /** The phase's checkpoint: the date, and the weight range to land in. */
+  goal: z.object({ date: z.string(), low: z.number(), high: z.number() }),
   slotTimes: z.object({ breakfast: hhmm, lunch: hhmm, snack: hhmm, dinner: hhmm, dessert: hhmm }),
   poolRanges: z.record(
     z.enum(["breakfast", "main", "snack", "dessert"]),
@@ -71,3 +73,26 @@ export const PlanSchema = z.object({
 export type Plan = z.infer<typeof PlanSchema>;
 
 export const MessagesSchema = z.record(z.string(), z.array(z.string()).min(1));
+
+export const FOOD_GROUPS = ["protein", "starch", "beans", "tortilla-bread", "vegetable", "fruit", "dairy", "fat-oil", "sauce", "snack-sweet", "drink", "fast-food"] as const;
+export type FoodGroup = (typeof FOOD_GROUPS)[number];
+
+/** One food in content/food-table.source.json, kept by hand. */
+export const FoodTableSourceSchema = z.object({
+  id: z.string().regex(/^[a-z0-9-]+$/),
+  name: z.string().min(1).max(60),
+  /** Other names, for the picker's search and for the model. */
+  aliases: z.array(z.string().min(1)),
+  group: z.enum(FOOD_GROUPS),
+  fdcId: z.number().int().positive(),
+  source: z.enum(["foundation", "sr-legacy", "fndds"]),
+  portions: z.array(z.object({ label: z.string().min(1), g: z.number().positive() })).min(1),
+});
+export type FoodTableSource = z.infer<typeof FoodTableSourceSchema>;
+
+/** One food in content/food-table.json: the source entry with FDC's numbers per 100 g. */
+export const FoodTableEntrySchema = FoodTableSourceSchema.extend({
+  kcalPer100: z.number().min(0).max(900),
+  proteinPer100: z.number().min(0).max(100),
+});
+export type FoodTableEntry = z.infer<typeof FoodTableEntrySchema>;

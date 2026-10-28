@@ -22,6 +22,7 @@ Tokens live in `app/styles/tokens.css`, and Tailwind exposes each as a colour (`
 | `red` / `on-red` | #BF3326 / #FFFFFF | The one primary action per screen, live state (rest timer, current lift bar, today, active tab, "NEXT", the protein target tick), focus ring |
 | `brass-tag` / `brass-on` | #7E6020 / #FBF6EA | The "GO UP" tag |
 | `brass-border` / `brass-fill` | #9C7A2E / #F8F1E1 | The progression callout. Progression only. |
+| `brass-rule` | #E3D3AE | 1 px dividers between rows inside a brass card (the check-in's MOVED UP card) |
 | `coral` | #F08A7E | The label on the dark Rocky card |
 | `on-ink-2` | #D9D0C0 | Secondary text on an ink fill |
 

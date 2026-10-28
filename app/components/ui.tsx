@@ -103,6 +103,7 @@ const PATHS: Record<string, ReactNode> = {
   check: <path d="M5 12.5l4.5 4.5L19 7.5" />,
   swap: <path d="M7 7h12l-3-3M17 17H5l3 3" />,
   plus: <path d="M12 5v14M5 12h14" />,
+  minus: <path d="M5 12h14" />,
   close: <path d="M6 6l12 12M18 6L6 18" />,
   pin: <path d="M12 17v5M8 3h8l-1 7 3 3H6l3-3z" />,
   plate: (
@@ -122,6 +123,15 @@ const PATHS: Record<string, ReactNode> = {
     <>
       <path d="M4 8h3l2-3h6l2 3h3v11H4z" />
       <circle cx="12" cy="13" r="3.5" />
+    </>
+  ),
+  pencil: <path d="M4 20h4L19 9l-4-4L4 16z" />,
+  barcode: <path d="M4 5v14M7.5 5v14M10 5v14M13.5 5v14M17 5v14M20 5v14" />,
+  cart: (
+    <>
+      <path d="M3 4h2l2.4 11h11l2-8H6.3" />
+      <circle cx="9" cy="19.5" r="1.5" />
+      <circle cx="17" cy="19.5" r="1.5" />
     </>
   ),
   gear: (

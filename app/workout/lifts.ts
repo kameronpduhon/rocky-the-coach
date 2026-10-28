@@ -1,6 +1,7 @@
 // A day's lift list (spec section 1, "Lift list"): reading it, and the edits the plan screen makes. Pure.
 import { exerciseImage, exercises, plan } from "~/content";
 import type { Exercise } from "~/content/schema";
+import { weekday } from "~/domain/dates";
 import { CUSTOM_WORKOUT, type ISODate } from "~/domain/types";
 import type { Row } from "~/sync/tables";
 import type { Rows } from "./sessions";
@@ -58,6 +59,32 @@ export function resolveLifts(rows: Rows, session: Row | null, templateId: string
     const chosen = (swaps.find((r) => n(r, "position") === position) ?? overrides.find((r) => n(r, "position") === position))?.exercise_id as string | undefined;
     return { position, exercise: chosen && exercises.has(chosen) ? chosen : e.exercise, repMin: e.repMin, repMax: e.repMax, from: "plan" };
   });
+}
+
+const DAY_NAME = ["Sunday", "Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday"];
+
+/** How long a swap lasts, in the lift row's words: the day it was made for, which a week-only change can put ahead of today. */
+export function swapScope(date: ISODate, live: boolean): string {
+  return live ? "today only" : `${DAY_NAME[weekday(date)]} only`;
+}
+
+/** The plan screen's and the swap sheet's words for the day a change is made for, by swapScope's rule. */
+export interface DayWords {
+  scope: string;
+  added: string;
+  /** The swap sheet's first choice. */
+  mode: string;
+  only: string;
+  skip: string;
+  skipLift: (name: string) => string;
+}
+
+export const TODAY_WORDS: DayWords = { scope: "today only", added: "added today", mode: "Today", only: "Only today changes.", skip: "Skip today", skipLift: (name) => `Skip ${name} today` };
+
+export function dayWords(date: ISODate, live: boolean): DayWords {
+  if (live) return TODAY_WORDS;
+  const day = DAY_NAME[weekday(date)];
+  return { scope: swapScope(date, live), added: `added for ${day}`, mode: day, only: `Only ${day} changes.`, skip: `Skip ${day}`, skipLift: (name) => `Skip ${name} on ${day}` };
 }
 
 /** Swap a lift for today only. Swapping back to the original is the same as Undo. */

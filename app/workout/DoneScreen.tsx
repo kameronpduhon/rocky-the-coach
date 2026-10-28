@@ -1,6 +1,7 @@
 import { useState } from "react";
 import { Link } from "react-router";
 import type { Feel } from "~/domain/progression";
+import { Arrow } from "~/ui/Arrow";
 import { btn } from "~/ui/button";
 import { ChoiceRow } from "~/ui/ChoiceRow";
 import { Dock, GymFrame, HeaderIcon } from "~/ui/GymFrame";
@@ -67,7 +68,7 @@ export function DoneScreen({ m, back, dateLabel }: { m: WorkoutModel; back: stri
             <div key={x.name} className={`flex min-h-10 items-baseline justify-between gap-3 pt-2 ${i < ups - 1 ? "border-b border-brass-border" : ""}`}>
               <span className="text-[16px]">{x.name}</span>
               <span className="tabular font-num text-[18px] font-bold">
-                {x.from} → {x.to} lb
+                {x.from} <Arrow /> {x.to} lb
               </span>
             </div>
           ))}

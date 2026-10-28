@@ -14,6 +14,9 @@ describe("sync tables", () => {
     expect(keyOf("batches", { id: 4, client_id: null })).toBe("id:4");
     expect(keyOf("batches", { id: 4, client_id: "b-1" })).toBe("b-1");
     expect(keyOf("usual_orders", { client_id: "usual-ranch-water" })).toBe("usual-ranch-water");
+    expect(keyOf("lift_drops", { exercise_id: "seated-dumbbell-shoulder-press", weight_lb: 40 })).toBe("seated-dumbbell-shoulder-press");
+    expect(keyOf("facts", { client_id: "f-1", text: "No squats or lunges." })).toBe("f-1");
+    expect(keyOf("takes", { week_start: "2026-10-19", text: "Every day counted." })).toBe("2026-10-19");
   });
 
   it("builds key SQL for triggers and lookups", () => {
@@ -21,9 +24,9 @@ describe("sync tables", () => {
     expect(tableDef("grocery_checks").keySql("")).toBe("week_start || '|' || food_id");
   });
 
-  it("syncs the 20 personal tables and nothing server-only", () => {
-    expect(SYNCED).toHaveLength(20);
-    for (const t of ["push_subscriptions", "notifications_sent", "login_attempts", "changes", "sync_clients", "vitals"]) {
+  it("syncs the 23 personal tables and nothing server-only", () => {
+    expect(SYNCED).toHaveLength(23);
+    for (const t of ["push_subscriptions", "notifications_sent", "login_attempts", "changes", "sync_clients", "vitals", "ai_calls"]) {
       expect(SYNCED.map((d) => d.name)).not.toContain(t);
     }
   });

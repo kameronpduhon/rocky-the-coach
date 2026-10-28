@@ -7,6 +7,7 @@
   "planB": "plan-b-home",
   "startingTargets": { "kcal": 2400, "proteinG": 180, "stepGoal": 7000 },
   "maintenanceKcal": 2800,
+  "goal": { "date": "2027-01-01", "low": 195, "high": 198 },
   "slotTimes": { "breakfast": "07:30", "lunch": "14:00", "snack": "15:30", "dinner": "18:30", "dessert": "20:00" },
   "poolRanges": {
     "breakfast": { "kcalMin": 450, "kcalMax": 750, "proteinMin": 40 },

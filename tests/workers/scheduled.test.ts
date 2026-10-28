@@ -23,3 +23,13 @@ it("prunes sync changes older than 30 days on the weekly cron", async () => {
   const keys = (await env.DB.prepare("select row_key from changes where row_key in ('old', 'new')").all()).results.map((r) => r.row_key);
   expect(keys).toEqual(["new"]);
 });
+
+it("makes this week's plan on the 5-minute cron, for each person with a plan", async () => {
+  const ctx = createExecutionContext();
+  // Monday Jan 11, 2027, 9am in Chicago.
+  await worker.scheduled(createScheduledController({ cron: "*/5 * * * *", scheduledTime: Date.UTC(2027, 0, 11, 15) }), env, ctx);
+  await waitOnExecutionContext(ctx);
+  const count = (d1: D1Database) => d1.prepare("select count(*) as n from planned_meals where date between '2027-01-11' and '2027-01-17'").first<{ n: number }>();
+  expect((await count(env.DB))!.n).toBe(35);
+  expect((await count(env.DB_CATHERINE))!.n).toBe(0);
+});

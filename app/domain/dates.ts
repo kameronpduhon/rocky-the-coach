@@ -55,6 +55,11 @@ export function weekStart(d: ISODate): ISODate {
   return addDays(d, -((weekday(d) + 6) % 7));
 }
 
+/** The last day of the week ahead: the coming Sunday, or on a Sunday the next one. A note on Sunday night is about the week starting tomorrow. */
+export function weekAheadEnd(today: ISODate): ISODate {
+  return addDays(weekStart(addDays(today, 1)), 6);
+}
+
 /** Late-night logging (before 3am) belongs to the previous day. */
 export function mealDate(now: Date = new Date(), tz: string = TZ): ISODate {
   const today = localDate(now, tz);

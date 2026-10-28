@@ -6,7 +6,7 @@ const week = (burn: number, state: BurnState): EnergyWeek => ({
 });
 
 function input(over: Partial<CallInput> = {}): CallInput {
-  return { week: week(2680, "settling"), trendWeight: 205.6, currentKcal: 2400, stepGoal: 8500, baseStepGoal: 8500, changes: [-0.4, -0.5], maintenanceNext: false, halfPortionKcal: 2050, ...over };
+  return { week: week(2680, "settling"), trendWeight: 205.6, currentKcal: 2400, stepGoal: 8500, baseStepGoal: 8500, changes: [-0.4, -0.5], maintenanceNext: false, halfPortionKcal: 2050, hungry: false, ...over };
 }
 
 describe("nextTarget", () => {
@@ -72,5 +72,25 @@ describe("nextTarget", () => {
 
   it("eats at the burn in a maintenance week and keeps the base", () => {
     expect(nextTarget(input({ maintenanceNext: true }))).toMatchObject({ kind: "maintenance", maintenanceKcal: 2680, calories: { kcal: 2400 }, steps: null });
+  });
+
+  it("makes walking Rocky's pick for a cut after two hungry Sundays, and changes no number", () => {
+    expect(nextTarget(input({ hungry: true }))).toMatchObject({ kind: "cut", pick: "steps", hungry: true, calories: { kcal: 2300, stepGoal: 8500 }, steps: { kcal: 2400, stepGoal: 9500 } });
+  });
+
+  it("leaves half portions as they are: walking is already the pick", () => {
+    const call = nextTarget(input({ week: week(2400, "updating"), trendWeight: 200, currentKcal: 2100, hungry: true }));
+    expect(call).toMatchObject({ kind: "cut", guardrail: "half-portions", pick: "steps", hungry: false, calories: { kcal: 2050 } });
+  });
+
+  it("lets the cut stand when steps are already at 10,000", () => {
+    expect(nextTarget(input({ stepGoal: 10000, baseStepGoal: 10000, hungry: true }))).toMatchObject({ kind: "cut", pick: "calories", hungry: false, steps: null });
+  });
+
+  it("ignores hunger on pace, on a raise, on a hold, and before a maintenance week", () => {
+    expect(nextTarget(input({ week: week(2914, "updating"), trendWeight: 200, hungry: true }))).toMatchObject({ kind: "on-pace", pick: "calories", hungry: false });
+    expect(nextTarget(input({ week: week(3100, "settling"), trendWeight: 200, hungry: true }))).toMatchObject({ kind: "raise", pick: "calories", hungry: false });
+    expect(nextTarget(input({ changes: [-2.2, -2.5], hungry: true }))).toMatchObject({ kind: "hold", pick: "calories", hungry: false });
+    expect(nextTarget(input({ maintenanceNext: true, hungry: true }))).toMatchObject({ kind: "maintenance", pick: "calories", hungry: false });
   });
 });

@@ -171,6 +171,8 @@ export async function checkInData(db: Db, monday: ISODate): Promise<CheckInData>
     changes: [thisChange, weeklyTrendChange(series, addDays(sunday, -7))],
     maintenanceNext: weekType(plan, addDays(monday, 7)) === "maintenance",
     halfPortionKcal: HALF_PORTION_KCAL,
+    // v1's page has no taps. P4b replaces this path.
+    hungry: false,
   });
 
   const [setDates, moves] = await Promise.all([datesWithWorkouts(db, monday, sunday), movesBetween(db, monday, sunday)]);

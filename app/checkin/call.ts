@@ -61,6 +61,7 @@ const num = (n: number) => n.toLocaleString("en-US");
 const lb = (n: number) => (Math.round(n * 10) / 10).toFixed(1);
 const list = (xs: string[]) => (xs.length < 2 ? xs.join("") : `${xs.slice(0, -1).join(", ")} and ${xs.at(-1)}`);
 const CANT = `so ${COACH_NAME} can't read your burn yet.`;
+const HUNGRY = `You were hungry two Sundays running, so ${COACH_NAME} picks steps over less food.`;
 
 function readLines({ energy: e, lastBurn }: CallFacts): string[] {
   const fell = e.trendStart! - e.trendEnd!;
@@ -144,7 +145,7 @@ export function callView(f: CallFacts, choice: CallPick, flexFoods: string[]): C
     const kcal = call.maintenanceKcal!;
     return { ...common, kcal, unit: "cal a day next week", was: "maintenance week", why: [`${num(kcal)} cal a day next week. Maintenance week: you eat at your burn.`], options: [] };
   }
-  const why = f.energy.state === "holding" ? holdingLines(f) : [...readLines(f), ...moveLines(f)];
+  const why = [...(f.energy.state === "holding" ? holdingLines(f) : [...readLines(f), ...moveLines(f)]), ...(call.hungry ? [HUNGRY] : [])];
   const moves = chosen.kcal !== f.kcal;
   return { ...common, kcal: chosen.kcal, unit: moves ? "cal a day from Monday" : "cal a day", was: moves ? `was ${num(f.kcal)}` : "holds", why, options: options(f, flexFoods) };
 }

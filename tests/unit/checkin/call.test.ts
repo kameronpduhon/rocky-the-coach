@@ -13,7 +13,7 @@ const week3: EnergyWeek = {
 
 function facts(week: Partial<EnergyWeek> = {}, inp: Partial<CallInput> = {}, over: Partial<CallFacts> = {}): CallFacts {
   const energy = { ...week3, ...week };
-  const input: CallInput = { week: energy, trendWeight: 205.092, currentKcal: 2400, stepGoal: 7500, baseStepGoal: 7000, changes: [-0.4, -0.3], maintenanceNext: false, halfPortionKcal: 2050, ...inp };
+  const input: CallInput = { week: energy, trendWeight: 205.092, currentKcal: 2400, stepGoal: 7500, baseStepGoal: 7000, changes: [-0.4, -0.3], maintenanceNext: false, halfPortionKcal: 2050, hungry: false, ...inp };
   return { call: nextTarget(input), energy, lastBurn: 2800, kcal: input.currentKcal, stepGoal: input.baseStepGoal, proteinG: 180, weekNumber: 3, ...over };
 }
 
@@ -259,5 +259,24 @@ describe("scaleChanges", () => {
     expect(scaleChanges(desserts, 1, factorFor(2300)).rows).toEqual([
       { food: "honey", name: "Honey", meals: 'Baked cinnamon apple, Banana "nice cream", Greek yogurt and berries and 1 more', from: 10, to: 9 },
     ]);
+  });
+});
+
+describe("callView: hungry two Sundays running", () => {
+  it("puts walking first as Rocky's pick and says why", () => {
+    const view = callView(facts({}, { hungry: true }), "steps", FOODS);
+    expect(view.why).toHaveLength(4);
+    expect(view.why.at(-1)).toBe(`You were hungry two Sundays running, so ${COACH_NAME} picks steps over less food.`);
+    expect(view.options).toEqual([
+      { value: "steps", title: "Keep 2,400, walk 1,000 more", sub: `${PICK} Steps go to 8,000 a day instead.` },
+      { value: "calories", title: "Trim 100 cal a day", sub: "Smaller portions of rice, honey and potato." },
+    ]);
+    expect(view).toMatchObject({ kcal: 2400, was: "holds", steps: "Steps 8,000" });
+  });
+
+  it("adds nothing when steps are already at 10,000", () => {
+    const view = callView(facts({}, { hungry: true, stepGoal: 10000, baseStepGoal: 10000 }), "calories", FOODS);
+    expect(view.why).toHaveLength(3);
+    expect(view.options).toEqual([]);
   });
 });

@@ -107,6 +107,9 @@ export function energyHistory(input: EnergyInput): EnergyWeek[] {
 export const KCAL_FLOOR = 2000;
 /** The goal pace: 0.5% of trend weight a week. */
 export const GOAL_RATE = 0.005;
+
+/** Losing more than this two weeks running holds a cut (the fast-loss guardrail). */
+export const FAST_LOSS_LB = 2;
 const STEP_BUMP = 1000;
 
 export interface CallInput {
@@ -123,6 +126,8 @@ export interface CallInput {
   maintenanceNext: boolean;
   /** The lowest target that keeps flex foods at half portions (HALF_PORTION_KCAL). */
   halfPortionKcal: number;
+  /** Hunger was High at this check-in and the last one: Rocky picks walking over a cut. */
+  hungry: boolean;
 }
 
 export type CallKind = "hold" | "cut" | "raise" | "on-pace" | "maintenance";
@@ -146,6 +151,8 @@ export interface Call {
   pick: "calories" | "steps";
   /** What the maintenance week eats: the burn as stored. The base target stays as it is. */
   maintenanceKcal: number | null;
+  /** True when two hungry Sundays moved Rocky's pick from calories to steps. The numbers are the same either way. */
+  hungry: boolean;
 }
 
 const floor50 = (n: number) => Math.floor(n / 50) * 50;
@@ -154,7 +161,7 @@ export function nextTarget(input: CallInput): Call {
   const { week, currentKcal, stepGoal } = input;
   const goalLbPerWeek = GOAL_RATE * input.trendWeight;
   const keep: CallOption = { kcal: currentKcal, stepGoal };
-  const base = { goalLbPerWeek, guardrail: null, calories: keep, steps: null, pick: "calories" as const, maintenanceKcal: null };
+  const base = { goalLbPerWeek, guardrail: null, calories: keep, steps: null, pick: "calories" as const, maintenanceKcal: null, hungry: false };
   if (input.maintenanceNext) return { ...base, kind: "maintenance", ideal: null, maintenanceKcal: week.burn };
   if (week.state === "holding") return { ...base, kind: "hold", ideal: null };
 
@@ -164,7 +171,7 @@ export function nextTarget(input: CallInput): Call {
   let guardrail: Guardrail | null = null;
 
   const [thisWeek, lastWeek] = input.changes;
-  if (kcal < currentKcal && thisWeek !== null && lastWeek !== null && thisWeek < -2 && lastWeek < -2) {
+  if (kcal < currentKcal && thisWeek !== null && lastWeek !== null && thisWeek < -FAST_LOSS_LB && lastWeek < -FAST_LOSS_LB) {
     kcal = currentKcal;
     guardrail = "fast-loss";
   }
@@ -190,5 +197,7 @@ export function nextTarget(input: CallInput): Call {
 
   const kind: CallKind = kcal < currentKcal ? "cut" : kcal > currentKcal ? "raise" : guardrail ? "hold" : "on-pace";
   const steps = kcal < currentKcal || guardrail === "half-portions" ? walkMore : null;
-  return { ...base, kind, ideal, guardrail, calories: { kcal, stepGoal }, steps, pick };
+  // Two hungry Sundays running: walking takes over a cut, when walking is on offer. Nothing else changes.
+  const hungry = input.hungry && kind === "cut" && pick === "calories" && steps !== null;
+  return { ...base, kind, ideal, guardrail, calories: { kcal, stepGoal }, steps, pick: hungry ? "steps" : pick, hungry };
 }

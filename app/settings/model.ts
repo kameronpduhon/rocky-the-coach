@@ -31,6 +31,11 @@ export function voiceOf(rows: Row[]): "corner" | "plain" {
   return rows.find((r) => r.id === "me")?.voice === "plain" ? "plain" : "corner";
 }
 
+/** The AI switch. A row the phone pulled before the switch existed has no `ai`, and reads on. */
+export function aiOn(rows: Row[]): boolean {
+  return rows.find((r) => r.id === "me")?.ai !== 0;
+}
+
 /** When the steps Shortcut last delivered, from the newest steps row. */
 export function lastReceived(rows: Row[], now: Date): string | null {
   const latest = rows

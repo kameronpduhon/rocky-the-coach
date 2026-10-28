@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 import { DEFAULT_REMINDERS } from "~/domain/reminders";
-import { lastReceived, reminderRows, voiceOf } from "~/settings/model";
+import { aiOn, lastReceived, reminderRows, voiceOf } from "~/settings/model";
 
 describe("settings model", () => {
   it("lists every reminder, defaults first, saved values over them", () => {
@@ -21,5 +21,12 @@ describe("settings model", () => {
     expect(lastReceived([{ date: "2026-10-28", steps: 4200, updated_at: "2026-10-28T16:02:00.000Z" }], now)).toBe("Last received today at 11:02am.");
     expect(lastReceived([{ date: "2026-10-27", steps: 9000, updated_at: "2026-10-28T02:00:00.000Z" }], now)).toBe("Last received yesterday at 9:00pm.");
     expect(lastReceived([{ date: "2026-10-20", steps: 9000, updated_at: "2026-10-20T20:00:00.000Z" }], now)).toBe("Last received Oct 20 at 3:00pm.");
+  });
+
+  it("reads the AI switch on unless it was turned off", () => {
+    expect(aiOn([])).toBe(true);
+    expect(aiOn([{ id: "me", voice: "plain" }])).toBe(true);
+    expect(aiOn([{ id: "me", voice: "plain", ai: 1 }])).toBe(true);
+    expect(aiOn([{ id: "me", voice: "plain", ai: 0 }])).toBe(false);
   });
 });

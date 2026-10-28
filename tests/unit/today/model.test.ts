@@ -153,4 +153,12 @@ describe("buildToday", () => {
     expect(m.canChange).toBe(false);
     expect(m.week.find((d) => d.today)?.counted).toBe(true);
   });
+
+  it("answers a skipped slot, so the poster and the list move on to the next meal", () => {
+    const skip: Row = { id: null, client_id: "s-1", date: WED, slot: "lunch", meal_slug: null, name: "Lunch", category: "skipped", kcal: 0, protein_g: 0, relaxed: 0, portions: 1, logged_at: `${WED}T19:00:00Z` };
+    const m = asPlan(buildToday(rowsOf({ planned_meals: planned(WED), meal_logs: [ate(WED, "breakfast", 1, `${WED}T12:40:00Z`), skip] }), at(WED, "14:30"), true));
+    expect(m.slots.find((s) => s.slot === "lunch")).toMatchObject({ logKey: null, skipKey: "s-1", next: false });
+    expect(m.slots.find((s) => s.next)?.slot).toBe("snack");
+    expect(m.next).toEqual({ kind: "meal", slot: "snack" });
+  });
 });

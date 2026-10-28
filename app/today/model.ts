@@ -1,41 +1,33 @@
 // Everything Today shows, worked out from the phone's copy of the data. Pure: the browser and the unit tests both run it.
-import { exercises, foods, meals, messages, plan, type MealWithMacros } from "~/content";
-import { factorFor, scaledMeal } from "~/content/scaled";
-import { resolveTargets, type Targets } from "~/content/targets";
+import { exercises, foods, messages, plan, type MealWithMacros } from "~/content";
+import { factorFor } from "~/content/scaled";
+import type { Targets } from "~/content/targets";
 import { dayMode, isRelaxedDay, isTrainingDay, optionalTemplateFor, setsFor, templateFor, weekNumber, weekType, type Moves } from "~/domain/calendar";
 import { checkInWindow } from "~/domain/checkin";
-import { addDays, formatClock, localDate, localMinutes, mealDate, parseTime, weekStart, weekday } from "~/domain/dates";
+import { addDays, formatClock, localDate, localMinutes, mealDate, weekStart, weekday } from "~/domain/dates";
 import { countedDay, dessertAllowance, fullDay, habitStreak, overAllowanceDates, type DayActivity } from "~/domain/habits";
 import { pickSituation, renderMessage } from "~/domain/messages";
 import { nextUp, type NextUp } from "~/domain/next-up";
 import { nextSuggestion } from "~/domain/progression";
-import { SLOTS, slotPool, type ISODate, type Slot } from "~/domain/types";
+import type { ISODate } from "~/domain/types";
 import { sevenDayAverage } from "~/domain/weight";
 import { keyOf, type Row } from "~/sync/tables";
 import { resolveLifts, titleLines, workoutMinutes, workoutTitle } from "~/workout/lifts";
 import { doneDates, lastSession, loggedDates, sessionKey, type Rows } from "~/workout/sessions";
+import { DAY_NAME, daySlots, targetsOn, type DaySlot } from "./slots";
 
 export type { Rows };
+export { SLOT_LABEL, shortClock } from "./slots";
 
 const s = (r: Row, c: string) => r[c] as string;
 const n = (r: Row, c: string) => Number(r[c] ?? 0);
 
 const WEEKS = Math.max(...Object.keys(plan.weekTypes).map(Number));
 const DOW = ["SUN", "MON", "TUE", "WED", "THU", "FRI", "SAT"];
-const DAY_NAME = ["Sunday", "Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday"];
 const MONTH = ["JAN", "FEB", "MAR", "APR", "MAY", "JUN", "JUL", "AUG", "SEP", "OCT", "NOV", "DEC"];
 const MONTH_SHORT = ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"];
 
-export const SLOT_LABEL: Record<Slot, string> = { breakfast: "Breakfast", lunch: "Lunch", snack: "Snack", dinner: "Dinner", dessert: "Dessert" };
-
-export interface SlotModel {
-  slot: Slot;
-  /** "2:00", as the mock's list shows it. */
-  time: string;
-  minutes: number;
-  meal: MealWithMacros;
-  /** The store key of the log that ate it, or null. */
-  logKey: string | null;
+export interface SlotModel extends DaySlot {
   /** The meal "Ate it" is for in the list. */
   next: boolean;
 }
@@ -103,11 +95,6 @@ export interface PlanToday extends Common {
 
 export type TodayModel = NoPlanToday | PlanToday;
 
-export function shortClock(minutes: number): string {
-  const h24 = Math.floor(minutes / 60) % 24;
-  return `${h24 % 12 === 0 ? 12 : h24 % 12}:${String(minutes % 60).padStart(2, "0")}`;
-}
-
 export function dateLabel(d: ISODate): string {
   const [, m, day] = d.split("-").map(Number);
   return `${DOW[weekday(d)]} · ${MONTH[m - 1]} ${day}`;
@@ -116,14 +103,6 @@ export function dateLabel(d: ISODate): string {
 function monthDay(d: ISODate): string {
   const [, m, day] = d.split("-").map(Number);
   return `${MONTH_SHORT[m - 1]} ${day}`;
-}
-
-/** The same rule as plannedForDate's fallback: the first meal of the slot's pool that fits the day and isn't resting. */
-function fallbackMeal(slot: Slot, date: ISODate, rested: Set<string>): MealWithMacros {
-  const mode = dayMode(date);
-  const pick = [...meals.values()].find((m) => m.pool === slotPool(slot) && (m.mode === "any" || mode === "weekend") && !rested.has(m.slug));
-  if (!pick) throw new Error(`No meal for ${slot}`);
-  return pick;
 }
 
 const setsWord = (count: number) => (count === 1 ? "your set" : count === 2 ? "both sets" : `all ${count} sets`);
@@ -228,25 +207,14 @@ export function buildToday(rows: Rows, now: Date, hasPlan: boolean): TodayModel 
   const common: Common = { date, dateLabel: dateLabel(date), weighIn, steps, streak, voice };
   if (!hasPlan) return { ...common, hasPlan: false };
 
-  const targets = resolveTargets(
-    rows("targets")
-      .map((r) => ({ effectiveFrom: s(r, "effective_from"), kcal: n(r, "kcal"), proteinG: n(r, "protein_g"), stepGoal: n(r, "step_goal") }))
-      .sort((a, b) => a.effectiveFrom.localeCompare(b.effectiveFrom)),
-    date,
-  );
-  const factor = factorFor(targets.kcal);
+  const targets = targetsOn(rows, date);
   const relaxed = isRelaxedDay(plan, date);
 
-  const rested = new Set(rows("meal_state").filter((r) => typeof r.rested_until === "string" && s(r, "rested_until") >= date).map((r) => s(r, "slug")));
-  const plannedBySlot = new Map(rows("planned_meals").filter((r) => r.date === date).map((r) => [s(r, "slot"), s(r, "meal_slug")]));
   const todayLogs = mealLogs.filter((r) => r.date === date).sort((a, b) => s(a, "logged_at").localeCompare(s(b, "logged_at")));
-  const base = SLOTS.map((slot) => {
-    const at = parseTime(plan.slotTimes[slot]);
-    const log = todayLogs.find((l) => l.slot === slot && l.category === "planned");
-    return { slot, minutes: at, time: shortClock(at), meal: scaledMeal(meals.get(plannedBySlot.get(slot) ?? "") ?? fallbackMeal(slot, date, rested), factor), logKey: log ? keyOf("meal_logs", log) : null };
-  });
-  // "Next" in the list: the first uneaten meal whose window (until the next slot begins) is still open.
-  const nextIndex = base.findIndex((x, i) => x.logKey === null && minutes < (base[i + 1]?.minutes ?? 27 * 60));
+  const base = daySlots(rows, date, factorFor(targets.kcal));
+  const answered = (x: DaySlot) => x.logKey !== null || x.skipKey !== null;
+  // "Next" in the list: the first unanswered meal whose window (until the next slot begins) is still open.
+  const nextIndex = base.findIndex((x, i) => !answered(x) && minutes < (base[i + 1]?.minutes ?? 27 * 60));
   const slots: SlotModel[] = base.map((x, i) => ({ ...x, next: i === nextIndex }));
   const totals = todayLogs.reduce<{ kcal: number; proteinG: number }>((t, l) => ({ kcal: t.kcal + n(l, "kcal"), proteinG: t.proteinG + n(l, "protein_g") }), { kcal: 0, proteinG: 0 });
   const offPlan = todayLogs.filter((l) => l.category !== "planned" && l.category !== "skipped").map((l) => ({ key: keyOf("meal_logs", l), name: s(l, "name"), kcal: n(l, "kcal"), proteinG: n(l, "protein_g") }));
@@ -272,7 +240,7 @@ export function buildToday(rows: Rows, now: Date, hasPlan: boolean): TodayModel 
     hasPlan: true,
     minutes,
     checkInOpen: window !== null && !rows("check_ins").some((r) => r.week_start === window),
-    slots: slots.map((x) => ({ slot: x.slot, minutes: x.minutes, eaten: x.logKey !== null })),
+    slots: slots.map((x) => ({ slot: x.slot, minutes: x.minutes, eaten: answered(x) })),
     workout: templateId ? { templateId, started: Boolean(open?.started_at), finished } : null,
     steps,
     stepGoal: targets.stepGoal,

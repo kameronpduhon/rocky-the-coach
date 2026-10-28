@@ -7,9 +7,10 @@ import { useSyncClient, useTable } from "~/sync/react";
 import { postAi } from "./client";
 import { chooseTake, takeHash, takeLines, type TakeView } from "./take";
 import { useAi } from "./use-ai";
+import { PHONE_WAIT_MS } from "./waits";
 
 /** The phone waits this long for a new take, then shows the rule take. */
-export const TAKE_WAIT_MS = 10_000;
+export const TAKE_WAIT_MS = PHONE_WAIT_MS.take;
 
 /**
  * Rocky's take for the check-in card: the stored AI take when it matches the week, a new one asked for once while the

@@ -12,6 +12,7 @@ import { LabelSchema, type LabelRead } from "./label";
 import { describeSystem, labelSystem } from "./prompts.server";
 import { DescribeSchema, type DescribeReply } from "./describe";
 import { foodPromptBlock } from "./food-table";
+import { MODEL_WAIT_MS } from "./waits";
 
 /** One constant, so a model change is one line. */
 export const AI_MODEL = "claude-sonnet-5-5";
@@ -63,9 +64,9 @@ export interface ClientOptions {
   maxRetries?: number;
 }
 
-/** Made per request: one retry, and 15 seconds a try. */
+/** Made per request. Each call sets its own wait and retries (see MODEL_WAIT_MS); these are the defaults under them. */
 export function anthropic(key: string, opts: ClientOptions = {}): Anthropic {
-  return new Anthropic({ apiKey: key, maxRetries: opts.maxRetries ?? 1, timeout: 15_000, ...(opts.fetch ? { fetch: opts.fetch } : {}) });
+  return new Anthropic({ apiKey: key, maxRetries: opts.maxRetries ?? 0, timeout: 15_000, ...(opts.fetch ? { fetch: opts.fetch } : {}) });
 }
 
 export interface CallSpec {
@@ -74,6 +75,8 @@ export interface CallSpec {
   /** "low" for describe, label and tell; "medium" for the take. */
   effort: "low" | "medium";
   maxTokens: number;
+  /** The one try's timeout. No retry: a second try would land after the phone gave up. */
+  waitMs: number;
 }
 
 const usageOf = (m: Anthropic.Message): AiUsage => ({ input: m.usage.input_tokens, output: m.usage.output_tokens, cacheRead: m.usage.cache_read_input_tokens ?? 0 });
@@ -90,13 +93,14 @@ function failureOf(err: unknown): AiReason {
 // { type: "disabled" } is a 400 on it. Effort is the dial. No assistant prefill, which is a 400 too.
 async function send(client: Anthropic, spec: CallSpec, format?: Anthropic.JSONOutputFormat): Promise<Anthropic.Message | AiReason> {
   try {
-    return await client.messages.create({
+    const body: Anthropic.MessageCreateParamsNonStreaming = {
       model: AI_MODEL,
       max_tokens: spec.maxTokens,
       system: spec.system,
       messages: [{ role: "user", content: spec.content }],
       output_config: format ? { effort: spec.effort, format } : { effort: spec.effort },
-    });
+    };
+    return await client.messages.create(body, { timeout: spec.waitMs, maxRetries: 0 });
   } catch (err) {
     return failureOf(err);
   }
@@ -152,9 +156,9 @@ export async function structuredCall<S extends z.ZodType>(client: Anthropic, spe
 export function anthropicClient(key: string, opts: ClientOptions = {}): AiClient {
   const client = anthropic(key, opts);
   return {
-    probe: () => textCall(client, { system: [{ type: "text", text: PROBE_SYSTEM }], content: [{ type: "text", text: "Are you there?" }], effort: "low", maxTokens: 1000 }),
+    probe: () => textCall(client, { system: [{ type: "text", text: PROBE_SYSTEM }], content: [{ type: "text", text: "Are you there?" }], effort: "low", maxTokens: 1000, waitMs: MODEL_WAIT_MS.probe }),
     // Too small and too rare to cache.
-    take: (i) => textCall(client, { system: [{ type: "text", text: takeSystem(i.voice) }], content: [{ type: "text", text: takeUser(i.lines, i.facts) }], effort: "medium", maxTokens: 2000 }),
+    take: (i) => textCall(client, { system: [{ type: "text", text: takeSystem(i.voice) }], content: [{ type: "text", text: takeUser(i.lines, i.facts) }], effort: "medium", maxTokens: 2000, waitMs: MODEL_WAIT_MS.take }),
     tell: (i) =>
       structuredCall(client, {
         // The library is the same for every note, so it is cached; a second note inside 5 minutes reads it from cache.
@@ -162,6 +166,7 @@ export function anthropicClient(key: string, opts: ClientOptions = {}): AiClient
         content: [{ type: "text", text: tellUser(i) }],
         effort: "low",
         maxTokens: 3000,
+        waitMs: MODEL_WAIT_MS.tell,
         schema: TellReply,
       }),
     // Too small and too rare to cache. The image block comes before the text, as the vision docs advise.
@@ -174,6 +179,7 @@ export function anthropicClient(key: string, opts: ClientOptions = {}): AiClient
         ],
         effort: "low",
         maxTokens: 2000,
+        waitMs: MODEL_WAIT_MS.label,
         schema: LabelSchema,
       }),
     // The food table (about 6,700 tokens) is cached, so the plate's "Edit" re-asks cheaply inside 5 minutes.
@@ -186,6 +192,7 @@ export function anthropicClient(key: string, opts: ClientOptions = {}): AiClient
         content: [{ type: "text", text }],
         effort: "low",
         maxTokens: 4000,
+        waitMs: MODEL_WAIT_MS.describe,
         schema: DescribeSchema,
       }),
   };

@@ -1,10 +1,11 @@
-import { describe, expect, it } from "vitest";
+import { afterEach, describe, expect, it, vi } from "vitest";
 import { z } from "zod";
 import { anthropic, anthropicClient, structuredCall, textCall, type CallSpec } from "~/ai/claude.server";
 import { PROBE_SYSTEM } from "~/ai/prompts.server";
+import { MODEL_WAIT_MS, PHONE_WAIT_MS } from "~/ai/waits";
 import { apiError, fakeFetch, message, USAGE } from "./fake-anthropic";
 
-const SPEC: CallSpec = { system: [{ type: "text", text: "Be brief." }], content: [{ type: "text", text: "Ready?" }], effort: "low", maxTokens: 1000 };
+const SPEC: CallSpec = { system: [{ type: "text", text: "Be brief." }], content: [{ type: "text", text: "Ready?" }], effort: "low", maxTokens: 1000, waitMs: 5_000 };
 
 describe("textCall", () => {
   it("sends Sonnet 5.5 with an effort and no temperature or thinking, and reads the text and usage", async () => {
@@ -68,5 +69,45 @@ describe("anthropicClient", () => {
     const { sent, fetch } = fakeFetch(() => message());
     expect(await anthropicClient("k", { fetch, maxRetries: 0 }).probe()).toEqual({ ok: true, value: "Ready.", usage: USAGE });
     expect(sent[0].body).toMatchObject({ max_tokens: 1000, system: [{ type: "text", text: PROBE_SYSTEM }], output_config: { effort: "low" } });
+  });
+});
+
+describe("the model's wait", () => {
+  afterEach(() => vi.useRealTimers());
+
+  /** A fetch that never answers, and fails once the SDK gives up on it. */
+  function silent() {
+    let tries = 0;
+    const fetch = ((_: unknown, init?: RequestInit) => {
+      tries++;
+      return new Promise<Response>((_, reject) => init?.signal?.addEventListener("abort", () => reject(new DOMException("aborted", "AbortError"))));
+    }) as typeof globalThis.fetch;
+    return { fetch, tries: () => tries };
+  }
+
+  it("sits a couple of seconds under the phone's for each route", () => {
+    for (const kind of ["take", "tell", "label", "describe"] as const) expect(MODEL_WAIT_MS[kind]).toBeLessThanOrEqual(PHONE_WAIT_MS[kind] - 2_000);
+    expect(MODEL_WAIT_MS.take).toBe(8_000);
+    expect(MODEL_WAIT_MS.tell).toBe(17_000);
+  });
+
+  it("gives up on a silent model at the route's wait, with no retry", async () => {
+    vi.useFakeTimers();
+    const lines = ["Week 3, Oct 19 to 25"];
+    const cases = [
+      ["take", 8_000, (c: ReturnType<typeof anthropicClient>) => c.take({ lines, voice: "plain", facts: [] })],
+      ["describe", 17_000, (c: ReturnType<typeof anthropicClient>) => c.describe("rice")],
+      ["label", 17_000, (c: ReturnType<typeof anthropicClient>) => c.label("AAAA")],
+    ] as const;
+    for (const [, wait, ask] of cases) {
+      const s = silent();
+      let done: unknown = null;
+      void ask(anthropicClient("k", { fetch: s.fetch })).then((r) => (done = r));
+      await vi.advanceTimersByTimeAsync(wait - 1);
+      expect(done).toBeNull();
+      await vi.advanceTimersByTimeAsync(5_000);
+      expect(done).toEqual({ ok: false, reason: "error", usage: null });
+      expect(s.tries()).toBe(1);
+    }
   });
 });

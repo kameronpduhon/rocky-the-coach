@@ -23,9 +23,20 @@ export async function callsToday(d1: D1Database, kind: AiKind, now: Date): Promi
   return results.filter((r) => localDate(new Date(r.at)) === today).length;
 }
 
-export async function logAiCall(d1: D1Database, call: { kind: AiKind; at: Date; ok: boolean; reason: AiReason | null; usage: AiUsage | null }): Promise<void> {
+/**
+ * The row for a call about to be made, written before the request leaves. The phone gives up after its wait and a
+ * Worker whose client went away is cancelled, so a row written only after the reply would leave a billed call
+ * uncounted. "unfinished" stays as the reason when no reply ever came back.
+ */
+export async function openAiCall(d1: D1Database, kind: AiKind, at: Date): Promise<number> {
+  const row = await d1.prepare("INSERT INTO ai_calls (at, kind, ok, reason) VALUES (?, ?, 0, 'unfinished') RETURNING id").bind(at.toISOString(), kind).first<{ id: number }>();
+  return row!.id;
+}
+
+/** The call's outcome, onto the row openAiCall wrote. */
+export async function finishAiCall(d1: D1Database, id: number, call: { ok: boolean; reason: AiReason | null; usage: AiUsage | null }): Promise<void> {
   await d1
-    .prepare("INSERT INTO ai_calls (at, kind, ok, reason, input_tokens, output_tokens, cache_read_tokens) VALUES (?, ?, ?, ?, ?, ?, ?)")
-    .bind(call.at.toISOString(), call.kind, call.ok ? 1 : 0, call.reason, call.usage?.input ?? 0, call.usage?.output ?? 0, call.usage?.cacheRead ?? 0)
+    .prepare("UPDATE ai_calls SET ok = ?, reason = ?, input_tokens = ?, output_tokens = ?, cache_read_tokens = ? WHERE id = ?")
+    .bind(call.ok ? 1 : 0, call.reason, call.usage?.input ?? 0, call.usage?.output ?? 0, call.usage?.cacheRead ?? 0, id)
     .run();
 }

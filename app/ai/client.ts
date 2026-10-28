@@ -4,6 +4,7 @@ import { z } from "zod";
 import type { Product } from "./barcode";
 import { DescribeSchema, type DescribeReply } from "./describe";
 import { LabelSchema, type LabelRead } from "./label";
+import { PHONE_WAIT_MS } from "./waits";
 
 const STATUS_WAIT_MS = 5_000;
 let known: boolean | null = null;
@@ -53,7 +54,7 @@ export async function postAi<T>(path: string, body: unknown, timeoutMs: number, 
 }
 
 const BARCODE_MS = 10_000;
-const LABEL_MS = 20_000;
+const LABEL_MS = PHONE_WAIT_MS.label;
 
 /** JSON from a GET, or null for no signal, a timeout, a non-200 answer or a body that isn't JSON. */
 async function getWithin(path: string, timeoutMs: number, send: typeof fetch): Promise<unknown> {
@@ -94,7 +95,7 @@ export async function readLabel(image: string, timeoutMs = LABEL_MS, send: typeo
   return parsed.success ? parsed.data : null;
 }
 
-const DESCRIBE_MS = 20_000;
+const DESCRIBE_MS = PHONE_WAIT_MS.describe;
 
 /** The model's foods for a description, or null for any fallback (P5a's postAi) or no plate. The phone computes every number from the table. */
 export async function describeMeal(text: string, timeoutMs = DESCRIBE_MS, send: typeof fetch = fetch): Promise<DescribeReply | null> {

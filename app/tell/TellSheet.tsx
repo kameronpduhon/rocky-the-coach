@@ -3,6 +3,7 @@ import { postAi } from "~/ai/client";
 import { FACT_LIMIT, FACT_MAX } from "~/ai/facts";
 import { proposalCards, resultLine, runAccept, sendButton, tellContext, TELL_FAILED, type Proposal, type ProposalCard } from "~/ai/proposals";
 import { useAi, type AiState } from "~/ai/use-ai";
+import { PHONE_WAIT_MS } from "~/ai/waits";
 import { COACH_NAME } from "~/brand";
 import { Sheet } from "~/components/Sheet";
 import { localDate } from "~/domain/dates";
@@ -12,7 +13,7 @@ import { btn } from "~/ui/button";
 
 export const TELL_PLACEHOLDER = `Sore shoulder, travelling Thursday, anything ${COACH_NAME} should know`;
 /** The phone waits this long for Rocky's proposals. */
-export const TELL_WAIT_MS = 20_000;
+export const TELL_WAIT_MS = PHONE_WAIT_MS.tell;
 const NOTE_MAX = 500;
 
 const OUTLINE = `${btn.outline} h-11 px-4 text-[16px] disabled:opacity-50`;

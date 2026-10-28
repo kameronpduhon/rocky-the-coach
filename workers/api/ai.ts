@@ -1,12 +1,12 @@
 // The /api/ai/* routes (spec section 1, "Endpoints"). The router has already checked the session. Every route then
-// runs aiGate (a key, the person's switch), parses its body, checks its daily cap, calls the model once, logs the
-// call, and answers. A model failure is a 200 with the route's fallback shape; the phone treats it like a timeout.
+// runs aiGate (a key, the person's switch), parses its body, claims its ai_calls row under the daily cap, calls the
+// model once, finishes the row, and answers. A model failure is a 200 with the route's fallback shape; the phone treats it like a timeout.
 import { env } from "cloudflare:workers";
 import { z } from "zod";
 import { checkProposals } from "~/ai/proposals";
 import { checkTake, takeHash } from "~/ai/take";
 import { anthropicClient, type AiClient, type AiKind, type AiReason, type AiResult } from "~/ai/claude.server";
-import { aiSwitchOn, callsToday, DAILY_CAP, logAiCall } from "~/ai/calls.server";
+import { aiSwitchOn, callsToday, DAILY_CAP, finishAiCall, openAiCall } from "~/ai/calls.server";
 import { UNREADABLE } from "~/ai/label";
 import { NO_PLATE, tidyDescribe } from "~/ai/describe";
 import { isFoodId } from "~/ai/food-table";
@@ -58,9 +58,18 @@ export async function overCap(call: AiCall, kind: AiKind): Promise<boolean> {
   return (await callsToday(call.d1, kind, call.now)) >= DAILY_CAP[kind];
 }
 
-/** One ai_calls row for the call. A reply the route's own check turned down is logged with that check's reason. */
-export async function logged<T>(call: AiCall, kind: AiKind, result: AiResult<T>, refused: AiReason | null = null): Promise<void> {
-  await logAiCall(call.d1, { kind, at: call.now, ok: result.ok && refused === null, reason: result.ok ? refused : result.reason, usage: result.usage });
+/**
+ * Null past the kind's daily cap. Otherwise the id of this call's ai_calls row, written before the model is asked so a
+ * call the phone gave up on (and the Worker was cancelled mid-way through) still counts toward the cap.
+ */
+export async function claim(call: AiCall, kind: AiKind): Promise<number | null> {
+  if (await overCap(call, kind)) return null;
+  return openAiCall(call.d1, kind, call.now);
+}
+
+/** The call's outcome onto its row. A reply the route's own check turned down is logged with that check's reason. */
+export async function logged<T>(call: AiCall, row: number, result: AiResult<T>, refused: AiReason | null = null): Promise<void> {
+  await finishAiCall(call.d1, row, { ok: result.ok && refused === null, reason: result.ok ? refused : result.reason, usage: result.usage });
 }
 
 /**
@@ -72,9 +81,10 @@ export async function aiStatus(request: Request): Promise<Response> {
   if (!available || new URL(request.url).searchParams.get("probe") !== "1") return Response.json({ available }, { headers: NO_STORE });
   const call = await aiGate();
   if (call instanceof Response) return call;
-  if (await overCap(call, "probe")) return fallback("cap");
+  const row = await claim(call, "probe");
+  if (row === null) return fallback("cap");
   const result = await call.ai.probe();
-  await logged(call, "probe", result);
+  await logged(call, row, result);
   return Response.json({ available, probe: { ok: result.ok, reason: result.ok ? null : result.reason } }, { headers: NO_STORE });
 }
 
@@ -104,12 +114,15 @@ export async function aiTake(request: Request): Promise<Response> {
   const hash = await takeHash(lines, voice);
   const stored = await call.d1.prepare("SELECT text, hash, writes FROM takes WHERE week_start = ?").bind(weekStart).first<{ text: string; hash: string; writes: number }>();
   if (stored?.hash === hash) return Response.json({ text: stored.text }, { headers: NO_STORE });
-  if ((stored?.writes ?? 0) >= TAKE_WRITES_PER_WEEK || (await overCap(call, "take"))) return fallback("cap");
+  if ((stored?.writes ?? 0) >= TAKE_WRITES_PER_WEEK) return fallback("cap");
+  const facts = await factTexts(call.d1);
+  const row = await claim(call, "take");
+  if (row === null) return fallback("cap");
 
-  const result = await call.ai.take({ lines, voice, facts: await factTexts(call.d1) });
+  const result = await call.ai.take({ lines, voice, facts });
   const check = result.ok ? checkTake(result.value, lines) : "ok";
   const refused = check === "ok" ? null : check;
-  await logged(call, "take", result, refused);
+  await logged(call, row, result, refused);
   if (!result.ok || refused) return Response.json({ text: null }, { headers: NO_STORE });
 
   await call.d1
@@ -142,11 +155,13 @@ export async function aiTell(request: Request): Promise<Response> {
   if (call instanceof Response) return call;
   const body = TellBody.safeParse(await request.json().catch(() => null));
   if (!body.success) return Response.json({ error: "Bad note" }, { status: 400 });
-  if (await overCap(call, "tell")) return fallback("cap");
   const hasPlan = Boolean(currentUser().planKey);
   const { text, today, context } = body.data;
-  const result = await call.ai.tell({ note: text, today, context: hasPlan ? context : { days: [], templates: {} }, facts: await factTexts(call.d1), hasPlan });
-  await logged(call, "tell", result);
+  const facts = await factTexts(call.d1);
+  const row = await claim(call, "tell");
+  if (row === null) return fallback("cap");
+  const result = await call.ai.tell({ note: text, today, context: hasPlan ? context : { days: [], templates: {} }, facts, hasPlan });
+  await logged(call, row, result);
   if (!result.ok) return Response.json({ proposals: null }, { headers: NO_STORE });
   return Response.json({ proposals: checkProposals(result.value.proposals, text, hasPlan) }, { headers: NO_STORE });
 }
@@ -160,9 +175,10 @@ export async function aiLabel(request: Request): Promise<Response> {
   if (call instanceof Response) return call;
   const body = LabelBody.safeParse(await request.json().catch(() => null));
   if (!body.success) return Response.json({ error: "Bad photo" }, { status: 400, headers: NO_STORE });
-  if (await overCap(call, "label")) return fallback("cap");
+  const row = await claim(call, "label");
+  if (row === null) return fallback("cap");
   const result = await call.ai.label(body.data.image);
-  await logged(call, "label", result);
+  await logged(call, row, result);
   return Response.json(result.ok ? result.value : UNREADABLE, { headers: NO_STORE });
 }
 
@@ -174,8 +190,9 @@ export async function aiDescribe(request: Request): Promise<Response> {
   if (call instanceof Response) return call;
   const body = DescribeBody.safeParse(await request.json().catch(() => null));
   if (!body.success) return Response.json({ error: "Bad description" }, { status: 400, headers: NO_STORE });
-  if (await overCap(call, "describe")) return fallback("cap");
+  const row = await claim(call, "describe");
+  if (row === null) return fallback("cap");
   const result = await call.ai.describe(body.data.text);
-  await logged(call, "describe", result);
+  await logged(call, row, result);
   return Response.json(result.ok ? tidyDescribe(result.value, isFoodId) : NO_PLATE, { headers: NO_STORE });
 }

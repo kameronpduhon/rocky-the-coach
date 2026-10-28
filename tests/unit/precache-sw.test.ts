@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { stampServiceWorker } from "../../scripts/precache-sw";
+import { precacheFiles, stampServiceWorker } from "../../scripts/precache-sw";
 
 const SRC = 'const VERSION = "dev";\nconst PRECACHE = [];\nself.addEventListener("install", () => {});\n';
 
@@ -17,5 +17,16 @@ describe("stampServiceWorker", () => {
 
   it("fails the build if sw.js lost its markers", () => {
     expect(() => stampServiceWorker("self.x = 1;", [])).toThrow("sw.js is missing");
+  });
+});
+
+describe("precacheFiles", () => {
+  it("precaches scripts, styles, fonts and the barcode decoder's wasm, nothing else", () => {
+    expect(precacheFiles(["root-a.js", "app-b.css", "barlow-c.woff2", "zxing_reader-d.wasm", "photo-e.png", "map-f.js.map"])).toEqual([
+      "/assets/root-a.js",
+      "/assets/app-b.css",
+      "/assets/barlow-c.woff2",
+      "/assets/zxing_reader-d.wasm",
+    ]);
   });
 });

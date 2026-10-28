@@ -17,6 +17,11 @@ export function stampServiceWorker(src: string, files: string[]): string {
   return src.replace(VERSION_LINE, `const VERSION = "${version}";`).replace(PRECACHE_LINE, `const PRECACHE = ${JSON.stringify(list)};`);
 }
 
+/** The build's files a phone needs offline. The barcode decoder's .wasm is one: Scan must open with no signal. */
+export function precacheFiles(names: string[]): string[] {
+  return names.filter((f) => /\.(js|css|woff2|wasm)$/.test(f)).map((f) => `/assets/${f}`);
+}
+
 /**
  * Once every environment has built, stamps the copied public/sw.js with every hashed script, style and font. It reads
  * the folder, not the client bundle, because React Router writes its route manifest during the server build.
@@ -28,9 +33,7 @@ export function precacheServiceWorker(): Plugin {
       order: "post",
       async handler(builder) {
         const dir = builder.environments.client.config.build.outDir;
-        const files = readdirSync(join(dir, "assets"))
-          .filter((f) => /\.(js|css|woff2)$/.test(f))
-          .map((f) => `/assets/${f}`);
+        const files = precacheFiles(readdirSync(join(dir, "assets")));
         const path = join(dir, "sw.js");
         writeFileSync(path, stampServiceWorker(readFileSync(path, "utf8"), files));
       },

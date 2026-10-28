@@ -9,7 +9,9 @@ import type { ISODate } from "~/domain/types";
 import { libraryBlock, tellRules, tellUser } from "./prompts.server";
 import { TellReply, type TellContext } from "./proposals";
 import { LabelSchema, type LabelRead } from "./label";
-import { labelSystem } from "./prompts.server";
+import { describeSystem, labelSystem } from "./prompts.server";
+import { DescribeSchema, type DescribeReply } from "./describe";
+import { foodPromptBlock } from "./food-table";
 
 /** One constant, so a model change is one line. */
 export const AI_MODEL = "claude-sonnet-5-5";
@@ -51,6 +53,8 @@ export interface AiClient {
   tell(input: TellInput): Promise<AiResult<TellReply>>;
   /** A nutrition label from a base64 JPEG. The photo goes in this one request and is kept nowhere. */
   label(image: string): Promise<AiResult<LabelRead>>;
+  /** A described meal as foods with grams and food-table ids. The route tidies it to the table. */
+  describe(text: string): Promise<AiResult<DescribeReply>>;
 }
 
 export interface ClientOptions {
@@ -171,6 +175,18 @@ export function anthropicClient(key: string, opts: ClientOptions = {}): AiClient
         effort: "low",
         maxTokens: 2000,
         schema: LabelSchema,
+      }),
+    // The food table (about 6,700 tokens) is cached, so the plate's "Edit" re-asks cheaply inside 5 minutes.
+    describe: (text) =>
+      structuredCall(client, {
+        system: [
+          { type: "text", text: describeSystem() },
+          { type: "text", text: foodPromptBlock(), cache_control: { type: "ephemeral" } },
+        ],
+        content: [{ type: "text", text }],
+        effort: "low",
+        maxTokens: 4000,
+        schema: DescribeSchema,
       }),
   };
 }

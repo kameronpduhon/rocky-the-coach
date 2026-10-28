@@ -81,3 +81,17 @@ export function labelSystem(): string {
     "- When readable is false, every other field is null.",
   ].join("\n");
 }
+
+/** Describe-a-meal's instructions (spec section 3). The food table follows as its own cached block. */
+export function describeSystem(): string {
+  return [
+    `You turn a person's description of what they ate into a list of foods for ${APP_NAME}, a fitness app. The app works out calories and protein from its food table. You never do.`,
+    "For each food the description names:",
+    "- label: the person's words for it, short.",
+    "- foodId: the id of the closest food in the food table, or null when nothing in the table is close. Never invent an id.",
+    "- grams: your best estimate of the weight eaten, as a whole number. Use the table's portions as a guide. Restaurant portions run large.",
+    'Rules: "double chicken" is one food at double the usual grams. Use the cooked food for anything that was cooked. At most 12 foods. If the description names no food, return no items.',
+    'name: a short name for the meal in the person\'s words, 60 characters at most, for example "Chipotle bowl". category: meal, snack, dessert or drink.',
+    "Never write a calorie or protein number.",
+  ].join("\n");
+}

@@ -1,10 +1,14 @@
-import { me } from "./account";
+import { login, logout, me } from "./account";
 import { withUser } from "./auth";
 
 type Run = (request: Request, params: string[]) => Promise<Response>;
 type ApiRoute = { method: string; path: RegExp; run: Run; open?: true };
 
-const ROUTES: ApiRoute[] = [{ method: "GET", path: /^\/api\/me$/, run: me }];
+const ROUTES: ApiRoute[] = [
+  { method: "GET", path: /^\/api\/me$/, run: me },
+  { method: "POST", path: /^\/api\/login$/, run: login, open: true },
+  { method: "POST", path: /^\/api\/logout$/, run: logout, open: true },
+];
 
 function decode(part: string): string {
   try {

@@ -21,9 +21,14 @@ describe("progress", () => {
     }
     const p = await progressData(db(), "2026-10-18");
     expect(p.series).toHaveLength(14);
-    expect(p.series[0]).toEqual({ date: "2026-10-05", weight: 207, avg: null });
-    expect(p.series[13].avg).not.toBeNull();
-    expect(p.latestAvg).toBe(p.series[13].avg);
+    // Weigh-ins 207, 206.9, 206.7, ... 205.3. The trend starts with the third: 207, 206.99, 206.961.
+    expect(p.series[0]).toEqual({ date: "2026-10-05", weight: 207, trend: null });
+    expect(p.series[1].trend).toBeNull();
+    expect(p.series[2]).toEqual({ date: "2026-10-07", weight: 206.7, trend: 207 });
+    // Oct 18's trend is 206.18, which is 0.82 below Oct 5's.
+    expect(p.latestTrend).toBe(206.2);
+    expect(p.series[13].trend).toBe(206.2);
+    expect(p.changeSinceStart).toBe(-0.8);
     expect(p.waist).toEqual({ latest: 34.6, change: -0.4 });
     expect(p.strength[0]).toMatchObject({ name: "Preacher curl", from: 50, to: 60 });
     expect(p.nextPhoto).toBe("2026-11-01");

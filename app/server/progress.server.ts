@@ -5,9 +5,9 @@ import { exerciseChecks, setLogs, workoutSessions } from "~/db/schema";
 import { streak as streakFrom } from "~/domain/adherence";
 import { isTrainingDay } from "~/domain/calendar";
 import { addDays, daysBetween } from "~/domain/dates";
+import { MIN_TREND_WEIGH_INS, roundLb, trendReading, trendSeries } from "~/domain/trend";
 import type { ISODate } from "~/domain/types";
-import { sevenDayAverage } from "~/domain/weight";
-import { waistLogsAll, weighInsBetween } from "./body.server";
+import { waistLogsAll, weighInsThrough } from "./body.server";
 import { datesWithWorkouts, dayResults } from "./history.server";
 import { movesBetween } from "./schedule.server";
 import { targetsFor } from "./targets.server";
@@ -23,8 +23,8 @@ export function nextPhotoDate(today: ISODate): ISODate {
 
 export interface ProgressData {
   phaseStart: ISODate;
-  series: { date: ISODate; weight: number | null; avg: number | null }[];
-  latestAvg: number | null;
+  series: { date: ISODate; weight: number | null; trend: number | null }[];
+  latestTrend: number | null;
   changeSinceStart: number | null;
   waist: { latest: number; change: number | null } | null;
   daysOnPlan: number;
@@ -45,7 +45,7 @@ export interface ProgressData {
 export async function progressData(db: Db, today: ISODate): Promise<ProgressData> {
   const start = plan.phaseStart;
   const [weighInRows, waists, results, [todayResult], setDates, last7, sets, targets, moves, sessions] = await Promise.all([
-    weighInsBetween(db, addDays(start, -7), today),
+    weighInsThrough(db, today),
     waistLogsAll(db),
     today > start ? dayResults(db, start, addDays(today, -1)) : Promise.resolve([]),
     dayResults(db, today, today),
@@ -74,14 +74,16 @@ export async function progressData(db: Db, today: ISODate): Promise<ProgressData
   const byDate = new Map(weighIns.map((w) => [w.date, w.weight]));
   const lastWeighIn = weighIns.at(-1)?.date ?? start;
   const end = lastWeighIn > today ? today : lastWeighIn;
+  const trend = trendSeries(weighIns, end);
   const series = [];
   for (let i = 0; i <= Math.max(0, daysBetween(start, end)); i++) {
     const date = addDays(start, i);
-    series.push({ date, weight: byDate.get(date) ?? null, avg: sevenDayAverage(weighIns, date) });
+    // As on Today and the check-in, the line starts with the third weigh-in.
+    const enough = weighIns.filter((w) => w.date <= date).length >= MIN_TREND_WEIGH_INS;
+    const t = trend.get(date);
+    series.push({ date, weight: byDate.get(date) ?? null, trend: enough && t !== undefined ? roundLb(t) : null });
   }
-  const avgs = series.map((s) => s.avg).filter((a): a is number => a !== null);
-  const firstWeight = weighIns.find((w) => w.date >= start)?.weight ?? null;
-  const latestAvg = avgs.at(-1) ?? null;
+  const reading = trendReading(weighIns, end, start);
 
   const waist = waists.length
     ? { latest: waists.at(-1)!.inches, change: waists.length > 1 ? Math.round((waists.at(-1)!.inches - waists[0].inches) * 10) / 10 : null }
@@ -121,8 +123,8 @@ export async function progressData(db: Db, today: ISODate): Promise<ProgressData
   return {
     phaseStart: start,
     series,
-    latestAvg,
-    changeSinceStart: latestAvg !== null && firstWeight !== null ? Math.round((latestAvg - firstWeight) * 10) / 10 : null,
+    latestTrend: reading?.weight ?? null,
+    changeSinceStart: reading?.sinceFrom ?? null,
     waist,
     daysOnPlan,
     daysTracked,

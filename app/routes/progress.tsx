@@ -51,22 +51,22 @@ export default function Progress({ loaderData }: Route.ComponentProps) {
       <LargeTitle eyebrow={`Since ${fmt(p.phaseStart, { month: "short", day: "numeric" })}`} title="Progress" />
 
       <Card className="flex flex-col gap-2.5 p-[18px]" aria-label="Weight trend">
-        <h2 className="text-[13px] font-semibold">Weight · 7-day average</h2>
+        <h2 className="text-[13px] font-semibold">Weight · trend</h2>
         <div className="flex items-baseline gap-2.5">
           <div className="tabular text-[40px] font-bold leading-tight">
-            {p.latestAvg ?? "--"}
+            {p.latestTrend ?? "--"}
             <span className="ml-1 text-[18px] font-semibold text-label-2">lb</span>
           </div>
           {p.changeSinceStart !== null && (
             <div className={`tabular text-[16px] font-semibold ${p.changeSinceStart <= 0 ? "text-steps-text" : "text-label-2"}`}>{signed(p.changeSinceStart)} lb</div>
           )}
         </div>
-        {p.latestAvg === null && <p className="text-[14px] text-label-2">Not enough weigh-ins. The average needs 3 in a week.</p>}
+        {p.latestTrend === null && <p className="text-[14px] text-label-2">Not enough weigh-ins. The trend needs 3.</p>}
         <WeightChart series={p.series} />
         <div className="flex gap-[18px] text-[13px] text-label-2">
           <span className="flex items-center gap-1.5">
             <span aria-hidden="true" className="h-[3px] w-3.5 rounded-full bg-protein" />
-            7-day average
+            Trend
           </span>
           <span className="flex items-center gap-1.5">
             <span aria-hidden="true" className="size-1.5 rounded-full bg-[var(--chart-dot)]" />

@@ -1,6 +1,6 @@
 import { useEffect, useRef, useState } from "react";
 
-type Point = { date: string; weight: number | null; avg: number | null };
+type Point = { date: string; weight: number | null; trend: number | null };
 
 const H = 170;
 const LEFT = 34;
@@ -10,7 +10,7 @@ const PLOT_H = 136;
 const label = (d: string) => new Date(`${d}T12:00:00Z`).toLocaleDateString("en-US", { month: "short", day: "numeric", timeZone: "UTC" });
 
 /**
- * Whole-pound gridlines at the top and bottom of the plot, so every dot and the average line sit between
+ * Whole-pound gridlines at the top and bottom of the plot, so every dot and the trend line sit between
  * labelled lines. The step doubles until there are at most 4 bands.
  */
 export function yScale(min: number, max: number) {
@@ -38,21 +38,21 @@ export function WeightChart({ series }: { series: Point[] }) {
     observer.observe(el);
     return () => observer.disconnect();
   }, []);
-  const values = series.flatMap((p) => [p.weight, p.avg]).filter((v): v is number => v !== null);
+  const values = series.flatMap((p) => [p.weight, p.trend]).filter((v): v is number => v !== null);
   if (values.length < 2) return <p className="py-8 text-center text-[15px] text-label-2">Weigh in a few days to see your trend.</p>;
   const { lo, hi, ticks } = yScale(Math.min(...values), Math.max(...values));
   const x = (i: number) => LEFT + 5 + (i * (W - LEFT - 16)) / Math.max(1, series.length - 1);
   const y = (v: number) => TOP + ((hi - v) / (hi - lo)) * PLOT_H;
-  const avgPoints = series
-    .map((p, i) => (p.avg !== null ? `${x(i).toFixed(1)},${y(p.avg).toFixed(1)}` : null))
+  const trendPoints = series
+    .map((p, i) => (p.trend !== null ? `${x(i).toFixed(1)},${y(p.trend).toFixed(1)}` : null))
     .filter(Boolean)
     .join(" ");
-  const lastAvgIndex = series.findLastIndex((p) => p.avg !== null);
+  const lastTrendIndex = series.findLastIndex((p) => p.trend !== null);
   const weights = series.map((p) => p.weight).filter((v): v is number => v !== null);
   const summary =
     `Weight from ${label(series[0].date)} to ${label(series.at(-1)!.date)}.` +
     (weights.length ? ` Daily weigh-ins range from ${Math.min(...weights)} to ${Math.max(...weights)} pounds.` : "") +
-    (lastAvgIndex >= 0 ? ` The 7-day average is ${series[lastAvgIndex].avg} pounds.` : "");
+    (lastTrendIndex >= 0 ? ` The trend is ${series[lastTrendIndex].trend} pounds.` : "");
 
   return (
     <div ref={ref}>
@@ -66,8 +66,8 @@ export function WeightChart({ series }: { series: Point[] }) {
           </g>
         ))}
         {series.map((p, i) => (p.weight !== null ? <circle key={p.date} cx={x(i)} cy={y(p.weight)} r="3" fill="var(--chart-dot)" /> : null))}
-        <polyline fill="none" stroke="var(--protein)" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round" points={avgPoints} />
-        {lastAvgIndex >= 0 && <circle cx={x(lastAvgIndex)} cy={y(series[lastAvgIndex].avg!)} r="5" fill="var(--protein)" stroke="var(--card)" strokeWidth="2" />}
+        <polyline fill="none" stroke="var(--protein)" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round" points={trendPoints} />
+        {lastTrendIndex >= 0 && <circle cx={x(lastTrendIndex)} cy={y(series[lastTrendIndex].trend!)} r="5" fill="var(--protein)" stroke="var(--card)" strokeWidth="2" />}
         <text x={x(0)} y={H - 6} fill="var(--label-3)" fontSize="12" fontWeight="700">
           {label(series[0].date)}
         </text>

@@ -120,4 +120,14 @@ describe("workout mutators", () => {
     await run(started, "moveWorkout", { a: "2026-10-28", b: "2026-10-29" });
     expect(await started.get("workout_sessions", W)).toMatchObject({ started_at: ctx.now });
   });
+
+  it("plans a workout as far as the end of the week ahead, for a this-week swap, and no further", async () => {
+    const tx = fresh();
+    await run(tx, "planWorkout", { clientId: "w-fri", date: "2026-10-30", templateId: "fri-chest-shoulders-arms", at: ctx.now });
+    expect(await tx.get("workout_sessions", "w-fri")).toMatchObject({ date: "2026-10-30", template_id: "fri-chest-shoulders-arms", started_at: null, lifts: null });
+    await expect(run(tx, "planWorkout", { clientId: "w-mon", date: "2026-11-02", templateId: "mon-chest-back-arms", at: ctx.now })).rejects.toThrow("That date is in the future.");
+    // On a Sunday the week ahead is the one starting tomorrow.
+    await runMutation(tx, "planWorkout", { clientId: "w-wed", date: "2026-10-28", templateId: LEGS, at: "2026-10-25T23:00:00.000Z" }, { now: "2026-10-25T23:00:00.000Z", today: "2026-10-25" });
+    expect(await tx.get("workout_sessions", "w-wed")).toMatchObject({ date: "2026-10-28" });
+  });
 });

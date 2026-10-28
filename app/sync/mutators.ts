@@ -8,7 +8,7 @@ import { factorFor, scaledMeal } from "~/content/scaled";
 import { burnEntries, resolveTargets } from "~/content/targets";
 import { swapWorkouts, templateFor } from "~/domain/calendar";
 import { checkInWindow } from "~/domain/checkin";
-import { addDays, daysBetween, mealDate, weekStart, weekday } from "~/domain/dates";
+import { addDays, daysBetween, mealDate, weekAheadEnd, weekStart, weekday } from "~/domain/dates";
 import { batchPortion } from "~/domain/macros";
 import { swapFits } from "~/domain/next-week";
 import { DEFAULT_REMINDERS } from "~/domain/reminders";
@@ -33,6 +33,11 @@ const round1 = (n: number) => Math.round(n * 10) / 10;
 
 function notFuture(d: string, ctx: MutationContext) {
   if (daysBetween(ctx.today, d) > 1) throw new MutationRejected("That date is in the future.");
+}
+
+/** Up to the end of the week ahead, so Tell Rocky's this-week swap can give Friday's workout its own lift list. */
+function notPastWeekAhead(d: string, ctx: MutationContext) {
+  if (d > weekAheadEnd(ctx.today)) throw new MutationRejected("That date is in the future.");
 }
 
 const at = z.iso.datetime();
@@ -533,7 +538,7 @@ const defs = {
   planWorkout: {
     args: z.object({ clientId, date, templateId, at }),
     async run(tx: Tx, a: { clientId: string; date: string; templateId: string; at: string }, ctx: MutationContext) {
-      notFuture(a.date, ctx);
+      notPastWeekAhead(a.date, ctx);
       checkTime(a.at, ctx);
       const open = (await tx.scan("workout_sessions")).find((r) => r.date === a.date && !r.ended_at);
       if (open?.started_at) {

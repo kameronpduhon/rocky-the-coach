@@ -5,7 +5,7 @@ import { factorFor, scaledMeal } from "~/content/scaled";
 import { addDays, isISODate, weekStart } from "~/domain/dates";
 import { buildGroceryList, SECTION_LABEL, type Section } from "~/domain/groceries";
 import type { ISODate } from "~/domain/types";
-import { targetsOn, type Rows } from "~/today/slots";
+import { restedOn, targetsOn, type Rows } from "~/today/slots";
 
 const MONTH = ["JAN", "FEB", "MAR", "APR", "MAY", "JUN", "JUL", "AUG", "SEP", "OCT", "NOV", "DEC"];
 
@@ -61,9 +61,9 @@ export function weekGroceries(rows: Rows, today: ISODate, ask: GroceriesAsk = {}
   const future = monday > weekStart(today);
   const preview = planned.length === 0 && future;
   // With no rows yet, the week comes from the rotation as the check-in previews it: the week before it is the one
-  // under review. A past or current week rests nothing new, as the server's generator wouldn't.
+  // under review. A past or current week rests nothing new, as the server's generator wouldn't, and undoes no rest.
   const before = addDays(monday, -7);
-  const rest = future ? (ask.rest ?? defaultRests(mealRepeats(rows, before))) : [];
+  const rest = future ? (ask.rest ?? defaultRests(mealRepeats(rows, before))) : [...restedOn(rows, monday)];
   const slugs = planned.length > 0 ? planned.map((r) => r.meal_slug as string) : previewNextWeek(rows, before, rest).map((p) => p.slug);
   const asked = Number(ask.kcal);
   const kcal = preview && Number.isInteger(asked) && asked >= 1200 && asked <= 4000 ? asked : targetsOn(rows, monday).kcal;

@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 import { backFromRest, defaultRests, groceryCount, lastEatenBefore, mealRepeats, previewNextWeek, restUntil } from "~/checkin/meals";
-import { BOWL, rowsOf, THIGHS, weekThree } from "./fixture";
+import { BOWL, checkInRow, rowsOf, THIGHS, weekThree } from "./fixture";
 
 const rows = rowsOf(weekThree());
 
@@ -38,6 +38,20 @@ describe("next week's preview", () => {
     expect(week[0].date).toBe("2026-10-26");
     expect(week.at(-1)!.date).toBe("2026-11-01");
     expect(week.some((p) => p.slug === BOWL || p.slug === "salmon-and-rice")).toBe(false);
+  });
+
+  it("on a redo, drops a rest this week's finish set once its switch is off, as Finish will", () => {
+    const fresh = previewNextWeek(rows, "2026-10-19", []);
+    expect(fresh.some((p) => p.slug === BOWL)).toBe(true);
+    const t = weekThree();
+    t.check_ins = [checkInRow("2026-10-19", { outcome: JSON.stringify({ rest: [BOWL] }) })];
+    t.meal_state = [...t.meal_state, { slug: BOWL, photo_key: null, rested_until: restUntil("2026-10-19") }];
+    const redo = rowsOf(t);
+    expect(previewNextWeek(redo, "2026-10-19", [])).toEqual(fresh);
+    expect(previewNextWeek(redo, "2026-10-19", [BOWL]).some((p) => p.slug === BOWL)).toBe(false);
+    // A rest to the same day that this week's finish didn't set stays, as Finish leaves it.
+    t.check_ins = [checkInRow("2026-10-19")];
+    expect(previewNextWeek(rowsOf(t), "2026-10-19", []).some((p) => p.slug === BOWL)).toBe(false);
   });
 
   it("counts a week's foods as the grocery list does", () => {

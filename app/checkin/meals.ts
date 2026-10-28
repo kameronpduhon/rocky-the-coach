@@ -68,10 +68,27 @@ export function lastEatenBefore(rows: Rows, before: ISODate): Record<string, ISO
   return out;
 }
 
-/** Next week's 35 slots as Finish would write them: the rotation, with what already rests next Monday and the switches that are on. */
+/** The rests an earlier finish of this week saved, from its check-in row. */
+function finishedRests(rows: Rows, monday: ISODate): string[] {
+  const row = rows("check_ins").find((r) => r.week_start === monday);
+  try {
+    const o = JSON.parse(String(row?.outcome ?? "{}")) as { rest?: unknown };
+    return Array.isArray(o.rest) ? o.rest.filter((s): s is string => typeof s === "string") : [];
+  } catch {
+    return [];
+  }
+}
+
+/**
+ * Next week's 35 slots as Finish would write them: the rotation, with what already rests next Monday and the switches
+ * that are on. On a redo, a rest this week's finish set and whose switch is now off is left out, as Finish undoes it.
+ */
 export function previewNextWeek(rows: Rows, monday: ISODate, rest: string[]): PlannedMeal[] {
   const next = addDays(monday, 7);
-  return generateWeek({ weekStart: next, meals: rotationMeals(), lastEaten: lastEatenBefore(rows, next), rested: [...new Set([...restedOn(rows, next), ...rest])] });
+  const until = restUntil(monday);
+  const undone = new Set(finishedRests(rows, monday).filter((slug) => !rest.includes(slug)));
+  const kept = [...restedOn(rows, next)].filter((slug) => !(undone.has(slug) && rows("meal_state").some((r) => r.slug === slug && r.rested_until === until)));
+  return generateWeek({ weekStart: next, meals: rotationMeals(), lastEaten: lastEatenBefore(rows, next), rested: [...new Set([...kept, ...rest])] });
 }
 
 /** How many foods a week of meals needs, as the grocery list counts them. The grams don't change the count. */

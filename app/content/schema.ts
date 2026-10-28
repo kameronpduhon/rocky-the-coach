@@ -11,6 +11,8 @@ export const FoodSchema = z.object({
   kcalPer100: z.number().nonnegative(),
   proteinPer100: z.number().nonnegative(),
   section: SectionSchema,
+  /** protein never changes, flex scales with the calorie target, fixed stays as written. */
+  role: z.enum(["protein", "flex", "fixed"]),
   eachG: z.number().positive().optional(),
   eachLabel: z.string().optional(),
 });

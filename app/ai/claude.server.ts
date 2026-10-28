@@ -3,7 +3,8 @@
 import Anthropic from "@anthropic-ai/sdk";
 import { zodOutputFormat } from "@anthropic-ai/sdk/helpers/zod";
 import type { z } from "zod";
-import { PROBE_SYSTEM } from "./prompts.server";
+import { PROBE_SYSTEM, takeSystem, takeUser } from "./prompts.server";
+import type { Voice } from "./take";
 
 /** One constant, so a model change is one line. */
 export const AI_MODEL = "claude-sonnet-5-5";
@@ -19,10 +20,19 @@ export interface AiUsage {
 
 export type AiResult<T> = { ok: true; value: T; usage: AiUsage } | { ok: false; reason: AiReason; usage: AiUsage | null };
 
+export interface TakeInput {
+  lines: string[];
+  voice: Voice;
+  /** What Rocky knows, oldest first. */
+  facts: string[];
+}
+
 /** The calls the AI routes make. Worker tests hand the routes a fake. Each step of project 5 adds its call here. */
 export interface AiClient {
   /** A tiny call that proves the key and the model work, for the wire check. */
   probe(): Promise<AiResult<string>>;
+  /** Rocky's take: plain text, checked by the route before it is stored. */
+  take(input: TakeInput): Promise<AiResult<string>>;
 }
 
 export interface ClientOptions {
@@ -121,5 +131,7 @@ export function anthropicClient(key: string, opts: ClientOptions = {}): AiClient
   const client = anthropic(key, opts);
   return {
     probe: () => textCall(client, { system: [{ type: "text", text: PROBE_SYSTEM }], content: [{ type: "text", text: "Are you there?" }], effort: "low", maxTokens: 1000 }),
+    // Too small and too rare to cache.
+    take: (i) => textCall(client, { system: [{ type: "text", text: takeSystem(i.voice) }], content: [{ type: "text", text: takeUser(i.lines, i.facts) }], effort: "medium", maxTokens: 2000 }),
   };
 }

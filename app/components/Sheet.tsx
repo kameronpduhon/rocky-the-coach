@@ -13,6 +13,7 @@ export function Sheet({
   children,
   dismiss = "done",
   onBack,
+  heading,
 }: {
   open: boolean;
   onClose: () => void;
@@ -20,6 +21,7 @@ export function Sheet({
   children: ReactNode;
   dismiss?: "done" | "cancel" | "none";
   onBack?: () => void;
+  heading?: ReactNode;
 }) {
   useEffect(() => {
     if (!open) return;
@@ -39,7 +41,7 @@ export function Sheet({
                 <Icon name="back" size={20} strokeWidth={2.4} />
               </button>
             )}
-            <h2 className="truncate font-display text-[28px] uppercase">{title}</h2>
+            {heading ?? <h2 className="truncate font-display text-[28px] uppercase">{title}</h2>}
           </div>
           {dismiss === "done" && (
             <button type="button" onClick={onClose} className="glass h-11 rounded-full px-[18px] text-[15px] font-semibold">

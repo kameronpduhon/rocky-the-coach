@@ -52,9 +52,11 @@ export function CheckInScreen({
         </Link>
       )}
       {m.dock.change && (
-        <button type="button" onClick={onReopen} className={`${btn.quiet} self-center`}>
-          Change my answers
-        </button>
+        <div className="flex justify-center">
+          <button type="button" onClick={onReopen} className={btn.quiet}>
+            Change my answers
+          </button>
+        </div>
       )}
     </Dock>
   );

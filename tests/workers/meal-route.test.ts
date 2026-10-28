@@ -1,11 +1,22 @@
 import { describe, expect, it } from "vitest";
+import { meals } from "~/content";
+import { factorFor, scaledMeal } from "~/content/scaled";
 import { mealDate } from "~/domain/dates";
 import { action, loader } from "~/routes/meal";
 import { plannedForDate } from "~/server/meal-plan.server";
 import { logsForDate, openBatch } from "~/server/meals.server";
+import { setTargetsFrom } from "~/server/targets.server";
 import { db, post, routeArgs } from "./helpers";
 
 describe("meal route", () => {
+  it("shows the meal at today's trimmed grams", async () => {
+    await setTargetsFrom(db(), mealDate(), { kcal: 2300, proteinG: 180, stepGoal: 7000 });
+    const data = await loader(routeArgs(new Request("http://localhost/meal/chicken-and-rice-bowl"), { slug: "chicken-and-rice-bowl" }));
+    const want = scaledMeal(meals.get("chicken-and-rice-bowl")!, factorFor(2300));
+    expect(data.meal.kcal).toBe(want.kcal);
+    expect(data.ingredients.find((i) => i.food === "white-rice-cooked")?.grams).toBe(175);
+  });
+
   it("loads a meal with ingredients, today's slot, and swap options", async () => {
     const today = mealDate();
     const lunch = (await plannedForDate(db(), today)).find((s) => s.slot === "lunch")!;

@@ -1,5 +1,6 @@
 import { eq } from "drizzle-orm";
 import { exerciseImage, exercises, plan, type MealWithMacros } from "~/content";
+import { factorFor, scaledMeal } from "~/content/scaled";
 import type { Db } from "~/db/client";
 import { mealState, workoutSessions } from "~/db/schema";
 import { isOnPlan, streak as streakFrom } from "~/domain/adherence";
@@ -90,6 +91,7 @@ export async function loadDay(db: Db, date: ISODate, now: Date): Promise<DaySumm
     mondayAfterNoon ? checkInDone(db, addDays(monday, -7)) : Promise.resolve(true),
     movesBetween(db, addDays(date, -14), addDays(monday, 6)),
   ]);
+  const factor = factorFor(targets.kcal);
   const templateId = templateFor(plan, date, moves);
   const trainingGoUps = templateId === usualTemplateId ? usualGoUps : templateId ? await goUps(db, date, templateId) : [];
   const photoBySlug = new Map(photos.map((p) => [p.slug, p.photoKey]));
@@ -97,10 +99,10 @@ export async function loadDay(db: Db, date: ISODate, now: Date): Promise<DaySumm
   const slotViews: SlotView[] = slots.map((s) => {
     const minutes = parseTime(plan.slotTimes[s.slot]);
     const log = logs.find((l) => l.slot === s.slot && l.category === "planned");
-    return { slot: s.slot, time: formatClock(minutes), minutes, meal: s.meal, swapped: s.swapped, logId: log?.id ?? null, photoKey: photoBySlug.get(s.meal.slug) ?? null };
+    return { slot: s.slot, time: formatClock(minutes), minutes, meal: scaledMeal(s.meal, factor), swapped: s.swapped, logId: log?.id ?? null, photoKey: photoBySlug.get(s.meal.slug) ?? null };
   });
 
-  const offPlan = logs.filter((l) => l.category !== "planned");
+  const offPlan = logs.filter((l) => l.category !== "planned" && l.category !== "skipped");
   const totals = logs.reduce((t, l) => ({ kcal: t.kcal + l.kcal, proteinG: t.proteinG + l.proteinG }), { kcal: 0, proteinG: 0 });
   const offPlanDessert = offPlan.some((l) => l.category === "dessert" && !l.relaxed);
   const relaxed = isRelaxedDay(plan, date);

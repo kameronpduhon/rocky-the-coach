@@ -1,5 +1,6 @@
 import { and, between, eq } from "drizzle-orm";
 import { foods, meals } from "~/content";
+import { factorFor, scaledMeal } from "~/content/scaled";
 import type { Db } from "~/db/client";
 import { groceryChecks, plannedMeals } from "~/db/schema";
 import { addDays, weekStart } from "~/domain/dates";
@@ -8,6 +9,7 @@ import { previewWeek, type MealSwap } from "~/domain/next-week";
 import type { ISODate } from "~/domain/types";
 import { mealRepeats, rotationMeals } from "./checkin.server";
 import { ensureWeekPlan, lastEaten, restedSlugs } from "./meal-plan.server";
+import { targetsFor } from "./targets.server";
 
 export interface GroceryGroup {
   section: Section;
@@ -52,7 +54,9 @@ export async function groceryList(db: Db, monday: ISODate, today: ISODate, previ
     slugs = rows.map((r) => r.mealSlug);
   }
 
-  const ingredients = new Map([...meals.values()].map((m) => [m.slug, m.ingredients.map((i) => ({ foodId: i.food, grams: i.grams }))]));
+  // One factor for the week: targets change on Mondays.
+  const factor = factorFor((await targetsFor(db, monday)).kcal);
+  const ingredients = new Map([...meals.values()].map((m) => [m.slug, scaledMeal(m, factor).ingredients.map((i) => ({ foodId: i.food, grams: i.grams }))]));
   const groups = buildGroceryList(slugs, ingredients, new Map([...foods].map(([id, f]) => [id, { name: f.name, section: f.section }]))).map((g) => ({
     section: g.section,
     label: SECTION_LABEL[g.section],

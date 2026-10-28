@@ -1,5 +1,6 @@
 import { useState } from "react";
 import { Link } from "react-router";
+import { COACH_NAME } from "~/brand";
 import type { Feel } from "~/domain/progression";
 import { Arrow } from "~/ui/Arrow";
 import { btn } from "~/ui/button";
@@ -54,7 +55,7 @@ export function DoneScreen({ m, back, dateLabel }: { m: WorkoutModel; back: stri
           {count(m.totals.lifts, "lift")} · {count(m.totals.sets, "set")}{m.totals.minutes > 0 ? ` · ${m.totals.minutes} min` : ""}
         </p>
         <p className="mt-1 text-[17px] font-medium leading-[1.4]">
-          <span className="font-num font-bold">Rocky:</span> {m.rockyLine}
+          <span className="font-num font-bold">{COACH_NAME}:</span> {m.rockyLine}
         </p>
       </section>
 

@@ -8,7 +8,7 @@ import { addDays, daysBetween, weekStart } from "~/domain/dates";
 import { overAllowanceDates } from "~/domain/habits";
 import type { ISODate } from "~/domain/types";
 import { stepsBetween } from "./body.server";
-import { allTargets, resolveTargets, type Targets } from "./targets.server";
+import { allBurns, allTargets, resolveTargets, type Targets } from "./targets.server";
 
 export interface DayResult {
   date: ISODate;
@@ -22,7 +22,7 @@ export interface DayResult {
 }
 
 export async function dayResults(db: Db, from: ISODate, to: ISODate): Promise<DayResult[]> {
-  const [food, steps, targetRows, desserts] = await Promise.all([
+  const [food, steps, targetRows, desserts, burns] = await Promise.all([
     db
       .select({
         date: mealLogs.date,
@@ -40,6 +40,7 @@ export async function dayResults(db: Db, from: ISODate, to: ISODate): Promise<Da
       .from(mealLogs)
       .where(and(eq(mealLogs.category, "dessert"), eq(mealLogs.relaxed, false), between(mealLogs.date, weekStart(from), to)))
       .all(),
+    allBurns(db),
   ]);
   // From the Monday of the first week, so the allowance counts desserts eaten before `from`.
   const overAllowance = overAllowanceDates(desserts);
@@ -50,7 +51,7 @@ export async function dayResults(db: Db, from: ISODate, to: ISODate): Promise<Da
   for (let i = 0; i <= daysBetween(from, to); i++) {
     const date = addDays(from, i);
     const f = foodByDate.get(date);
-    const t = resolveTargets(targetRows, date);
+    const t = resolveTargets(targetRows, date, burns);
     const facts = {
       proteinG: f?.protein ?? 0,
       steps: stepsByDate.get(date) ?? 0,

@@ -6,16 +6,20 @@ const cut = [{ effectiveFrom: "2026-10-26", kcal: 2300, proteinG: 180, stepGoal:
 
 describe("recentTargetChange", () => {
   it("finds a change for the 7 days from the day it lands", () => {
-    expect(recentTargetChange(cut, "2026-10-26")).toEqual({ on: "2026-10-26", fromKcal: 2400, toKcal: 2300, maintenance: null });
-    expect(recentTargetChange(cut, "2026-11-01")?.on).toBe("2026-10-26");
-    expect(recentTargetChange(cut, "2026-11-02")).toBeNull();
-    expect(recentTargetChange([], "2026-10-28")).toBeNull();
+    expect(recentTargetChange(cut, "2026-10-26", [])).toEqual({ on: "2026-10-26", fromKcal: 2400, toKcal: 2300, maintenance: null });
+    expect(recentTargetChange(cut, "2026-11-01", [])?.on).toBe("2026-10-26");
+    expect(recentTargetChange(cut, "2026-11-02", [])).toBeNull();
+    expect(recentTargetChange([], "2026-10-28", [])).toBeNull();
   });
 
   it("tells a maintenance week from a check-in", () => {
     // Week 12 (maintenance) starts Monday Dec 21, and week 13 on Dec 28.
-    expect(recentTargetChange([], "2026-12-21")).toEqual({ on: "2026-12-21", fromKcal: 2400, toKcal: 2800, maintenance: "start" });
-    expect(recentTargetChange([], "2026-12-28")).toEqual({ on: "2026-12-28", fromKcal: 2800, toKcal: 2400, maintenance: "end" });
+    expect(recentTargetChange([], "2026-12-21", [])).toEqual({ on: "2026-12-21", fromKcal: 2400, toKcal: 2800, maintenance: "start" });
+    expect(recentTargetChange([], "2026-12-28", [])).toEqual({ on: "2026-12-28", fromKcal: 2800, toKcal: 2400, maintenance: "end" });
+  });
+
+  it("measures a maintenance week from the burn it eats", () => {
+    expect(recentTargetChange(cut, "2026-12-22", [{ weekStart: "2026-12-14", burn: 2680 }])).toEqual({ on: "2026-12-21", fromKcal: 2300, toKcal: 2680, maintenance: "start" });
   });
 });
 

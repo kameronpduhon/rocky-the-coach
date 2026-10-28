@@ -4,7 +4,7 @@ import { weekType } from "~/domain/calendar";
 import { addDays, weekday } from "~/domain/dates";
 import type { ISODate } from "~/domain/types";
 import { foods, plan } from "./index";
-import { resolveTargets, type TargetEntry } from "./targets";
+import { resolveTargets, type BurnEntry, type TargetEntry } from "./targets";
 
 export const WAS_DAYS = 7;
 
@@ -18,13 +18,13 @@ export interface TargetChange {
 }
 
 /** The latest change to the day's calorie target in the 7 days up to and including `date`. */
-export function recentTargetChange(entries: TargetEntry[], date: ISODate): TargetChange | null {
+export function recentTargetChange(entries: TargetEntry[], date: ISODate, burns: BurnEntry[]): TargetChange | null {
   const maintenance = (d: ISODate) => weekType(plan, d) === "maintenance";
   for (let i = 0; i < WAS_DAYS; i++) {
     const on = addDays(date, -i);
     const before = addDays(on, -1);
-    const toKcal = resolveTargets(entries, on).kcal;
-    const fromKcal = resolveTargets(entries, before).kcal;
+    const toKcal = resolveTargets(entries, on, burns).kcal;
+    const fromKcal = resolveTargets(entries, before, burns).kcal;
     if (toKcal === fromKcal) continue;
     return { on, fromKcal, toKcal, maintenance: maintenance(on) && !maintenance(before) ? "start" : !maintenance(on) && maintenance(before) ? "end" : null };
   }

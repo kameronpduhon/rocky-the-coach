@@ -1,7 +1,7 @@
 import { z } from "zod";
 import { exercises, meals, plan } from "~/content";
 import { factorFor, scaledMeal } from "~/content/scaled";
-import { resolveTargets } from "~/content/targets";
+import { burnEntries, resolveTargets } from "~/content/targets";
 import { swapWorkouts, templateFor } from "~/domain/calendar";
 import { addDays, daysBetween, weekStart } from "~/domain/dates";
 import { batchPortion } from "~/domain/macros";
@@ -81,7 +81,8 @@ async function dayFactor(tx: Tx, date: string): Promise<number> {
   const rows = (await tx.scan("targets"))
     .map((r) => ({ effectiveFrom: r.effective_from as string, kcal: r.kcal as number, proteinG: r.protein_g as number, stepGoal: r.step_goal as number }))
     .sort((a, b) => a.effectiveFrom.localeCompare(b.effectiveFrom));
-  return factorFor(resolveTargets(rows, date).kcal);
+  // A maintenance week eats the latest check-in's burn.
+  return factorFor(resolveTargets(rows, date, burnEntries(await tx.scan("check_ins"))).kcal);
 }
 
 /** Same rule as openBatch in meals.server.ts: the newest batch of this meal with portions left, cooked up to 3 days ago. */

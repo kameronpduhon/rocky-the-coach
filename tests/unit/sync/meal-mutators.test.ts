@@ -38,6 +38,16 @@ describe("meal mutators", () => {
     expect(await tx.get("batches", "b-1")).toMatchObject({ portions_left: 1 });
   });
 
+  it("logs a maintenance-week meal at the grams of the last check-in's burn", async () => {
+    const tx = new MemoryTx(new Map());
+    tx.put("check_ins", { week_start: "2026-12-14", avg_weight: 200.1, change: -0.6, adherence: 6, outcome: "{}", completed_at: "2026-12-20T23:00:00.000Z", burn: 2680, burn_state: "updating", intake_avg: 2310, tracked_days: 6 });
+    await run(tx, "logMeal", { clientId: "m-1", date: "2026-12-22", slot: "lunch", mealSlug: BOWL }, { now: "2026-12-22T19:00:00.000Z", today: "2026-12-22" });
+    // 2,680 scales rice 200 g to 275 g. The plan's 2,800 would clamp at 1.5 and give 300 g.
+    const want = scaledMeal(bowl, factorFor(2680));
+    expect(want.kcal).toBeLessThan(scaledMeal(bowl, factorFor(2800)).kcal);
+    expect(await tx.get("meal_logs", "m-1")).toMatchObject({ kcal: want.kcal, protein_g: want.protein });
+  });
+
   it("skips a meal once, and undoing removes the skip", async () => {
     const tx = trimmed();
     await run(tx, "skipMeal", { clientId: "s-1", date: "2026-10-27", slot: "lunch", mealSlug: BOWL });

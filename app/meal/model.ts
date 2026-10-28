@@ -11,7 +11,7 @@ import { scaleIngredient } from "~/domain/rescale";
 import type { RotationMeal } from "~/domain/rotation";
 import { slotPool, type ISODate, type Pool, type Slot } from "~/domain/types";
 import type { Row } from "~/sync/tables";
-import { DAY_NAME, daySlots, restedOn, SLOT_LABEL, targetEntries, type Rows } from "~/today/slots";
+import { checkInBurns, DAY_NAME, daySlots, restedOn, SLOT_LABEL, targetEntries, type Rows } from "~/today/slots";
 
 export type MealMode = "today" | "browse";
 export type SlotState = "open" | "eaten" | "skipped";
@@ -160,10 +160,11 @@ export function buildMeal(rows: Rows, now: Date, p: { slug: string; slot: string
   const date = mealDate(now);
   const minutes = localMinutes(now) + (localDate(now) === date ? 0 : 24 * 60);
   const entries = targetEntries(rows);
-  const targets = resolveTargets(entries, date);
+  const burns = checkInBurns(rows);
+  const targets = resolveTargets(entries, date, burns);
   const factor = factorFor(targets.kcal);
   const slots = daySlots(rows, date, factor);
-  const change = recentTargetChange(entries, date);
+  const change = recentTargetChange(entries, date, burns);
   // A meal on today's plan opens as its slot, wherever the link came from.
   const own = slots.find((s) => s.slot === p.slot) ?? slots.find((s) => s.meal.slug === raw.slug);
   const photoOf = (slug: string) => (rows("meal_state").find((r) => r.slug === slug)?.photo_key as string | null | undefined) ?? null;

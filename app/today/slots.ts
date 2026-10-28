@@ -2,7 +2,7 @@
 // all read it, so they never disagree about what was planned. Pure: the browser and the unit tests both run it.
 import { meals, plan, type MealWithMacros } from "~/content";
 import { factorFor, scaledMeal } from "~/content/scaled";
-import { resolveTargets, type TargetEntry, type Targets } from "~/content/targets";
+import { burnEntries, resolveTargets, type BurnEntry, type TargetEntry, type Targets } from "~/content/targets";
 import { dayMode } from "~/domain/calendar";
 import { parseTime } from "~/domain/dates";
 import { SLOTS, slotPool, type ISODate, type Slot } from "~/domain/types";
@@ -25,8 +25,13 @@ export function targetEntries(rows: Rows): TargetEntry[] {
     .sort((a, b) => a.effectiveFrom.localeCompare(b.effectiveFrom));
 }
 
+/** The check-ins' burns, for a maintenance week. */
+export function checkInBurns(rows: Rows): BurnEntry[] {
+  return burnEntries(rows("check_ins"));
+}
+
 export function targetsOn(rows: Rows, date: ISODate): Targets {
-  return resolveTargets(targetEntries(rows), date);
+  return resolveTargets(targetEntries(rows), date, checkInBurns(rows));
 }
 
 export function restedOn(rows: Rows, date: ISODate): Set<string> {

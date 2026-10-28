@@ -8,7 +8,8 @@ export interface Product {
   servingText: string | null;
   /** Per serving, or per 100 g when `servingText` is null. */
   kcal: number;
-  proteinG: number;
+  /** Null when Open Food Facts has no protein for it: the card asks for it. */
+  proteinG: number | null;
   /** Open Food Facts files it under beverages. */
   drink: boolean;
 }

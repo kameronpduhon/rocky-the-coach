@@ -75,7 +75,7 @@ const ProductSchema = z.object({
   name: z.string(),
   servingText: z.string().nullable(),
   kcal: z.number(),
-  proteinG: z.number(),
+  proteinG: z.number().nullable(),
   drink: z.boolean(),
 });
 const BarcodeSchema = z.union([z.object({ found: z.literal(true), product: ProductSchema }), z.object({ found: z.literal(false), down: z.boolean().optional() })]);

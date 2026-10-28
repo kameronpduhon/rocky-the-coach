@@ -46,20 +46,21 @@ export function parseOff(code: string, json: unknown): Product | null {
   const quantity = num(p.serving_quantity);
   const servingSize = typeof p.serving_size === "string" && p.serving_size.trim() ? p.serving_size.trim().slice(0, 40) : null;
 
+  // Protein Open Food Facts doesn't have for the basis shown stays null, so the card asks for it rather than show 0 g.
   let kcal: number;
-  let protein: number;
+  let protein: number | null;
   let servingText: string | null;
   if (kcalServing !== undefined) {
     kcal = kcalServing;
-    protein = num(n.proteins_serving) ?? (protein100 !== undefined && quantity ? (protein100 * quantity) / 100 : 0);
+    protein = num(n.proteins_serving) ?? (protein100 !== undefined && quantity ? (protein100 * quantity) / 100 : null);
     servingText = servingSize ?? "1 serving";
   } else if (kcal100 !== undefined && quantity && quantity > 0) {
     kcal = (kcal100 * quantity) / 100;
-    protein = ((protein100 ?? 0) * quantity) / 100;
+    protein = protein100 === undefined ? null : (protein100 * quantity) / 100;
     servingText = servingSize ?? `1 serving (${quantity} g)`;
   } else if (kcal100 !== undefined) {
     kcal = kcal100;
-    protein = protein100 ?? 0;
+    protein = protein100 ?? null;
     servingText = null;
   } else {
     return null;
@@ -71,7 +72,7 @@ export function parseOff(code: string, json: unknown): Product | null {
     name: productName(p),
     servingText,
     kcal: Math.round(kcal),
-    proteinG: Math.round(protein * 10) / 10,
+    proteinG: protein === null ? null : Math.round(protein * 10) / 10,
     drink: categories.includes("en:beverages"),
   };
 }

@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { cardEdit, cardFromProduct, cardLog, describeProblem, labelOutcome, offPlanChoices, SHEET_TITLE, sourceLine, stepperFor, type CardSource } from "~/today/offplan";
+import { cardEdit, cardFromProduct, cardLog, cardProtein, cardReady, NO_PROTEIN, describeProblem, labelOutcome, offPlanChoices, SHEET_TITLE, sourceLine, stepperFor, type CardSource } from "~/today/offplan";
 
 const SHAKE: CardSource = { name: "fa!rlife CORE POWER HIGH PROTEIN MILK SHAKE", servingText: "1 bottle (414 g)", kcal: 170, proteinG: 26, from: "barcode", drink: true };
 const NUTELLA: CardSource = { name: "Nutella", servingText: null, kcal: 539, proteinG: 6.3, from: "barcode", drink: false };
@@ -69,6 +69,25 @@ describe("the product card", () => {
   it("files a label read as a snack and keeps the name under 80 with its suffix", () => {
     expect(cardLog(BAR, 3, BAR.name!)).toEqual({ name: "Barebells protein bar, cookies and cream, 3 servings", category: "snack", kcal: 600, proteinG: 60 });
     expect(cardLog(BAR, 2, "x".repeat(80)).name).toBe(`${"x".repeat(68)}, 2 servings`);
+  });
+
+  it("asks for the protein when Open Food Facts has none on file, and holds Log it until it is typed", () => {
+    const granola: CardSource = { name: "Granola", servingText: "1 cup (50 g)", kcal: 225, proteinG: null, from: "barcode", drink: false };
+    expect(NO_PROTEIN).toBe("Protein isn't on file. Type it from the label.");
+    expect(cardProtein(granola, "")).toBeNull();
+    expect(cardProtein(granola, "lots")).toBeNull();
+    expect(cardReady(granola, 1, "Granola", "")).toBe(false);
+    expect(cardProtein(granola, " 6 ")).toBe(6);
+    expect(cardReady(granola, 2, "Granola", "6")).toBe(true);
+    expect(cardLog(granola, 2, "Granola", "6")).toEqual({ name: "Granola, 2 servings", category: "snack", kcal: 450, proteinG: 12 });
+    expect(cardEdit(granola, 1, "Granola", "")).toEqual({ name: "Granola", category: "snack", kcal: 225, protein: 0 });
+  });
+
+  it("is ready to log with a name, a protein on file, and numbers inside logOffPlan's limits", () => {
+    expect(cardProtein(SHAKE, "")).toBe(26);
+    expect(cardReady(SHAKE, 1, SHAKE.name!, "")).toBe(true);
+    expect(cardReady(SHAKE, 1, "  ", "")).toBe(false);
+    expect(cardReady(NUTELLA, 1000, "Nutella", "")).toBe(false);
   });
 
   it("fills the form with the plain name and the numbers for the servings shown", () => {

@@ -41,7 +41,8 @@ export interface CardSource {
   name: string | null;
   servingText: string | null;
   kcal: number;
-  proteinG: number;
+  /** Null from a product with no protein on file: the card asks for it. */
+  proteinG: number | null;
   from: "barcode" | "label";
   drink: boolean;
 }
@@ -77,24 +78,43 @@ export function stepperFor(c: CardSource): CardStepper {
 }
 
 const NAME_MAX = 80;
+// logOffPlan's own limits, so a big count never fails on push.
+const LOG_MAX_KCAL = 5000;
+const LOG_MAX_PROTEIN = 400;
 
-function totals(c: CardSource, count: number): { kcal: number; protein: number } {
+export const NO_PROTEIN = "Protein isn't on file. Type it from the label.";
+
+/** Protein per serving (or per 100 g): Open Food Facts' number, or the one typed from the label when it has none. */
+export function cardProtein(c: CardSource, typed: string): number | null {
+  if (c.proteinG !== null) return c.proteinG;
+  const t = typed.trim();
+  const n = t === "" ? NaN : Number(t);
+  return Number.isFinite(n) && n >= 0 ? n : null;
+}
+
+function totals(c: CardSource, count: number, typed: string): { kcal: number; protein: number } {
   const times = c.servingText === null ? count / 100 : count;
-  return { kcal: Math.round(c.kcal * times), protein: Math.round(c.proteinG * times) };
+  return { kcal: Math.round(c.kcal * times), protein: Math.round((cardProtein(c, typed) ?? 0) * times) };
+}
+
+/** Log it goes once there is a name and a protein, and the count stays inside logOffPlan's limits. */
+export function cardReady(c: CardSource, count: number, name: string, typed: string): boolean {
+  const t = totals(c, count, typed);
+  return name.trim() !== "" && cardProtein(c, typed) !== null && t.kcal <= LOG_MAX_KCAL && t.protein <= LOG_MAX_PROTEIN;
 }
 
 const categoryOf = (c: CardSource): FormValues["category"] => (c.from === "barcode" && c.drink ? "drink" : "snack");
 
 /** What Log it sends to `logOffPlan`, less the ids, date, relaxed (off) and Save as a usual. */
-export function cardLog(c: CardSource, count: number, name: string): { name: string; category: FormValues["category"]; kcal: number; proteinG: number } {
+export function cardLog(c: CardSource, count: number, name: string, typed = ""): { name: string; category: FormValues["category"]; kcal: number; proteinG: number } {
   const suffix = c.servingText === null ? `, ${count} g` : count > 1 ? `, ${count} servings` : "";
-  const t = totals(c, count);
+  const t = totals(c, count, typed);
   return { name: `${name.trim().slice(0, NAME_MAX - suffix.length)}${suffix}`, category: categoryOf(c), kcal: t.kcal, proteinG: t.protein };
 }
 
 /** "Numbers look wrong? Edit them": the form, filled with the plain name and the numbers for the count shown. */
-export function cardEdit(c: CardSource, count: number, name: string): FormValues {
-  const t = totals(c, count);
+export function cardEdit(c: CardSource, count: number, name: string, typed = ""): FormValues {
+  const t = totals(c, count, typed);
   return { name: name.trim().slice(0, NAME_MAX), category: categoryOf(c), kcal: t.kcal, protein: t.protein };
 }
 

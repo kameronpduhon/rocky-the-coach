@@ -3,12 +3,8 @@ import { Icon } from "~/components/ui";
 import { Toggle } from "~/components/Toggle";
 import { useMutate } from "~/sync/react";
 import { btn } from "~/ui/button";
-import { cardEdit, cardLog, sourceLine, stepperFor, type CardSource, type FormValues } from "./offplan";
+import { cardEdit, cardLog, cardReady, NO_PROTEIN, sourceLine, stepperFor, type CardSource, type FormValues } from "./offplan";
 import { FIELD, LABEL } from "./SomethingNewForm";
-
-// logOffPlan's own limits, so a big count never fails on push.
-const LOG_MAX_KCAL = 5000;
-const LOG_MAX_PROTEIN = 400;
 
 function BigNumber({ value, unit }: { value: string; unit: string }) {
   return (
@@ -26,8 +22,9 @@ export function ProductCard({ date, card, onEdit, onDone }: { date: string; card
   const [count, setCount] = useState(stepper.start);
   const [name, setName] = useState(card.name ?? "");
   const [saveUsual, setSaveUsual] = useState(false);
-  const log = cardLog(card, count, name);
-  const ready = name.trim() !== "" && log.kcal <= LOG_MAX_KCAL && log.proteinG <= LOG_MAX_PROTEIN;
+  const [protein, setProtein] = useState("");
+  const log = cardLog(card, count, name, protein);
+  const ready = cardReady(card, count, name, protein);
   const step = (d: number) => setCount((c) => Math.min(stepper.max, Math.max(stepper.min, c + d)));
 
   return (
@@ -46,8 +43,16 @@ export function ProductCard({ date, card, onEdit, onDone }: { date: string; card
         </div>
         <div className="grid grid-cols-2 gap-3">
           <BigNumber value={card.kcal.toLocaleString("en-US")} unit="cal" />
-          <BigNumber value={`${Math.round(card.proteinG)} g`} unit="protein" />
+          {card.proteinG === null ? (
+            <label className={LABEL}>
+              Protein, g
+              <input inputMode="decimal" required value={protein} onChange={(e) => setProtein(e.target.value)} className={`tabular ${FIELD}`} />
+            </label>
+          ) : (
+            <BigNumber value={`${Math.round(card.proteinG)} g`} unit="protein" />
+          )}
         </div>
+        {card.proteinG === null && <p className="-mt-1.5 text-[14px] leading-[1.4] text-ink-3">{NO_PROTEIN}</p>}
         <div className="flex items-center justify-between gap-3 border-t border-rule pt-3">
           <span className="text-[16px] font-semibold">{stepper.label}</span>
           <div className="flex items-center">
@@ -65,7 +70,7 @@ export function ProductCard({ date, card, onEdit, onDone }: { date: string; card
         </div>
       </section>
       {card.from === "label" && <p className="-mt-1 text-[14px] text-ink-3">Check it against the wrapper.</p>}
-      <button type="button" onClick={() => onEdit(cardEdit(card, count, name))} className={`${btn.quiet} -mt-1.5`}>
+      <button type="button" onClick={() => onEdit(cardEdit(card, count, name, protein))} className={`${btn.quiet} -mt-1.5`}>
         Numbers look wrong? Edit them
       </button>
       <div className="flex min-h-11 items-center justify-between gap-3 text-[16px]">

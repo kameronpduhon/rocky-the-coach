@@ -56,6 +56,16 @@ describe("parseOff", () => {
     expect(parseOff("0811620021982", bar)).toMatchObject({ kcal: 120, proteinG: 2.5, servingText: "1 bar (50 g)" });
   });
 
+  it("leaves the protein unknown, not 0 g, when Open Food Facts has none for the basis it shows", () => {
+    const none = found({ product_name: "Granola", serving_size: "1 cup (50 g)", serving_quantity: 50, nutriments: { "energy-kcal_100g": 450 } });
+    expect(parseOff("0811620021982", none)).toMatchObject({ kcal: 225, proteinG: null });
+    // Calories per serving, protein only per 100 g, and no serving quantity to scale it by.
+    const unscaled = found({ product_name: "Trail mix", serving_size: "1 handful", nutriments: { "energy-kcal_serving": 160, proteins_100g: 15 } });
+    expect(parseOff("0811620021982", unscaled)).toMatchObject({ kcal: 160, servingText: "1 handful", proteinG: null });
+    const per100 = found({ product_name: "Jam", nutriments: { "energy-kcal_100g": 250 } });
+    expect(parseOff("0811620021982", per100)).toMatchObject({ servingText: null, kcal: 250, proteinG: null });
+  });
+
   it("counts a product with no calories as not found", () => {
     expect(parseOff("0811620021982", found({ product_name: "Mystery", nutriments: { proteins_100g: 5 } }))).toBeNull();
   });

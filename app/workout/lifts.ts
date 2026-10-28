@@ -68,6 +68,25 @@ export function swapScope(date: ISODate, live: boolean): string {
   return live ? "today only" : `${DAY_NAME[weekday(date)]} only`;
 }
 
+/** The plan screen's and the swap sheet's words for the day a change is made for, by swapScope's rule. */
+export interface DayWords {
+  scope: string;
+  added: string;
+  /** The swap sheet's first choice. */
+  mode: string;
+  only: string;
+  skip: string;
+  skipLift: (name: string) => string;
+}
+
+export const TODAY_WORDS: DayWords = { scope: "today only", added: "added today", mode: "Today", only: "Only today changes.", skip: "Skip today", skipLift: (name) => `Skip ${name} today` };
+
+export function dayWords(date: ISODate, live: boolean): DayWords {
+  if (live) return TODAY_WORDS;
+  const day = DAY_NAME[weekday(date)];
+  return { scope: swapScope(date, live), added: `added for ${day}`, mode: day, only: `Only ${day} changes.`, skip: `Skip ${day}`, skipLift: (name) => `Skip ${name} on ${day}` };
+}
+
 /** Swap a lift for today only. Swapping back to the original is the same as Undo. */
 export function swapToday(list: Lift[], position: number, exercise: string): Lift[] {
   return list.map((l) => {

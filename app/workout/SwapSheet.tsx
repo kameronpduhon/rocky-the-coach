@@ -4,15 +4,19 @@ import { Icon } from "~/components/ui";
 import { exerciseImage } from "~/content";
 import { btn } from "~/ui/button";
 import { ChoiceRow } from "~/ui/ChoiceRow";
-import { swapOptions, type Lift } from "./lifts";
+import { swapOptions, TODAY_WORDS, type DayWords, type Lift } from "./lifts";
 import type { LiftView } from "./model";
 
 type Mode = "today" | "always" | "skip";
 
-/** Swap a lift for today, swap it for good, or skip it today (spec section 2, Plan). */
+/**
+ * Swap a lift for today, swap it for good, or skip it today (spec section 2, Plan). `day` names the day the change is
+ * for when it isn't today, as a this-week change opened from the plan is.
+ */
 export function SwapSheet({
   lift,
   list,
+  day = TODAY_WORDS,
   canAlways,
   onToday,
   onAlways,
@@ -21,6 +25,7 @@ export function SwapSheet({
 }: {
   lift: LiftView | null;
   list: Lift[];
+  day?: DayWords;
   canAlways: boolean;
   onToday: (exercise: string) => void;
   onAlways: (exercise: string) => void;
@@ -30,7 +35,7 @@ export function SwapSheet({
   const [mode, setMode] = useState<Mode>("today");
   if (!lift) return null;
   const name = lift.name.toLowerCase();
-  const modes: { value: Mode; label: string }[] = [{ value: "today", label: "Today" }, ...(canAlways ? [{ value: "always" as const, label: "Always" }] : []), { value: "skip", label: "Skip today" }];
+  const modes: { value: Mode; label: string }[] = [{ value: "today", label: day.mode }, ...(canAlways ? [{ value: "always" as const, label: "Always" }] : []), { value: "skip", label: day.skip }];
   return (
     <Sheet open onClose={onClose} title={`Swap ${lift.name}`}>
       {lift.sets.length > 0 || lift.checked ? (
@@ -40,11 +45,11 @@ export function SwapSheet({
           <ChoiceRow label="Swap for" layout="grid" choices={modes} value={mode} onPick={setMode} />
           {mode === "skip" ? (
             <button type="button" onClick={onSkip} className={`${btn.outline} h-14 text-[17px]`}>
-              Skip {name} today
+              {day.skipLift(name)}
             </button>
           ) : (
             <>
-              <p className="text-[15px] leading-[1.4] text-ink-3">{mode === "always" ? `Replaces ${name} in this workout from now on.` : `Only today changes. ${lift.name} comes back next time.`}</p>
+              <p className="text-[15px] leading-[1.4] text-ink-3">{mode === "always" ? `Replaces ${name} in this workout from now on.` : `${day.only} ${lift.name} comes back next time.`}</p>
               <ul className="flex flex-col">
                 {swapOptions(list, lift.position).map((e) => (
                   <li key={e.id} className="border-t border-rule">

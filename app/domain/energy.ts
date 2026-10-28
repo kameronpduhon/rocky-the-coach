@@ -5,13 +5,16 @@ import type { ISODate } from "./types";
 export type BurnState = "settling" | "updating" | "holding";
 
 export const KCAL_PER_LB = 3500;
-const WINDOW_DAYS = 21;
-const MIN_TRACKED_IN_WINDOW = 10;
-const MIN_TRACKED_IN_WEEK = 4;
-const MIN_WEIGH_INS = 8;
+export const WINDOW_DAYS = 21;
+export const MIN_TRACKED_IN_WINDOW = 10;
+export const MIN_TRACKED_IN_WEEK = 4;
+export const MIN_WEIGH_INS = 8;
 const SMOOTHING = 0.5;
 const MAX_BURN_MOVE = 250;
-const SETTLING_UPDATES = 4;
+export const SETTLING_UPDATES = 4;
+/** The most the target moves in a week while the burn is settling, and after. */
+export const SETTLING_CAP = 100;
+export const SETTLED_CAP = 150;
 
 export interface EnergyInput {
   /** The Monday the phase began. */
@@ -113,6 +116,8 @@ export interface CallInput {
   currentKcal: number;
   /** Next week's step goal, after v1's ramp. */
   stepGoal: number;
+  /** The step goal now, before the ramp. Walking more adds 1,000 to it, as v1 did. */
+  baseStepGoal: number;
   /** This week's and last week's trend change in lb. Negative is a loss. */
   changes: [number | null, number | null];
   maintenanceNext: boolean;
@@ -121,7 +126,7 @@ export interface CallInput {
 }
 
 export type CallKind = "hold" | "cut" | "raise" | "on-pace" | "maintenance";
-export type Guardrail = "fast-loss" | "floor" | "half-portions";
+export type Guardrail = "fast-loss" | "no-surplus" | "floor" | "half-portions";
 
 export interface CallOption {
   kcal: number;
@@ -139,7 +144,7 @@ export interface Call {
   /** Keep the calories and walk 1,000 more. Only offered with a cut, or at half portions, while steps are under 10,000. */
   steps: CallOption | null;
   pick: "calories" | "steps";
-  /** What the maintenance week eats. The base target stays as it is. */
+  /** What the maintenance week eats: the burn as stored. The base target stays as it is. */
   maintenanceKcal: number | null;
 }
 
@@ -150,11 +155,11 @@ export function nextTarget(input: CallInput): Call {
   const goalLbPerWeek = GOAL_RATE * input.trendWeight;
   const keep: CallOption = { kcal: currentKcal, stepGoal };
   const base = { goalLbPerWeek, guardrail: null, calories: keep, steps: null, pick: "calories" as const, maintenanceKcal: null };
-  if (input.maintenanceNext) return { ...base, kind: "maintenance", ideal: null, maintenanceKcal: Math.round(week.burn / 50) * 50 };
+  if (input.maintenanceNext) return { ...base, kind: "maintenance", ideal: null, maintenanceKcal: week.burn };
   if (week.state === "holding") return { ...base, kind: "hold", ideal: null };
 
   const ideal = floor50(week.burn - (goalLbPerWeek * KCAL_PER_LB) / 7);
-  const cap = week.state === "settling" ? 100 : 150;
+  const cap = week.state === "settling" ? SETTLING_CAP : SETTLED_CAP;
   let kcal = currentKcal + Math.max(-cap, Math.min(cap, ideal - currentKcal));
   let guardrail: Guardrail | null = null;
 
@@ -163,11 +168,18 @@ export function nextTarget(input: CallInput): Call {
     kcal = currentKcal;
     guardrail = "fast-loss";
   }
+  if (kcal > week.burn) {
+    // The rounded-down ideal sits under the burn, but a capped move from above can stop short of it.
+    kcal = floor50(week.burn);
+    guardrail = "no-surplus";
+  }
   if (kcal < KCAL_FLOOR) {
     kcal = KCAL_FLOOR;
     guardrail = "floor";
   }
-  const walkMore = stepGoal < STEP_CAP ? { kcal: currentKcal, stepGoal: Math.min(stepGoal + STEP_BUMP, STEP_CAP) } : null;
+  // Walking more doesn't stack on the ramp: it offers this week's goal plus 1,000, and only if that beats the ramp.
+  const walkGoal = Math.min(STEP_CAP, Math.max(stepGoal, input.baseStepGoal + STEP_BUMP));
+  const walkMore = walkGoal > stepGoal ? { kcal: currentKcal, stepGoal: walkGoal } : null;
   let pick: Call["pick"] = "calories";
   if (kcal < input.halfPortionKcal) {
     // Past half portions the food can't give more, so the rest of the cut comes from walking.

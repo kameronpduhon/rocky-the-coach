@@ -19,7 +19,7 @@
 | Already live | `editWeighIn`, `deleteWeighIn` and `logUsual` (reused, spec "Named changes") |
 | P4b, kit | `TrendChart` (the check-in's chart) in `app/ui/TrendChart.tsx`. Task 1 adds the goal band and the pace line to it |
 | P4c, kit | `StatGrid` in `app/ui/StatGrid.tsx`, with `ruled` (P4c's Task 1) |
-| N3 | `trendSeries`, `trendReading`, `roundLb` and `MIN_TREND_WEIGH_INS` in `app/domain/trend.ts`; `targetsOn` with the check-ins' burns |
+| N3 | `trendSeries`, `trendReading` and `MIN_TREND_WEIGH_INS` in `app/domain/trend.ts` (chart points carry the trend unrounded; round only text); `targetsOn` with the check-ins' burns |
 
 **Architecture:**
 - **Three pure models** in the shape of `app/meal/model.ts`, each unit tested with plain rows:
@@ -217,6 +217,7 @@ import type { ISODate } from "~/domain/types";
 export interface TrendPoint {
   date: ISODate;
   weight: number | null;
+  /** Unrounded, so the line slopes instead of stepping by tenths. Round only labels. */
   trend: number | null;
 }
 
@@ -883,7 +884,9 @@ describe("buildProgress", () => {
     // to Jan 1 land at 195.68, inside 195 to 198.
     expect(m.poster).toEqual(["Down 3.0.", "On pace."]);
     expect(m.meta).toBe("Trend 204.0 lb · Jan 1 goal 195 to 198");
-    expect(m.chart.projection).toEqual({ date: "2027-01-01", weight: 195.7 });
+    // The chart plots the trend and the pace line's end unrounded; only the labels and the note round them.
+    expect(m.chart.projection).toMatchObject({ date: "2027-01-01" });
+    expect(m.chart.projection!.weight).toBeCloseTo(195.68, 1);
     expect(m.note).toBe("Dots are daily weigh-ins, the line is the trend. At this pace you land near 196 on Jan 1. Waist matters more during a recomp.");
   });
 
@@ -891,7 +894,8 @@ describe("buildProgress", () => {
     expect(m.chart.points).toHaveLength(24);
     expect(m.chart.points[0]).toEqual({ date: START, weight: 207, trend: null });
     // The line starts with the third weigh-in: 207, 206.98, 206.942.
-    expect(m.chart.points[2]).toEqual({ date: "2026-10-07", weight: 206.6, trend: 206.9 });
+    expect(m.chart.points[2]).toMatchObject({ date: "2026-10-07", weight: 206.6 });
+    expect(m.chart.points[2].trend).toBeCloseTo(206.942, 6);
     expect(m.chart.goal).toEqual({ date: "2027-01-01", low: 195, high: 198 });
     expect(m.chart.labels).toEqual({ start: "Oct 5 · 207.0", today: "Today 204.0", end: "Jan 1 · 195 to 198" });
     const fourWeeks = buildProgress(rowsOf({ weigh_ins: weighIns() }), at(WED, "09:00"), "4w").chart;
@@ -1023,7 +1027,7 @@ import { isTrainingDay, type Moves } from "~/domain/calendar";
 import { dayCompleteness, isTracked } from "~/domain/completeness";
 import { addDays, daysBetween, mealDate } from "~/domain/dates";
 import { countedDay } from "~/domain/habits";
-import { MIN_TREND_WEIGH_INS, roundLb, trendReading, trendSeries } from "~/domain/trend";
+import { MIN_TREND_WEIGH_INS, trendReading, trendSeries } from "~/domain/trend";
 import type { ISODate } from "~/domain/types";
 import { liftIds, liftSessions, monthDay } from "~/lifts/model";
 import type { Row } from "~/sync/tables";
@@ -1100,17 +1104,17 @@ function chart(weighIns: { date: ISODate; weight: number }[], today: ISODate, ra
   const byDate = new Map(weighIns.map((w) => [w.date, w.weight]));
   const points: TrendPoint[] = [];
   for (let d = from; d <= today; d = addDays(d, 1)) {
-    // As on Today and the check-in, the line starts with the third weigh-in.
+    // As on Today and the check-in, the line starts with the third weigh-in. Unrounded, so the line does not stair-step.
     const enough = weighIns.filter((w) => w.date <= d).length >= MIN_TREND_WEIGH_INS;
     const t = series.get(d);
-    points.push({ date: d, weight: byDate.get(d) ?? null, trend: enough && t !== undefined ? roundLb(t) : null });
+    points.push({ date: d, weight: byDate.get(d) ?? null, trend: enough && t !== undefined ? t : null });
   }
   const first = weighIns.find((w) => w.date >= from);
   const phase = range === "phase";
   return {
     points,
     goal: phase ? { ...plan.goal } : null,
-    projection: phase && projection !== null ? { date: plan.goal.date, weight: roundLb(projection) } : null,
+    projection: phase && projection !== null ? { date: plan.goal.date, weight: projection } : null,
     labels: {
       start: first ? `${monthDay(first.date)} · ${lb(first.weight)}` : monthDay(from),
       today: trendNow === null ? "Today" : `Today ${lb(trendNow)}`,

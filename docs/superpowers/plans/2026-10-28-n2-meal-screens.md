@@ -27,12 +27,12 @@
 **Mocks:**
 - Artboards `MealOne`, `MealBatch`, `MealLeftover`, `MealSwap` and `Corner2Lunch` on https://claude.ai/artifact/65WeReuGH5ZageJng9K6nq.
 - The options board https://claude.ai/artifact/1yW7smtJTuSnjXQUCjdo9q. Picked: 1C (close-out sheet), 2A (quiet skip, "Have it for dinner" from the Library), 3A (usual orders first). 4A, the check-in call block, is N3 and not in this plan.
-- The N2 states board, https://claude.ai/artifact/MYV7M9EruYxnzrhdyedbXV, for the four states neither mock drew. This plan builds each band's recommended option.
+- The N2 states board, https://claude.ai/artifact/MYV7M9EruYxnzrhdyedbXV, for the four states neither mock drew. Picked: A in all four bands.
 - **Design system:** `docs/design/system.md`. Where it and a mock disagree on looks, the mock wins, except the colour rules.
 
 **There are no migrations in N2.** Every table and column it uses landed in N1.
 
-## Questions for Kameron (the plan follows each recommendation)
+## Questions for Kameron (answered Oct 28: option A in every band, and the recommendation on the other three)
 
 1. **Four states the mocks don't show.** The N2 states board (https://claude.ai/artifact/MYV7M9EruYxnzrhdyedbXV) renders each with 2 or 3 options, using Wednesday Oct 28's real meals at the 2,300 grams.
     - **Recommendation:** A in every band.

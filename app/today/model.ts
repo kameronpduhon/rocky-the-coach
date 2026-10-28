@@ -1,6 +1,5 @@
 // Everything Today shows, worked out from the phone's copy of the data. Pure: the browser and the unit tests both run it.
 import { exercises, foods, meals, messages, plan, type MealWithMacros } from "~/content";
-import { weekSchedule, type ScheduleDay } from "~/content/schedule";
 import { resolveTargets, type Targets } from "~/content/targets";
 import { dayMode, isRelaxedDay, isTrainingDay, optionalTemplateFor, setsFor, templateFor, weekNumber, weekType, type Moves } from "~/domain/calendar";
 import { checkInWindow } from "~/domain/checkin";
@@ -8,12 +7,14 @@ import { addDays, formatClock, localDate, localMinutes, mealDate, parseTime, wee
 import { countedDay, dessertAllowance, fullDay, habitStreak, overAllowanceDates, type DayActivity } from "~/domain/habits";
 import { pickSituation, renderMessage } from "~/domain/messages";
 import { nextUp, type NextUp } from "~/domain/next-up";
-import { nextSuggestion, type LoggedSet } from "~/domain/progression";
-import { CUSTOM_WORKOUT, SLOTS, slotPool, type ISODate, type Slot } from "~/domain/types";
+import { nextSuggestion } from "~/domain/progression";
+import { SLOTS, slotPool, type ISODate, type Slot } from "~/domain/types";
 import { sevenDayAverage } from "~/domain/weight";
 import { keyOf, type Row } from "~/sync/tables";
+import { resolveLifts, titleLines, workoutMinutes, workoutTitle } from "~/workout/lifts";
+import { doneDates, lastSession, loggedDates, sessionKey, type Rows } from "~/workout/sessions";
 
-export type Rows = (table: string) => Row[];
+export type { Rows };
 
 const s = (r: Row, c: string) => r[c] as string;
 const n = (r: Row, c: string) => Number(r[c] ?? 0);
@@ -51,8 +52,9 @@ export interface TrainingModel {
   meta: string;
   goUp: string | null;
   started: boolean;
+  /** The open workout's key, or null when Start has to plan it first. */
+  workoutKey: string | null;
   buttonLabel: string;
-  link: string;
 }
 
 export interface WeekDayModel {
@@ -88,8 +90,8 @@ export interface PlanToday extends Common {
   modeLabel: string;
   training: TrainingModel | null;
   optional: { templateId: string; name: string } | null;
-  canMove: boolean;
-  schedule: ScheduleDay[];
+  /** "Change today's workout" shows: nothing started, finished or logged yet. */
+  canChange: boolean;
   message: string;
   week: WeekDayModel[];
   countedSoFar: number;
@@ -105,7 +107,7 @@ export function shortClock(minutes: number): string {
   return `${h24 % 12 === 0 ? 12 : h24 % 12}:${String(minutes % 60).padStart(2, "0")}`;
 }
 
-function dateLabel(d: ISODate): string {
+export function dateLabel(d: ISODate): string {
   const [, m, day] = d.split("-").map(Number);
   return `${DOW[weekday(d)]} · ${MONTH[m - 1]} ${day}`;
 }
@@ -123,72 +125,38 @@ function fallbackMeal(slot: Slot, date: ISODate, rested: Set<string>): MealWithM
   return pick;
 }
 
-export function workoutHeadline(name: string, lifts: number): string[] {
-  return [...name.split(/, | and /).map((part) => `${part}.`), `${lifts} lifts.`];
-}
-
 const setsWord = (count: number) => (count === 1 ? "your set" : count === 2 ? "both sets" : `all ${count} sets`);
 
-function resolveExercises(rows: Rows, date: ISODate, templateId: string) {
-  const template = plan.templates[templateId]!;
-  const overrides = rows("exercise_overrides").filter((r) => r.template_id === templateId);
-  const swaps = rows("exercise_swaps").filter((r) => r.template_id === templateId && r.date === date);
-  return template.exercises.map((e, position) => {
-    const chosen = (swaps.find((r) => n(r, "position") === position)?.exercise_id ?? overrides.find((r) => n(r, "position") === position)?.exercise_id ?? e.exercise) as string;
-    return { position, exercise: exercises.get(chosen) ?? exercises.get(e.exercise)!, repMax: e.repMax };
-  });
-}
-
-/** The sets of the newest session before `before` that logged this exercise, in set order. */
-function lastSets(rows: Rows, exerciseId: string, before: ISODate): LoggedSet[] | null {
-  const dateOf = new Map(rows("workout_sessions").map((r) => [n(r, "id"), s(r, "date")]));
-  const mine = rows("set_logs").filter((r) => r.exercise_id === exerciseId && (dateOf.get(n(r, "session_id")) ?? "9999-12-31") < before);
-  if (mine.length === 0) return null;
-  const newer = (a: Row, b: Row) => {
-    const da = dateOf.get(n(a, "session_id"))!;
-    const db = dateOf.get(n(b, "session_id"))!;
-    return db > da || (db === da && n(b, "session_id") > n(a, "session_id")) ? b : a;
-  };
-  const sessionId = n(mine.reduce(newer), "session_id");
-  return mine
-    .filter((r) => n(r, "session_id") === sessionId)
-    .sort((a, b) => n(a, "set_number") - n(b, "set_number"))
-    .map((r) => ({ weight: n(r, "weight_lb"), reps: n(r, "reps") }));
-}
-
 function trainingModel(rows: Rows, date: ISODate, templateId: string, open: Row | undefined): TrainingModel {
-  const template = plan.templates[templateId]!;
-  const list = resolveExercises(rows, date, templateId);
+  const list = resolveLifts(rows, open ?? null, templateId, date);
   const deload = weekType(plan, date) === "deload";
   const sets = setsFor(plan, date);
   let goUp: string | null = null;
-  for (const x of list) {
-    const last = lastSets(rows, x.exercise.id, date);
-    if (last && nextSuggestion(last, { repMax: x.repMax, increment: x.exercise.increment, deload }).goUp) {
-      goUp = `${x.exercise.name}: ${setsWord(last.length)} hit ${x.repMax} last time. Add ${x.exercise.increment} lb today.`;
+  for (const l of list) {
+    const ex = exercises.get(l.exercise)!;
+    const last = lastSession(rows, l.exercise, date);
+    const next = nextSuggestion(last?.sets ?? null, { repMax: l.repMax, increment: ex.increment, deload }, last?.feel ?? null);
+    if (last && next.goUp && next.weight !== null) {
+      const top = Math.max(...last.sets.map((x) => x.weight));
+      goUp = `${ex.name}: ${setsWord(last.sets.length)} hit ${l.repMax} last time${last.feel === "easy" ? " and it felt easy" : ""}. Add ${next.weight - top} lb today.`;
       break;
     }
   }
-  let buttonLabel = `Start: ${list[0].exercise.name}`;
-  let link = "/workout";
-  if (open) {
-    const openId = s(open, "template_id");
-    link = `/workout?template=${openId}`;
-    if (openId === CUSTOM_WORKOUT) buttonLabel = "Resume: custom workout";
-    else {
-      const logged = rows("set_logs").filter((r) => n(r, "session_id") === n(open, "id"));
-      const current = list.find((x) => logged.filter((r) => n(r, "position") === x.position).length < sets) ?? list.at(-1)!;
-      buttonLabel = `Resume: ${current.exercise.name}`;
-    }
-  }
+  const started = Boolean(open?.started_at);
+  const key = open ? sessionKey(open) : null;
+  const logged = key ? rows("set_logs").filter((r) => r.session_key === key) : [];
+  const checked = new Set(key ? rows("exercise_checks").filter((r) => r.session_key === key).map((r) => s(r, "exercise_id")) : []);
+  const current = list.find((l) => !checked.has(l.exercise) && logged.filter((r) => n(r, "position") === l.position).length < sets) ?? list.at(-1);
+  const name = current ? exercises.get(current.exercise)!.name : null;
+  const verb = started ? "Resume" : "Start";
   return {
     templateId,
-    headline: workoutHeadline(template.name, list.length),
-    meta: `Noon · ${list.length * sets} sets · about 45 min · week ${weekNumber(plan, date)} of ${WEEKS}${deload ? " · deload" : ""}`,
+    headline: [...titleLines(workoutTitle(templateId)), `${list.length} lifts.`],
+    meta: `Noon · ${list.length * sets} sets · about ${workoutMinutes(list.length * sets)} min · week ${weekNumber(plan, date)} of ${WEEKS}${deload ? " · deload" : ""}`,
     goUp,
-    started: open !== undefined,
-    buttonLabel,
-    link,
+    started,
+    workoutKey: key,
+    buttonLabel: name ? `${verb}: ${name}` : verb,
   };
 }
 
@@ -237,12 +205,7 @@ export function buildToday(rows: Rows, now: Date, hasPlan: boolean): TodayModel 
 
   const mealLogs = rows("meal_logs");
   const sessions = rows("workout_sessions");
-  const sessionDate = new Map(sessions.map((r) => [n(r, "id"), s(r, "date")]));
-  const workoutDates = new Set<ISODate>();
-  for (const r of [...rows("set_logs"), ...rows("exercise_checks")]) {
-    const d = sessionDate.get(n(r, "session_id"));
-    if (d) workoutDates.add(d);
-  }
+  const workoutDates = loggedDates(rows);
   const weighDates = new Set(weighInRows.map((r) => s(r, "date")));
   const mealDates = new Set(mealLogs.map((r) => s(r, "date")));
   const activity = (d: ISODate): DayActivity => ({
@@ -286,11 +249,13 @@ export function buildToday(rows: Rows, now: Date, hasPlan: boolean): TodayModel 
   const over = overAllowanceDates(desserts);
 
   const moves: Moves = Object.fromEntries(rows("schedule_moves").map((r) => [s(r, "date"), (r.template_id as string | null) ?? null]));
-  const templateId = templateFor(plan, date, moves);
   const todaySessions = sessions.filter((r) => r.date === date);
-  const open = todaySessions.filter((r) => !r.ended_at).sort((a, b) => s(b, "started_at").localeCompare(s(a, "started_at")))[0];
+  // At most one open workout a day: planned or started, and not finished.
+  const open = todaySessions.find((r) => !r.ended_at);
   const finished = todaySessions.some((r) => r.ended_at);
-  const setDates = new Set([...workoutDates, ...sessions.filter((r) => r.ended_at).map((r) => s(r, "date"))]);
+  // A workout picked on Plan replaces the day's scheduled one, for today only.
+  const templateId = (open?.template_id as string | undefined) ?? templateFor(plan, date, moves);
+  const setDates = doneDates(rows, date);
   const training = templateId ? trainingModel(rows, date, templateId, open) : null;
   const optionalId = optionalTemplateFor(plan, date);
 
@@ -300,7 +265,7 @@ export function buildToday(rows: Rows, now: Date, hasPlan: boolean): TodayModel 
     minutes,
     checkInOpen: window !== null && !rows("check_ins").some((r) => r.week_start === window),
     slots: slots.map((x) => ({ slot: x.slot, minutes: x.minutes, eaten: x.logKey !== null })),
-    workout: templateId ? { templateId, started: open !== undefined, finished } : null,
+    workout: templateId ? { templateId, started: Boolean(open?.started_at), finished } : null,
     steps,
     stepGoal: targets.stepGoal,
   });
@@ -311,7 +276,7 @@ export function buildToday(rows: Rows, now: Date, hasPlan: boolean): TodayModel 
     minutes: localMinutes(now),
     relaxedDay: relaxed,
     trainingDay: templateId !== null,
-    sessionStarted: todaySessions.length > 0,
+    sessionStarted: todaySessions.some((r) => r.started_at),
     loggedSetToday: workoutDates.has(date),
     missedTwice,
     weighedIn: weighIn !== null,
@@ -325,7 +290,7 @@ export function buildToday(rows: Rows, now: Date, hasPlan: boolean): TodayModel 
   const message = renderMessage(messages, situation, date, {
     protein: totals.proteinG,
     lunch: slots.find((x) => x.slot === "lunch")!.meal.name.toLowerCase(),
-    workout: templateId ? plan.templates[templateId]!.name : "",
+    workout: templateId ? workoutTitle(templateId) : "",
     left: situation === "steps-behind" ? (targets.stepGoal - steps).toLocaleString() : Math.max(0, targets.proteinG - totals.proteinG),
     streak,
     nextMeal: nextMeal.toLowerCase(),
@@ -349,8 +314,7 @@ export function buildToday(rows: Rows, now: Date, hasPlan: boolean): TodayModel 
     modeLabel: relaxed ? "Holiday" : dayMode(date) === "weekday" ? "Weekday meals" : "Weekend meals",
     training,
     optional: !templateId && optionalId ? { templateId: optionalId, name: plan.templates[optionalId]!.name } : null,
-    canMove: !open && !finished && !workoutDates.has(date),
-    schedule: weekSchedule(monday, moves, setDates),
+    canChange: !open?.started_at && !finished && !workoutDates.has(date),
     message,
     week,
     countedSoFar: week.filter((d) => d.counted).length,

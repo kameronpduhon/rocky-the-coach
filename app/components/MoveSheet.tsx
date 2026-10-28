@@ -1,6 +1,7 @@
-import { useEffect, useRef } from "react";
-import { useFetcher } from "react-router";
+import { useState } from "react";
+import { useRevalidator } from "react-router";
 import type { ScheduleDay } from "~/content/schedule";
+import { useMutate, useSyncClient } from "~/sync/react";
 import { Sheet } from "./Sheet";
 import { Icon } from "./ui";
 
@@ -9,22 +10,28 @@ const dayLabel = (date: string) => DAY_FMT.format(new Date(`${date}T12:00:00Z`))
 
 /**
  * Moves a workout between two days of the week. From a workout day it lists every other day to move it to; from a
- * rest day it lists the workouts to bring there. Either way the two days trade, so the day left behind rests.
+ * rest day it lists the workouts to bring there. Either way the two days trade, so the day left behind rests. The
+ * move is a named change on the phone, so it works offline; a refusal shows in the sync notice.
  */
-export function MoveSheet({ open, onClose, anchor, week, today, children }: { open: boolean; onClose: () => void; anchor: ScheduleDay; week: ScheduleDay[]; today?: string; children?: React.ReactNode }) {
-  const fetcher = useFetcher<{ ok?: boolean; error?: string }>();
-  // Closes when a submit settles with ok. The last result lingers on the fetcher, so reopening must not re-close.
-  const busy = useRef(false);
-  useEffect(() => {
-    if (fetcher.state !== "idle") busy.current = true;
-    else if (busy.current) {
-      busy.current = false;
-      if (fetcher.data?.ok) onClose();
-    }
-  }, [fetcher.state, fetcher.data, onClose]);
+export function MoveSheet({ open, onClose, anchor, week, today }: { open: boolean; onClose: () => void; anchor: ScheduleDay; week: ScheduleDay[]; today?: string }) {
+  const mutate = useMutate();
+  const client = useSyncClient();
+  const revalidator = useRevalidator();
+  const [busy, setBusy] = useState(false);
   const pushing = anchor.templateId !== null;
   const options = week.filter((d) => d.date !== anchor.date && (pushing || d.templateId !== null));
   const title = pushing ? `Move ${anchor.name}` : anchor.date === today ? "Train today" : `Train on ${dayLabel(anchor.date).split(",")[0]}`;
+
+  async function move(to: string) {
+    setBusy(true);
+    const ok = await mutate("moveWorkout", { a: anchor.date, b: to });
+    setBusy(false);
+    if (!ok) return;
+    onClose();
+    // The v1 Plan screen reads the server, so it reloads once the move has been sent.
+    await client?.sync();
+    revalidator.revalidate();
+  }
 
   return (
     <Sheet open={open} onClose={onClose} title={title}>
@@ -39,10 +46,8 @@ export function MoveSheet({ open, onClose, anchor, week, today, children }: { op
             <button
               key={d.date}
               type="button"
-              disabled={d.logged || fetcher.state !== "idle"}
-              onClick={() => {
-                fetcher.submit({ intent: "move", a: anchor.date, b: d.date }, { method: "post", action: "/plan" });
-              }}
+              disabled={d.logged || busy}
+              onClick={() => void move(d.date)}
               className="flex min-h-[60px] w-full items-center gap-3 border-b-[0.5px] border-separator px-4 py-3 text-left last:border-b-0 disabled:opacity-50"
             >
               <div className="min-w-0 flex-1">
@@ -61,8 +66,6 @@ export function MoveSheet({ open, onClose, anchor, week, today, children }: { op
           ))}
         </div>
       )}
-      {fetcher.data?.error && <p className="mt-3 px-1 text-[14px] font-semibold text-calories">{fetcher.data.error}</p>}
-      {children}
     </Sheet>
   );
 }

@@ -43,7 +43,7 @@ describe("buildToday", () => {
 
   it("says what goes up when every set hit the top last time", () => {
     const lastWed = "2026-10-21";
-    const sets: Row[] = [1, 2].map((n) => ({ id: n, session_id: 9, exercise_id: firstLift.id, position: 0, set_number: n, weight_lb: 270, reps: legs.exercises[0].repMax, logged_at: `${lastWed}T17:00:00Z`, client_id: null }));
+    const sets: Row[] = [1, 2].map((n) => ({ id: n, session_id: 9, session_key: "id:9", exercise_id: firstLift.id, position: 0, set_number: n, weight_lb: 270, reps: legs.exercises[0].repMax, logged_at: `${lastWed}T17:00:00Z`, client_id: null }));
     const m = asPlan(
       buildToday(
         rowsOf({ planned_meals: planned(WED), workout_sessions: [{ id: 9, date: lastWed, template_id: "wed-legs-shoulders", started_at: `${lastWed}T17:00:00Z`, ended_at: `${lastWed}T18:00:00Z`, exercises: null }], set_logs: sets }),
@@ -103,5 +103,40 @@ describe("buildToday", () => {
     expect(m.hasPlan).toBe(false);
     expect(m.weighIn?.weight).toBe(141.4);
     expect(m.steps).toBe(5200);
+  });
+
+  const lastWedSession = (feel: string | null) => ({
+    workout_sessions: [{ id: 9, client_id: null, date: "2026-10-21", template_id: "wed-legs-shoulders", started_at: "2026-10-21T17:00:00Z", ended_at: "2026-10-21T18:00:00Z", exercises: null, feel }],
+    set_logs: [1, 2].map((n) => ({ id: n, client_id: null, session_id: 9, session_key: "id:9", exercise_id: firstLift.id, position: 0, set_number: n, weight_lb: 270, reps: 12, logged_at: "2026-10-21T17:05:00Z" })),
+  });
+  const breakfastEaten = { planned_meals: planned(WED), meal_logs: [ate(WED, "breakfast", 1, `${WED}T12:40:00Z`)] };
+
+  it("lets an easy last session put two steps on the go-up note, and a hard one hold", () => {
+    const easy = asPlan(buildToday(rowsOf({ ...breakfastEaten, ...lastWedSession("easy") }), at(WED, "09:00"), true));
+    expect(easy.training?.goUp).toBe(`${firstLift.name}: both sets hit 12 last time and it felt easy. Add 20 lb today.`);
+    const hard = asPlan(buildToday(rowsOf({ ...breakfastEaten, ...lastWedSession("hard") }), at(WED, "09:00"), true));
+    expect(hard.training?.goUp).toBeNull();
+  });
+
+  it("shows a workout planned but not started, with Start and the change link", () => {
+    const planB = plan.templates[plan.planB]!;
+    const workout_sessions = [{ id: null, client_id: "w-1", date: WED, template_id: plan.planB, started_at: null, ended_at: null, planned_at: `${WED}T13:00:00Z`, lifts: null, feel: null, exercises: null }];
+    const m = asPlan(buildToday(rowsOf({ ...breakfastEaten, workout_sessions }), at(WED, "09:00"), true));
+    expect(m.next).toEqual({ kind: "workout", templateId: plan.planB, started: false });
+    expect(m.training).toMatchObject({ templateId: plan.planB, headline: ["Short.", "Home.", "6 lifts."], started: false, workoutKey: "w-1", buttonLabel: `Start: ${exercises.get(planB.exercises[0].exercise)!.name}` });
+    expect(m.canChange).toBe(true);
+  });
+
+  it("counts a set logged offline, before its workout has a server id", () => {
+    // No meal eaten, so only the set can make the day count.
+    const rows = rowsOf({
+      planned_meals: planned(WED),
+      workout_sessions: [{ id: null, client_id: "w-1", date: WED, template_id: "wed-legs-shoulders", started_at: `${WED}T17:00:00Z`, ended_at: null, planned_at: null, lifts: null, feel: null, exercises: null }],
+      set_logs: [{ id: null, client_id: "s-1", session_id: null, session_key: "w-1", exercise_id: firstLift.id, position: 0, set_number: 1, weight_lb: 280, reps: 11, logged_at: `${WED}T17:05:00Z` }],
+    });
+    const m = asPlan(buildToday(rows, at(WED, "12:10"), true));
+    expect(m.training).toMatchObject({ started: true, buttonLabel: `Resume: ${firstLift.name}` });
+    expect(m.canChange).toBe(false);
+    expect(m.week.find((d) => d.today)?.counted).toBe(true);
   });
 });

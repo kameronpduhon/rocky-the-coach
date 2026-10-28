@@ -20,12 +20,14 @@ export function ExercisePicker({
   catalog,
   initial,
   locked,
+  lockedLabel = "Logged",
   saveLabel,
   onSave,
 }: {
   catalog: CatalogExercise[];
   initial: string[];
   locked: Set<string>;
+  lockedLabel?: string;
   saveLabel: (count: number) => string;
   onSave: (ids: string[]) => void;
 }) {
@@ -67,7 +69,7 @@ export function ExercisePicker({
                   <img src={e.image} alt="" className="size-12 flex-none rounded-xl bg-fill object-cover" />
                   <div className="min-w-0 flex-1">
                     <div className="text-[16px] font-semibold">{e.name}</div>
-                    <div className="mt-px text-[14px] text-label-2">{locked.has(e.id) ? "Logged" : (EQUIPMENT[e.equipment] ?? e.equipment)}</div>
+                    <div className="mt-px text-[14px] text-label-2">{locked.has(e.id) ? lockedLabel : (EQUIPMENT[e.equipment] ?? e.equipment)}</div>
                   </div>
                   <span
                     aria-hidden="true"

@@ -1,12 +1,12 @@
-import { useEffect, useMemo, useRef, useState } from "react";
-import { Link, useRouteLoaderData } from "react-router";
+import { useMemo, useRef, useState } from "react";
+import { Link, useNavigate, useRouteLoaderData } from "react-router";
 import { COACH_NAME, pageTitle } from "~/brand";
-import { MoveSheet } from "~/components/MoveSheet";
 import { Sheet } from "~/components/Sheet";
 import { Icon } from "~/components/ui";
-import { CUSTOM_WORKOUT } from "~/domain/types";
+import { plan } from "~/content";
+import { useNow } from "~/lib/use-now";
 import { useMutate, useStoreVersion, useSyncClient, useSyncStatus } from "~/sync/react";
-import { buildToday, mealHeadline, scaleList, SLOT_LABEL, type NoPlanToday, type PlanToday, type SlotModel } from "~/today/model";
+import { buildToday, mealHeadline, scaleList, SLOT_LABEL, type NoPlanToday, type PlanToday, type SlotModel, type TrainingModel } from "~/today/model";
 import { btn } from "~/ui/button";
 import { Poster } from "~/ui/Poster";
 import { ProgressionCallout } from "~/ui/ProgressionCallout";
@@ -20,22 +20,12 @@ export function meta() {
   return [{ title: pageTitle("Today") }];
 }
 
-/** Re-reads the clock every 30 s, so the poster moves on when a meal's window closes. */
-function useNow(): Date {
-  const [now, setNow] = useState(() => new Date());
-  useEffect(() => {
-    const t = window.setInterval(() => setNow(new Date()), 30_000);
-    return () => window.clearInterval(t);
-  }, []);
-  return now;
-}
-
 export default function Today() {
   const layout = useRouteLoaderData<typeof layoutLoader>("routes/app-layout");
   const client = useSyncClient();
   const ready = useSyncStatus()?.ready ?? false;
   const version = useStoreVersion();
-  const minute = Math.floor(useNow().getTime() / 60_000);
+  const minute = Math.floor(useNow(30_000).getTime() / 60_000);
   const model = useMemo(
     () => (client && ready && layout ? buildToday((t) => client.store.rows(t), new Date(minute * 60_000), layout.hasPlan) : null),
     [client, ready, layout, version, minute],
@@ -125,13 +115,10 @@ function PlanOnTheWay({ m, name }: { m: NoPlanToday; name: string }) {
 }
 
 function TodayWithPlan({ m }: { m: PlanToday }) {
-  const client = useSyncClient();
-  const [moveOpen, setMoveOpen] = useState(false);
   const [offPlanOpen, setOffPlanOpen] = useState(false);
   // Checks that were already there when the screen opened do not animate. Nothing moves on load.
   const eatenAtOpen = useRef<Set<string> | null>(null);
   eatenAtOpen.current ??= new Set(m.slots.filter((s) => s.logKey).map((s) => s.slot));
-  const anchor = m.schedule.find((d) => d.date === m.date)!;
 
   return (
     <Page>
@@ -139,10 +126,10 @@ function TodayWithPlan({ m }: { m: PlanToday }) {
       {!m.weighIn && <WeighInRow date={m.date} />}
       <div className="flex flex-col gap-2">
         <NextUpPoster m={m} />
-        {m.canMove && (
-          <button type="button" onClick={() => setMoveOpen(true)} className={btn.quiet}>
+        {m.canChange && (
+          <Link to="/workout" className={btn.quiet}>
             Change today's workout
-          </button>
+          </Link>
         )}
         {m.optional && (
           <Link to={`/workout?template=${m.optional.templateId}`} className={btn.quiet}>
@@ -166,20 +153,6 @@ function TodayWithPlan({ m }: { m: PlanToday }) {
         </p>
       </section>
 
-      <MoveSheet
-        open={moveOpen}
-        onClose={() => {
-          setMoveOpen(false);
-          void client?.sync();
-        }}
-        anchor={anchor}
-        week={m.schedule}
-        today={m.date}
-      >
-        <Link to={`/workout?template=${CUSTOM_WORKOUT}`} className={`${btn.outline} mt-4 h-11 w-full text-[16px]`}>
-          Do something else instead
-        </Link>
-      </MoveSheet>
       <OffPlanSheet open={offPlanOpen} date={m.date} onClose={() => setOffPlanOpen(false)} />
     </Page>
   );
@@ -197,25 +170,7 @@ function NextUpPoster({ m }: { m: PlanToday }) {
       </Poster>
     );
   }
-  if (n.kind === "workout" && m.training) {
-    const t = m.training;
-    return (
-      <Poster lines={t.headline} meta={t.meta}>
-        {t.goUp && <ProgressionCallout>{t.goUp}</ProgressionCallout>}
-        <div className="flex gap-2.5">
-          <Link to={t.link} className={`${btn.primary} h-14 flex-1 px-3`}>
-            {t.buttonLabel}
-          </Link>
-          {!t.started && (
-            <Link to="/workout?plan=b" className={`${btn.outline} h-14 flex-col px-3.5 text-[16px] uppercase leading-[1.1] tracking-[0.02em]`}>
-              Short
-              <span className="text-[13px] font-semibold normal-case tracking-normal text-ink-3">25 min, home</span>
-            </Link>
-          )}
-        </div>
-      </Poster>
-    );
-  }
+  if (n.kind === "workout" && m.training) return <WorkoutPoster m={m} t={m.training} />;
   if (n.kind === "meal") {
     const s = m.slots.find((x) => x.slot === n.slot)!;
     return (
@@ -243,6 +198,40 @@ function NextUpPoster({ m }: { m: PlanToday }) {
     return <Poster lines={[`${n.left.toLocaleString()} steps.`, "Two short walks."]} meta={`${m.steps.toLocaleString()} of ${m.targets.stepGoal.toLocaleString()} so far`} />;
   }
   return <Poster lines={["Done.", "Kitchen's closed."]} meta={`${m.totals.proteinG} of ${m.targets.proteinG} g protein today`} />;
+}
+
+function WorkoutPoster({ m, t }: { m: PlanToday; t: TrainingModel }) {
+  const mutate = useMutate();
+  const navigate = useNavigate();
+  // Plans the workout if nothing has yet (or retargets it, for Short), then starts it, all on the phone.
+  async function begin(templateId: string) {
+    const at = new Date().toISOString();
+    const key = t.workoutKey ?? crypto.randomUUID();
+    if ((!t.workoutKey || templateId !== t.templateId) && !(await mutate("planWorkout", { clientId: key, date: m.date, templateId, at }))) return;
+    if (await mutate("startWorkout", { workout: key, at })) navigate("/workout");
+  }
+  return (
+    <Poster lines={t.headline} meta={t.meta}>
+      {t.goUp && <ProgressionCallout>{t.goUp}</ProgressionCallout>}
+      <div className="flex gap-2.5">
+        {t.started ? (
+          <Link to="/workout" className={`${btn.primary} h-14 flex-1 px-3`}>
+            {t.buttonLabel}
+          </Link>
+        ) : (
+          <button type="button" onClick={() => void begin(t.templateId)} className={`${btn.primary} h-14 flex-1 px-3`}>
+            {t.buttonLabel}
+          </button>
+        )}
+        {!t.started && t.templateId !== plan.planB && (
+          <button type="button" onClick={() => void begin(plan.planB)} className={`${btn.outline} h-14 flex-col px-3.5 text-[16px] uppercase leading-[1.1] tracking-[0.02em]`}>
+            Short
+            <span className="text-[13px] font-semibold normal-case tracking-normal text-ink-3">25 min, home</span>
+          </button>
+        )}
+      </div>
+    </Poster>
+  );
 }
 
 function Fuel({ m, eatenAtOpen, onAteElse }: { m: PlanToday; eatenAtOpen: Set<string>; onAteElse: () => void }) {

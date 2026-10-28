@@ -11,7 +11,7 @@ describe("AiClient.label", () => {
     const { sent, fetch } = fakeFetch(() => message({ content: [{ type: "text", text: JSON.stringify(READ) }] }));
     expect(await anthropicClient("k", { fetch, maxRetries: 0 }).label("AAAA")).toEqual({ ok: true, value: READ, usage: USAGE });
     expect(sent[0]!.body).toMatchObject({
-      max_tokens: 2000,
+      max_tokens: 6000,
       system: [{ type: "text", text: labelSystem() }],
       messages: [
         {

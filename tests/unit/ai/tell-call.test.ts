@@ -26,7 +26,7 @@ describe("AiClient.tell", () => {
     const { sent, fetch } = fakeFetch(() => message({ content: [{ type: "text", text: JSON.stringify(REPLY) }] }));
     expect(await anthropicClient("k", { fetch, maxRetries: 0 }).tell(INPUT)).toEqual({ ok: true, value: REPLY, usage: USAGE });
     expect(sent[0].body).toMatchObject({
-      max_tokens: 3000,
+      max_tokens: 6000,
       output_config: { effort: "low", format: { type: "json_schema" } },
       system: [
         { type: "text", text: tellRules(true) },

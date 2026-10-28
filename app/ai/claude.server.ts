@@ -74,6 +74,10 @@ export interface CallSpec {
   content: Anthropic.ContentBlockParam[];
   /** "low" for describe, label and tell; "medium" for the take. */
   effort: "low" | "medium";
+  /**
+   * Adaptive thinking spends from this too, so it is set well above the reply's own length: 8,000 for the take,
+   * 6,000 for the rest. Still small enough to send without streaming. A reply cut off here logs "max-tokens".
+   */
   maxTokens: number;
   /** The one try's timeout. No retry: a second try would land after the phone gave up. */
   waitMs: number;
@@ -158,14 +162,14 @@ export function anthropicClient(key: string, opts: ClientOptions = {}): AiClient
   return {
     probe: () => textCall(client, { system: [{ type: "text", text: PROBE_SYSTEM }], content: [{ type: "text", text: "Are you there?" }], effort: "low", maxTokens: 1000, waitMs: MODEL_WAIT_MS.probe }),
     // Too small and too rare to cache.
-    take: (i) => textCall(client, { system: [{ type: "text", text: takeSystem(i.voice) }], content: [{ type: "text", text: takeUser(i.lines, i.facts) }], effort: "medium", maxTokens: 2000, waitMs: MODEL_WAIT_MS.take }),
+    take: (i) => textCall(client, { system: [{ type: "text", text: takeSystem(i.voice) }], content: [{ type: "text", text: takeUser(i.lines, i.facts) }], effort: "medium", maxTokens: 8000, waitMs: MODEL_WAIT_MS.take }),
     tell: (i) =>
       structuredCall(client, {
         // The library is the same for every note, so it is cached; a second note inside 5 minutes reads it from cache.
         system: i.hasPlan ? [{ type: "text", text: tellRules(true) }, { type: "text", text: libraryBlock(), cache_control: { type: "ephemeral" } }] : [{ type: "text", text: tellRules(false) }],
         content: [{ type: "text", text: tellUser(i) }],
         effort: "low",
-        maxTokens: 3000,
+        maxTokens: 6000,
         waitMs: MODEL_WAIT_MS.tell,
         schema: TellReply,
       }),
@@ -178,7 +182,7 @@ export function anthropicClient(key: string, opts: ClientOptions = {}): AiClient
           { type: "text", text: "Read this label." },
         ],
         effort: "low",
-        maxTokens: 2000,
+        maxTokens: 6000,
         waitMs: MODEL_WAIT_MS.label,
         schema: LabelSchema,
       }),
@@ -191,7 +195,7 @@ export function anthropicClient(key: string, opts: ClientOptions = {}): AiClient
         ],
         content: [{ type: "text", text }],
         effort: "low",
-        maxTokens: 4000,
+        maxTokens: 6000,
         waitMs: MODEL_WAIT_MS.describe,
         schema: DescribeSchema,
       }),

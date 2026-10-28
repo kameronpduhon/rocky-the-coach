@@ -5,12 +5,12 @@ import { COACH_NAME } from "~/brand";
 import { fakeFetch, message, USAGE } from "./fake-anthropic";
 
 describe("AiClient.take", () => {
-  it("asks at medium effort with the voice in the system prompt, and the lines and facts in the message", async () => {
+  it("asks at medium effort, with room for adaptive thinking, with the voice in the system prompt, and the lines and facts in the message", async () => {
     const { sent, fetch } = fakeFetch(() => message({ content: [{ type: "text", text: " Every day counted. " }] }));
     const lines = ["Week 3, Oct 19 to 25", "Trend weight 205.1 lb, down 0.4 lb this week"];
     expect(await anthropicClient("k", { fetch, maxRetries: 0 }).take({ lines, voice: "plain", facts: ["No squats or lunges."] })).toEqual({ ok: true, value: "Every day counted.", usage: USAGE });
     expect(sent[0].body).toMatchObject({
-      max_tokens: 2000,
+      max_tokens: 8000,
       output_config: { effort: "medium" },
       system: [{ type: "text", text: takeSystem("plain") }],
       messages: [
@@ -20,6 +20,11 @@ describe("AiClient.take", () => {
         },
       ],
     });
+  });
+
+  it("names a take cut off by max_tokens, so the route logs it as max-tokens", async () => {
+    const { fetch } = fakeFetch(() => message({ stop_reason: "max_tokens", content: [] }));
+    expect(await anthropicClient("k", { fetch }).take({ lines: ["Week 3"], voice: "plain", facts: [] })).toEqual({ ok: false, reason: "max-tokens", usage: USAGE });
   });
 
   it("gives each voice its line and the same rules", () => {

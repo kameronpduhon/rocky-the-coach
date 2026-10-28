@@ -12,7 +12,7 @@ describe("AiClient.describe", () => {
     const { sent, fetch } = fakeFetch(() => message({ content: [{ type: "text", text: JSON.stringify(PLATE) }] }));
     expect(await anthropicClient("k", { fetch, maxRetries: 0 }).describe("Chipotle bowl, black beans")).toEqual({ ok: true, value: PLATE, usage: USAGE });
     expect(sent[0]!.body).toMatchObject({
-      max_tokens: 4000,
+      max_tokens: 6000,
       system: [
         { type: "text", text: describeSystem() },
         { type: "text", text: foodPromptBlock(), cache_control: { type: "ephemeral" } },

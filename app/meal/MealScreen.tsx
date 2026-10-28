@@ -120,9 +120,11 @@ function MealDock({ m, portions, onHaveIt }: { m: MealModel; portions: number; o
       <Dock>
         <div className="flex min-h-14 items-center justify-between gap-3">
           <span className="font-num text-[19px] font-bold">{m.state === "eaten" ? `Eaten at ${m.eatenAt}` : "Skipped"}</span>
-          <button type="button" onClick={() => void mutate("unlogMeal", { key: m.logKey })} className={btn.quiet}>
-            Undo
-          </button>
+          <div className="flex">
+            <button type="button" onClick={() => void mutate("unlogMeal", { key: m.logKey })} className={btn.quiet}>
+              Undo
+            </button>
+          </div>
         </div>
       </Dock>
     );

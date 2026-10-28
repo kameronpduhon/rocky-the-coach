@@ -45,7 +45,7 @@ export function BatchCard({ m, portions }: { m: MealModel; portions: number }) {
           <div className="flex items-center gap-2.5">
             <div className="flex h-14 flex-1 items-center gap-1.5 rounded-[6px] border-[1.5px] border-ink bg-field px-3.5 focus-within:outline-2 focus-within:outline-offset-2 focus-within:outline-red">
               <input id="cooked" value={value} onChange={(e) => setValue(e.target.value)} inputMode="numeric" placeholder="0" className="tabular w-full min-w-0 bg-transparent font-num text-[30px] font-bold outline-none" />
-              <span className="font-num text-[18px] font-bold text-ink-3">g cooked</span>
+              <span className="whitespace-nowrap font-num text-[18px] font-bold text-ink-3">g cooked</span>
             </div>
             <button type="submit" className="h-14 rounded-[6px] bg-ink px-[18px] font-num text-[17px] font-bold text-paper">
               Save

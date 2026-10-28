@@ -71,7 +71,7 @@ function DayRow({ d, past, onOpen }: { d: PlanDay; past: boolean; onOpen: (d: Pl
     <>
       <span className={`w-[42px] flex-none font-num text-[15px] font-bold ${d.today ? "text-red" : "text-ink-3"}`}>{d.weekday}</span>
       <span className="flex min-w-0 flex-1 flex-col">
-        <span className={d.today ? "text-[17px] font-bold" : `text-[16px] ${past ? "text-ink-3" : ""}`}>{d.title}</span>
+        <span className={d.today ? "text-[17px] font-bold" : `text-[16px] ${past ? "text-ink-3" : d.sheet?.action === "move" ? "font-semibold" : ""}`}>{d.title}</span>
         {d.sub && <span className={`text-[13px] ${d.today ? "text-ink-3" : "text-muted"}`}>{d.sub}</span>}
       </span>
       {d.done ? (

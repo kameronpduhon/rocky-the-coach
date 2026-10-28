@@ -1,5 +1,5 @@
 import { login, logout, me } from "./account";
-import { aiLabel, aiStatus, aiTake, aiTell } from "./ai";
+import { aiDescribe, aiLabel, aiStatus, aiTake, aiTell } from "./ai";
 import { withUser } from "./auth";
 import { barcode } from "./food";
 import { ingestSteps } from "./ingest";
@@ -34,6 +34,7 @@ const ROUTES: ApiRoute[] = [
   { method: "POST", path: /^\/api\/ai\/tell$/, run: aiTell },
   { method: "GET", path: /^\/api\/food\/barcode\/([^/]+)$/, run: barcode },
   { method: "POST", path: /^\/api\/ai\/label$/, run: aiLabel },
+  { method: "POST", path: /^\/api\/ai\/describe$/, run: aiDescribe },
 ];
 
 function decode(part: string): string {

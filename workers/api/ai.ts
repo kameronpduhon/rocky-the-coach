@@ -8,6 +8,8 @@ import { checkTake, takeHash } from "~/ai/take";
 import { anthropicClient, type AiClient, type AiKind, type AiReason, type AiResult } from "~/ai/claude.server";
 import { aiSwitchOn, callsToday, DAILY_CAP, logAiCall } from "~/ai/calls.server";
 import { UNREADABLE } from "~/ai/label";
+import { NO_PLATE, tidyDescribe } from "~/ai/describe";
+import { isFoodId } from "~/ai/food-table";
 import { isISODate, weekday } from "~/domain/dates";
 import { serverNow } from "~/server/clock.server";
 import { currentUser, userD1 } from "~/server/current-user.server";
@@ -162,4 +164,18 @@ export async function aiLabel(request: Request): Promise<Response> {
   const result = await call.ai.label(body.data.image);
   await logged(call, "label", result);
   return Response.json(result.ok ? result.value : UNREADABLE, { headers: NO_STORE });
+}
+
+const DescribeBody = z.object({ text: z.string().trim().min(1).max(300) });
+
+/** A described meal as food-table foods (spec section 3, "Describe it"). Every number on the plate comes from the table. */
+export async function aiDescribe(request: Request): Promise<Response> {
+  const call = await aiGate();
+  if (call instanceof Response) return call;
+  const body = DescribeBody.safeParse(await request.json().catch(() => null));
+  if (!body.success) return Response.json({ error: "Bad description" }, { status: 400, headers: NO_STORE });
+  if (await overCap(call, "describe")) return fallback("cap");
+  const result = await call.ai.describe(body.data.text);
+  await logged(call, "describe", result);
+  return Response.json(result.ok ? tidyDescribe(result.value, isFoodId) : NO_PLATE, { headers: NO_STORE });
 }

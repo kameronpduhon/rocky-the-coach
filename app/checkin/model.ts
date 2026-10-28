@@ -5,7 +5,7 @@ import { factorFor } from "~/content/scaled";
 import { checkInWindow } from "~/domain/checkin";
 import { addDays, mealDate, weekStart, weekday } from "~/domain/dates";
 import type { Call } from "~/domain/energy";
-import { MIN_TREND_WEIGH_INS, roundLb, trendSeries } from "~/domain/trend";
+import { MIN_TREND_WEIGH_INS, trendSeries } from "~/domain/trend";
 import type { ISODate } from "~/domain/types";
 import type { Row } from "~/sync/tables";
 import type { Rows } from "~/today/slots";
@@ -134,7 +134,7 @@ function chartPoints(rows: Rows, end: ISODate): TrendPoint[] {
   for (let d = plan.phaseStart; d <= end; d = addDays(d, 1)) {
     if (byDate.has(d)) seen++;
     const t = series.get(d);
-    out.push({ date: d, weight: byDate.get(d) ?? null, trend: seen >= MIN_TREND_WEIGH_INS && t !== undefined ? roundLb(t) : null });
+    out.push({ date: d, weight: byDate.get(d) ?? null, trend: seen >= MIN_TREND_WEIGH_INS && t !== undefined ? t : null });
   }
   return out;
 }

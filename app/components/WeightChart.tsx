@@ -52,7 +52,7 @@ export function WeightChart({ series }: { series: Point[] }) {
   const summary =
     `Weight from ${label(series[0].date)} to ${label(series.at(-1)!.date)}.` +
     (weights.length ? ` Daily weigh-ins range from ${Math.min(...weights)} to ${Math.max(...weights)} pounds.` : "") +
-    (lastTrendIndex >= 0 ? ` The trend is ${series[lastTrendIndex].trend} pounds.` : "");
+    (lastTrendIndex >= 0 ? ` The trend is ${series[lastTrendIndex].trend!.toFixed(1)} pounds.` : "");
 
   return (
     <div ref={ref}>

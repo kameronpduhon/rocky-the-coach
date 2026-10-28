@@ -5,7 +5,7 @@ import { exerciseChecks, setLogs, workoutSessions } from "~/db/schema";
 import { streak as streakFrom } from "~/domain/adherence";
 import { isTrainingDay } from "~/domain/calendar";
 import { addDays, daysBetween } from "~/domain/dates";
-import { MIN_TREND_WEIGH_INS, roundLb, trendReading, trendSeries } from "~/domain/trend";
+import { MIN_TREND_WEIGH_INS, trendReading, trendSeries } from "~/domain/trend";
 import type { ISODate } from "~/domain/types";
 import { waistLogsAll, weighInsThrough } from "./body.server";
 import { datesWithWorkouts, dayResults } from "./history.server";
@@ -23,6 +23,7 @@ export function nextPhotoDate(today: ISODate): ISODate {
 
 export interface ProgressData {
   phaseStart: ISODate;
+  /** The trend is unrounded, for the chart line; round it for any text. */
   series: { date: ISODate; weight: number | null; trend: number | null }[];
   latestTrend: number | null;
   changeSinceStart: number | null;
@@ -81,7 +82,7 @@ export async function progressData(db: Db, today: ISODate): Promise<ProgressData
     // As on Today and the check-in, the line starts with the third weigh-in.
     const enough = weighIns.filter((w) => w.date <= date).length >= MIN_TREND_WEIGH_INS;
     const t = trend.get(date);
-    series.push({ date, weight: byDate.get(date) ?? null, trend: enough && t !== undefined ? roundLb(t) : null });
+    series.push({ date, weight: byDate.get(date) ?? null, trend: enough && t !== undefined ? t : null });
   }
   const reading = trendReading(weighIns, end, start);
 

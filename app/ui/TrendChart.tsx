@@ -5,6 +5,7 @@ import type { ISODate } from "~/domain/types";
 export interface TrendPoint {
   date: ISODate;
   weight: number | null;
+  /** Unrounded, so the line slopes instead of stepping by tenths. Round only labels. */
   trend: number | null;
 }
 

@@ -32,8 +32,12 @@ describe("buildCheckIn: the window is open", () => {
     // Phase start to Sunday. Two weigh-ins by Oct 5 (Oct 4 and 5), so the line starts on Oct 6, at 205.981.
     expect(m.chart.points).toHaveLength(21);
     expect(m.chart.points[0]).toEqual({ date: "2026-10-05", weight: 205.9, trend: null });
-    expect(m.chart.points[1]).toEqual({ date: "2026-10-06", weight: 205.9, trend: 206 });
-    expect(m.chart.points.at(-1)).toEqual({ date: "2026-10-25", weight: 204.5, trend: 205.1 });
+    // The line plots the trend unrounded, so it slopes instead of stepping by tenths.
+    expect(m.chart.points[1]).toMatchObject({ date: "2026-10-06", weight: 205.9 });
+    expect(m.chart.points[1].trend).toBeCloseTo(205.981, 6);
+    expect(m.chart.points.at(-1)).toMatchObject({ date: "2026-10-25", weight: 204.5 });
+    expect(m.chart.points.at(-1)!.trend).toBeCloseTo(205.1, 1);
+    expect(m.chart.points.at(-1)!.trend).not.toBe(205.1);
   });
 
   it("writes the take and makes Rocky's pick the call until something is chosen", () => {

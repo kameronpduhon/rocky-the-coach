@@ -24,10 +24,13 @@ describe("progress", () => {
     // Weigh-ins 207, 206.9, 206.7, ... 205.3. The trend starts with the third: 207, 206.99, 206.961.
     expect(p.series[0]).toEqual({ date: "2026-10-05", weight: 207, trend: null });
     expect(p.series[1].trend).toBeNull();
-    expect(p.series[2]).toEqual({ date: "2026-10-07", weight: 206.7, trend: 207 });
+    // The chart plots the trend unrounded; only the text rounds it.
+    expect(p.series[2]).toMatchObject({ date: "2026-10-07", weight: 206.7 });
+    expect(p.series[2].trend).toBeCloseTo(206.961, 6);
     // Oct 18's trend is 206.18, which is 0.82 below Oct 5's.
     expect(p.latestTrend).toBe(206.2);
-    expect(p.series[13].trend).toBe(206.2);
+    expect(p.series[13].trend).toBeCloseTo(206.18, 2);
+    expect(p.series[13].trend).not.toBe(206.2);
     expect(p.changeSinceStart).toBe(-0.8);
     expect(p.waist).toEqual({ latest: 34.6, change: -0.4 });
     expect(p.strength[0]).toMatchObject({ name: "Preacher curl", from: 50, to: 60 });

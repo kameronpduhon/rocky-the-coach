@@ -68,6 +68,22 @@ describe("SyncClient", () => {
     expect(client.store.rows("profile")).toEqual([{ id: "me", voice: "plain" }]);
   });
 
+  it("waits for start to load the client id before a sync asked for early", async () => {
+    const persistence = memoryPersistence();
+    persistence.saved = { clientId: "saved-client-1", version: 3, nextMutationId: 1, base: {}, pending: [] };
+    const transport: Transport = {
+      push: vi.fn(async () => ({ ok: true, status: 200, result: { lastMutationId: 0, rejected: [] } })),
+      pull: vi.fn(async () => ({ ok: true, status: 200, result: { version: 4, lastMutationId: 0, snapshot: false, puts: {}, dels: {} } })),
+    };
+    const client = new SyncClient({ transport, persistence, context: ctx });
+    const starting = client.start();
+    void client.sync();
+    await starting;
+    await client.idle();
+    expect(transport.pull).toHaveBeenCalled();
+    expect(vi.mocked(transport.pull).mock.calls.every(([, id]) => id === "saved-client-1")).toBe(true);
+  });
+
   it("reports rejected changes", async () => {
     const transport: Transport = {
       push: vi.fn(async () => ({ ok: true, status: 200, result: { lastMutationId: 1, rejected: [{ id: 1, message: "That date is in the future." }] } })),

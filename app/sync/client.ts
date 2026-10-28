@@ -76,7 +76,8 @@ export class SyncClient {
 
   /** Pushes anything waiting, then pulls. Overlapping calls coalesce into one more round. */
   sync(): Promise<void> {
-    if (this.stopped) return Promise.resolve();
+    // Before start() has loaded the client id, a pull would be refused. start() syncs once it has.
+    if (this.stopped || !this.clientId) return Promise.resolve();
     this.again = true;
     // `running` is cleared in the same tick as the last `again` check. A .finally() would leave a gap where a call
     // sees a loop that has already ended and its change is never pushed.

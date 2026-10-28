@@ -1,6 +1,7 @@
 import { login, logout, me } from "./account";
 import { withUser } from "./auth";
 import { ingestSteps } from "./ingest";
+import { mealPhoto, media } from "./media";
 import { subscribe } from "./push";
 import { cancelRest, scheduleRest } from "./rest";
 import { pull, push } from "./sync";
@@ -20,6 +21,8 @@ const ROUTES: ApiRoute[] = [
   { method: "POST", path: /^\/api\/rest$/, run: scheduleRest },
   { method: "DELETE", path: /^\/api\/rest$/, run: cancelRest },
   { method: "POST", path: /^\/api\/ingest\/steps$/, run: ingestSteps, open: true },
+  { method: "GET", path: /^\/media\/(.+)$/, run: media },
+  { method: "POST", path: /^\/api\/meals\/([^/]+)\/photo$/, run: mealPhoto },
 ];
 
 function decode(part: string): string {

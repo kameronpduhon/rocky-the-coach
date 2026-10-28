@@ -3,12 +3,13 @@
 // call, and answers. A model failure is a 200 with the route's fallback shape; the phone treats it like a timeout.
 import { env } from "cloudflare:workers";
 import { z } from "zod";
+import { checkProposals } from "~/ai/proposals";
 import { checkTake, takeHash } from "~/ai/take";
 import { anthropicClient, type AiClient, type AiKind, type AiReason, type AiResult } from "~/ai/claude.server";
 import { aiSwitchOn, callsToday, DAILY_CAP, logAiCall } from "~/ai/calls.server";
 import { isISODate, weekday } from "~/domain/dates";
 import { serverNow } from "~/server/clock.server";
-import { userD1 } from "~/server/current-user.server";
+import { currentUser, userD1 } from "~/server/current-user.server";
 
 export interface AiDeps {
   key: () => string | undefined;
@@ -116,4 +117,33 @@ export async function aiTake(request: Request): Promise<Response> {
     .bind(weekStart, result.value, hash, voice, call.now.toISOString())
     .run();
   return Response.json({ text: result.value }, { headers: NO_STORE });
+}
+
+const TellBody = z.object({
+  text: z.string().trim().min(1).max(500),
+  today: z.string().refine(isISODate, "Not a date"),
+  context: z.object({
+    days: z
+      .array(z.object({ date: z.string().max(10), weekday: z.string().max(12), workout: z.string().max(80), templateId: z.string().max(64).nullable(), logged: z.boolean() }))
+      .max(8),
+    templates: z.record(z.string().max(64), z.array(z.string().max(64)).max(30)),
+  }),
+});
+
+/**
+ * Tell Rocky (spec section 4): the model proposes, the content checks drop anything outside the plan or the library,
+ * and the phone checks the rest against its copy before showing them. Without a plan only facts are asked for.
+ */
+export async function aiTell(request: Request): Promise<Response> {
+  const call = await aiGate();
+  if (call instanceof Response) return call;
+  const body = TellBody.safeParse(await request.json().catch(() => null));
+  if (!body.success) return Response.json({ error: "Bad note" }, { status: 400 });
+  if (await overCap(call, "tell")) return fallback("cap");
+  const hasPlan = Boolean(currentUser().planKey);
+  const { text, today, context } = body.data;
+  const result = await call.ai.tell({ note: text, today, context: hasPlan ? context : { days: [], templates: {} }, facts: await factTexts(call.d1), hasPlan });
+  await logged(call, "tell", result);
+  if (!result.ok) return Response.json({ proposals: null }, { headers: NO_STORE });
+  return Response.json({ proposals: checkProposals(result.value.proposals, text, hasPlan) }, { headers: NO_STORE });
 }

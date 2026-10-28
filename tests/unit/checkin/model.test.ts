@@ -47,7 +47,7 @@ describe("buildCheckIn: the window is open", () => {
       fix: "Friday's workout was missed. Get the next one in.",
       call: "Trend down 0.4 lb. Burn is near 2,680, so calories go to 2,300 from Monday.",
     });
-    expect(m.choices).toEqual({ week: "2026-10-19", hunger: null, energy: null, sleep: null, pick: "calories", rest: [BOWL], lifts: { [SHOULDER]: "hold" } });
+    expect(m.choices).toEqual({ week: "2026-10-19", hunger: null, energy: null, sleep: null, pick: null, rest: [BOWL], lifts: { [SHOULDER]: "hold" } });
     expect(m.call!.choice).toBe("calories");
     expect(m.call!.view).toMatchObject({ kcal: 2300, unit: "cal a day from Monday", was: "was 2,400", steps: "Steps 7,500" });
     expect(m.call!.view.options.map((o) => o.value)).toEqual(["calories", "steps"]);
@@ -95,6 +95,22 @@ describe("buildCheckIn: the window is open", () => {
     expect(m.call!.view.kcal).toBe(2400);
     expect(m.call!.view.why.at(-1)).toBe(`You were hungry two Sundays running, so ${COACH_NAME} picks steps over less food.`);
     expect(m.take!.call).toBe(`Trend down 0.4 lb. You were hungry two Sundays running, so ${COACH_NAME} picks 8,000 steps over less food.`);
+  });
+
+  it("keeps following Rocky's pick as the taps change, the way the page feeds the choices back", () => {
+    const t = weekThree();
+    t.check_ins = [checkInRow("2026-10-12", { hunger: "high" })];
+    const r = rowsOf(t);
+    const first = buildCheckIn(r, SUNDAY_6PM, null);
+    expect(first.choices.pick).toBeNull();
+    const hungry = buildCheckIn(r, SUNDAY_6PM, { ...first.choices, hunger: "high" });
+    expect(hungry.call!.choice).toBe("steps");
+    expect(hungry.finish!.pick).toBe("steps");
+    const cleared = buildCheckIn(r, SUNDAY_6PM, { ...hungry.choices, hunger: null });
+    expect(cleared.call!.choice).toBe("calories");
+    expect(cleared.finish!.pick).toBe("calories");
+    const mine = buildCheckIn(r, SUNDAY_6PM, { ...cleared.choices, pick: "steps" });
+    expect(buildCheckIn(r, SUNDAY_6PM, { ...mine.choices, hunger: "fine" }).finish!.pick).toBe("steps");
   });
 });
 

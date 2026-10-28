@@ -44,7 +44,7 @@ export default function CheckIn() {
   return (
     <CheckInScreen
       m={model}
-      onChoose={(change) => setChoices({ ...model.choices, ...change })}
+      onChoose={(change) => setChoices((held) => ({ ...(held?.week === model.monday ? held : model.choices), ...change }))}
       onWaist={(inches) => void mutate("logWaist", { date: model.sunday, inches })}
       onFinish={() => void finish()}
       onReopen={() => {

@@ -74,7 +74,7 @@ export interface CheckInModel {
   chart: { points: TrendPoint[]; marker: ISODate; left: string | null; right: string | null; label: string };
   stats: { days: StatView; lifts: StatView; steps: StatView };
   waist: { value: number | null; note: string | null; editable: boolean };
-  /** The choices in effect: what the page holds, else the saved ones, else the defaults. */
+  /** The choices in effect: what the page holds, else the saved ones, else the defaults. `pick` is only the person's own; Rocky's is in `call.choice`. */
   choices: PageChoices;
   take: Take | null;
   call: { view: CallView; changes: ScaleList; choice: CallPick } | null;
@@ -250,7 +250,8 @@ export function buildCheckIn(rows: Rows, now: Date, choices: PageChoices | null,
 
   return {
     ...shared,
-    choices: { ...base, pick, rest, lifts },
+    // The pick stays the person's own: null until a radio is tapped, so Rocky's pick keeps following the taps.
+    choices: { ...base, rest, lifts },
     take,
     call: { view, changes, choice: pick },
     next: {

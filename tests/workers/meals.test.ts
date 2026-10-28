@@ -2,7 +2,7 @@ import { describe, expect, it } from "vitest";
 import { meals } from "~/content";
 import { factorFor, scaledMeal } from "~/content/scaled";
 import { latestWeighIn, logWaist, logWeighIn, stepsFor, upsertSteps, weighInFor } from "~/server/body.server";
-import { createBatch, logPlannedMeal, logOffPlan, logsForDate, mainProtein, openBatch, unlog } from "~/server/meals.server";
+import { createBatch, logPlannedMeal, logOffPlan, logsForDate, openBatch, unlog } from "~/server/meals.server";
 import { setTargetsFrom } from "~/server/targets.server";
 import { db } from "./helpers";
 
@@ -26,11 +26,6 @@ describe("meal logs", () => {
 });
 
 describe("batches", () => {
-  it("picks the ingredient carrying the most protein as the main protein", () => {
-    expect(mainProtein(meals.get("chicken-and-rice-bowl")!).food).toBe("chicken-breast-raw");
-    expect(mainProtein(meals.get("egg-and-potato-hash")!).food).toBe("egg-white");
-  });
-
   it("splits a cooked batch and finds it for the next 3 days", async () => {
     const batch = await createBatch(db(), "chicken-and-rice-bowl", 3, 492, "2026-10-12");
     expect(batch.portionG).toBe(165);

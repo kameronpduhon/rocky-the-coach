@@ -5,7 +5,7 @@ import { db } from "./helpers";
 describe("reminder settings", () => {
   it("returns defaults for every reminder until changed", async () => {
     const all = await reminderSettings(db());
-    expect(all).toHaveLength(10);
+    expect(all).toHaveLength(11);
     expect(all.find((r) => r.kind === "weigh-in")).toMatchObject({ enabled: true, time: "07:30" });
   });
 

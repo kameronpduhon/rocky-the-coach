@@ -4,8 +4,8 @@ import type { Db } from "~/db/client";
 import { notificationsSent, workoutSessions } from "~/db/schema";
 import { isRelaxedDay, isTrainingDay } from "~/domain/calendar";
 import { localDate, localMinutes, weekStart, weekday } from "~/domain/dates";
-import { dueReminders, reminderDef, type ReminderKind } from "~/domain/reminders";
-import type { Slot } from "~/domain/types";
+import { dueReminders, reminderBody, reminderDef, type ReminderFacts, type ReminderKind } from "~/domain/reminders";
+import { SLOTS, type Slot } from "~/domain/types";
 import { stepsFor, weighInFor } from "./body.server";
 import { checkInDone } from "./checkin.server";
 import { datesWithWorkouts } from "./history.server";
@@ -25,6 +25,7 @@ const URLS: Record<ReminderKind, string> = {
   steps: "/",
   dinner: "/",
   "kitchen-closed": "/",
+  "close-out": "/?closeout=today",
   "check-in": "/check-in",
 };
 
@@ -47,22 +48,22 @@ export async function runReminders(db: Db, now: Date, send: Sender = sendToAll):
     movesBetween(db, date, date),
   ]);
 
-  let due = dueReminders(
-    localMinutes(now),
-    {
-      weekday: wd,
-      trainingDay: isTrainingDay(plan, date, moves),
-      weighedIn: weighIn !== null,
-      loggedSlots: logs.filter((l) => l.slot).map((l) => l.slot as Slot),
-      sessionStarted: sessions.some((s) => s.startedAt !== null),
-      loggedSetToday: setDates.has(date),
-      steps,
-      stepGoal: targets.stepGoal,
-      checkInDone: checkedIn,
-    },
-    settings,
-    sentRows.map((r) => r.kind as ReminderKind),
-  );
+  // A slot is marked once it is eaten or skipped. Off-plan rows have no slot.
+  const marked = new Set(logs.filter((l) => l.category === "planned" || l.category === "skipped").map((l) => l.slot));
+  const facts: ReminderFacts = {
+    weekday: wd,
+    trainingDay: isTrainingDay(plan, date, moves),
+    weighedIn: weighIn !== null,
+    loggedSlots: logs.filter((l) => l.slot).map((l) => l.slot as Slot),
+    sessionStarted: sessions.some((s) => s.startedAt !== null),
+    loggedSetToday: setDates.has(date),
+    steps,
+    stepGoal: targets.stepGoal,
+    checkInDone: checkedIn,
+    unmarkedSlots: SLOTS.filter((s) => !marked.has(s)).length,
+    loggedMeal: logs.length > 0,
+  };
+  let due = dueReminders(localMinutes(now), facts, settings, sentRows.map((r) => r.kind as ReminderKind));
   // Holidays never nag. The check-in still matters if one lands on a Sunday.
   if (isRelaxedDay(plan, date)) due = due.filter((k) => k === "check-in");
 
@@ -72,7 +73,7 @@ export async function runReminders(db: Db, now: Date, send: Sender = sendToAll):
     const claimed = await db.insert(notificationsSent).values({ kind, date }).onConflictDoNothing().returning();
     if (claimed.length === 0) continue;
     const def = reminderDef(kind);
-    await send(db, { title: def.title, body: def.body, url: URLS[kind], tag: kind });
+    await send(db, { title: def.title, body: reminderBody(kind, facts), url: URLS[kind], tag: kind });
     sent.push(kind);
   }
   return sent;

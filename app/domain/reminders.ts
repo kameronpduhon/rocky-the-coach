@@ -11,6 +11,7 @@ export type ReminderKind =
   | 'steps'
   | 'dinner'
   | 'kitchen-closed'
+  | 'close-out'
   | 'check-in';
 
 export interface ReminderFacts {
@@ -25,6 +26,10 @@ export interface ReminderFacts {
   steps: number;
   stepGoal: number;
   checkInDone: boolean;
+  /** Today's planned slots not yet eaten or skipped. */
+  unmarkedSlots: number;
+  /** Anything at all was logged today, planned or not. */
+  loggedMeal: boolean;
 }
 
 interface ReminderDef {
@@ -33,7 +38,7 @@ interface ReminderDef {
   days: number[];
   when: (f: ReminderFacts) => boolean;
   title: string;
-  body: string;
+  body: string | ((f: ReminderFacts) => string);
 }
 
 const EVERY_DAY = [0, 1, 2, 3, 4, 5, 6];
@@ -48,6 +53,14 @@ export const DEFAULT_REMINDERS: ReminderDef[] = [
   { kind: 'steps', time: '18:00', days: EVERY_DAY, when: (f) => f.steps < 0.6 * f.stepGoal, title: 'Steps', body: 'Two 15-minute walks gets you there.' },
   { kind: 'dinner', time: '19:00', days: EVERY_DAY, when: (f) => !f.loggedSlots.includes('dinner'), title: 'Dinner', body: 'Dinner is on the plan. Log it when you eat.' },
   { kind: 'kitchen-closed', time: '20:30', days: EVERY_DAY, when: () => true, title: "Kitchen's closed", body: 'Dessert is done. See you at breakfast.' },
+  {
+    kind: 'close-out',
+    time: '21:15',
+    days: EVERY_DAY,
+    when: (f) => f.loggedMeal && f.unmarkedSlots > 0,
+    title: 'Close out today',
+    body: (f) => `${f.unmarkedSlots} ${f.unmarkedSlots === 1 ? "meal isn't" : "meals aren't"} marked. One tap closes out today.`,
+  },
   { kind: 'check-in', time: '19:00', days: [0], when: (f) => !f.checkInDone, title: 'Sunday check-in', body: 'Ten minutes to set up next week.' },
 ];
 
@@ -61,6 +74,7 @@ export const REMINDER_LABEL: Record<ReminderKind, string> = {
   steps: 'Steps check',
   dinner: 'Dinner',
   'kitchen-closed': 'Kitchen closes',
+  'close-out': 'Close out',
   'check-in': 'Check-in',
 };
 
@@ -76,6 +90,11 @@ export function reminderDef(kind: ReminderKind): ReminderDef {
   const def = DEFAULT_REMINDERS.find((r) => r.kind === kind);
   if (!def) throw new Error(`Unknown reminder: ${kind}`);
   return def;
+}
+
+export function reminderBody(kind: ReminderKind, facts: ReminderFacts): string {
+  const { body } = reminderDef(kind);
+  return typeof body === 'string' ? body : body(facts);
 }
 
 export function dueReminders(

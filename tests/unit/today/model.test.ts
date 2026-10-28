@@ -153,4 +153,39 @@ describe("buildToday", () => {
     expect(m.canChange).toBe(false);
     expect(m.week.find((d) => d.today)?.counted).toBe(true);
   });
+
+  it("answers a skipped slot, so the poster and the list move on to the next meal", () => {
+    const skip: Row = { id: null, client_id: "s-1", date: WED, slot: "lunch", meal_slug: null, name: "Lunch", category: "skipped", kcal: 0, protein_g: 0, relaxed: 0, portions: 1, logged_at: `${WED}T19:00:00Z` };
+    const m = asPlan(buildToday(rowsOf({ planned_meals: planned(WED), meal_logs: [ate(WED, "breakfast", 1, `${WED}T12:40:00Z`), skip] }), at(WED, "14:30"), true));
+    expect(m.slots.find((s) => s.slot === "lunch")).toMatchObject({ logKey: null, skipKey: "s-1", next: false });
+    expect(m.slots.find((s) => s.next)?.slot).toBe("snack");
+    expect(m.next).toEqual({ kind: "meal", slot: "snack" });
+  });
+
+  it("offers to close out today after dessert's time while a meal is unmarked", () => {
+    const logs = [ate(WED, "breakfast", 1, `${WED}T12:40:00Z`), ate(WED, "lunch", 2, `${WED}T19:10:00Z`)];
+    const evening = asPlan(buildToday(rowsOf({ planned_meals: planned(WED), meal_logs: logs }), at(WED, "21:15"), true));
+    const dinner = meals.get(SLUGS.dinner)!;
+    expect(evening.closeOut.link).toBe(true);
+    expect(evening.closeOut.today?.title).toBe("Close out Wednesday");
+    expect(evening.closeOut.today?.rows.map((r) => r.slot)).toEqual(["snack", "dinner", "dessert"]);
+    expect(evening.closeOut.today?.rows[1]).toEqual({ slot: "dinner", mealSlug: dinner.slug, name: dinner.name, sub: `Dinner · ${dinner.kcal} cal · ${dinner.protein} g` });
+    expect(asPlan(buildToday(rowsOf({ planned_meals: planned(WED), meal_logs: logs }), at(WED, "19:00"), true)).closeOut.link).toBe(false);
+  });
+
+  it("asks about yesterday only while it is half answered", () => {
+    const TUE = "2026-10-27";
+    const ask = (meal_logs: Row[]) => asPlan(buildToday(rowsOf({ planned_meals: [...planned(TUE), ...planned(WED)], meal_logs }), at(WED, "07:10"), true)).closeOut.yesterday;
+    const half = ask([ate(TUE, "breakfast", 1, `${TUE}T12:40:00Z`)]);
+    expect(half).toMatchObject({ date: TUE, title: "Close out yesterday" });
+    expect(half?.rows).toHaveLength(4);
+    expect(ask([])).toBeNull();
+    expect(ask(["breakfast", "lunch", "snack", "dinner", "dessert"].map((slot, i) => ate(TUE, slot, i + 1, `${TUE}T1${i}:00:00Z`)))).toBeNull();
+  });
+
+  it("lists usual orders, most used first", () => {
+    const usual = (client_id: string, name: string, uses: number, last_used_at: string | null): Row => ({ client_id, name, category: "meal", kcal: 900, protein_g: 50, relaxed: 1, uses, last_used_at, created_at: "2026-10-27T00:00:00Z" });
+    const m = asPlan(buildToday(rowsOf({ planned_meals: planned(WED), usual_orders: [usual("a", "Restaurant meal", 0, null), usual("b", "Chipotle bowl", 3, `${WED}T18:00:00Z`)] }), at(WED, "12:00"), true));
+    expect(m.usuals.map((u) => u.name)).toEqual(["Chipotle bowl", "Restaurant meal"]);
+  });
 });

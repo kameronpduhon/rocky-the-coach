@@ -87,12 +87,3 @@ export async function plannedForDate(db: Db, date: ISODate): Promise<PlannedSlot
 export async function restMeal(db: Db, slug: string, until: ISODate): Promise<void> {
   await db.insert(mealState).values({ slug, restedUntil: until }).onConflictDoUpdate({ target: mealState.slug, set: { restedUntil: until } });
 }
-
-export async function swapPlanned(db: Db, date: ISODate, slot: Slot, slug: string, always: boolean, today: ISODate): Promise<void> {
-  const current = await db.select().from(plannedMeals).where(and(eq(plannedMeals.date, date), eq(plannedMeals.slot, slot))).get();
-  await db
-    .insert(plannedMeals)
-    .values({ date, slot, mealSlug: slug, swapped: true })
-    .onConflictDoUpdate({ target: [plannedMeals.date, plannedMeals.slot], set: { mealSlug: slug, swapped: true } });
-  if (always && current && current.mealSlug !== slug) await restMeal(db, current.mealSlug, addDays(today, 28));
-}

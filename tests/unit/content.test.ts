@@ -23,6 +23,14 @@ describe("content", () => {
     expect(exercises.size).toBe(49);
   });
 
+  it("leaves counts out of the notes on foods the app counts itself", () => {
+    for (const meal of meals.values()) {
+      for (const ing of meal.ingredients) {
+        if (foods.get(ing.food)?.eachG) expect(ing.note ?? "", `${meal.slug} ${ing.food}`).not.toMatch(/^\d/);
+      }
+    }
+  });
+
   it("references only known foods", () => {
     for (const meal of meals.values()) {
       for (const ing of meal.ingredients) expect(foods.has(ing.food), `${meal.slug} uses ${ing.food}`).toBe(true);

@@ -1,6 +1,8 @@
 import { describe, expect, it } from "vitest";
+import { meals } from "~/content";
 import { workoutSessions } from "~/db/schema";
 import { logWeighIn } from "~/server/body.server";
+import { logPlannedMeal } from "~/server/meals.server";
 import { runReminders } from "~/server/reminders.server";
 import type { PushMessage } from "~/server/push.server";
 import { chicago, db } from "./helpers";
@@ -45,5 +47,18 @@ describe("runReminders", () => {
     const c = collector();
     await runReminders(db(), chicago("2026-10-28", "11:30"), c.send);
     expect(c.sent.map((m) => m.title)).toContain("Lift at noon");
+  });
+
+  it("asks to close out at 9:15pm, opening the sheet, while meals are unmarked", async () => {
+    await logPlannedMeal(db(), "2026-10-20", "lunch", meals.get("chicken-and-rice-bowl")!, new Date());
+    const c = collector();
+    await runReminders(db(), chicago("2026-10-20", "21:15"), c.send);
+    expect(c.sent).toEqual([{ title: "Close out today", body: "4 meals aren't marked. One tap closes out today.", url: "/?closeout=today", tag: "close-out" }]);
+  });
+
+  it("doesn't ask to close out a day with nothing logged", async () => {
+    const c = collector();
+    await runReminders(db(), chicago("2026-10-22", "21:15"), c.send);
+    expect(c.sent).toEqual([]);
   });
 });

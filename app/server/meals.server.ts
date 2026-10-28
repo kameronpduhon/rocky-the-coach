@@ -1,5 +1,5 @@
 import { and, asc, desc, eq, gt, gte } from "drizzle-orm";
-import { foods, meals, type MealWithMacros } from "~/content";
+import { meals, type MealWithMacros } from "~/content";
 import { factorFor, scaledMeal } from "~/content/scaled";
 import type { Db } from "~/db/client";
 import { batches, mealLogs } from "~/db/schema";
@@ -15,6 +15,7 @@ export function logsForDate(db: Db, date: ISODate): Promise<MealLog[]> {
   return db.select().from(mealLogs).where(eq(mealLogs.date, date)).orderBy(asc(mealLogs.loggedAt)).all();
 }
 
+// No app caller since N2: worker tests seed history with logPlannedMeal and createBatch. Project 4 removes them.
 export async function logPlannedMeal(db: Db, date: ISODate, slot: Slot, meal: MealWithMacros, now: Date, clientId?: string): Promise<number | null> {
   // Same snapshot as the logMeal change: the day's grams, or the grams its batch was cooked at.
   const batch = await openBatch(db, meal.slug, date);
@@ -41,19 +42,6 @@ export async function logOffPlan(
 
 export async function unlog(db: Db, id: number): Promise<void> {
   await db.delete(mealLogs).where(eq(mealLogs.id, id));
-}
-
-export function mainProtein(meal: MealWithMacros) {
-  let best = meal.ingredients[0];
-  let bestProtein = -1;
-  for (const ing of meal.ingredients) {
-    const p = (ing.grams / 100) * (foods.get(ing.food)?.proteinPer100 ?? 0);
-    if (p > bestProtein) {
-      best = ing;
-      bestProtein = p;
-    }
-  }
-  return best;
 }
 
 export type Batch = typeof batches.$inferSelect;

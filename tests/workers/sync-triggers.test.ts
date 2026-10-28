@@ -43,4 +43,13 @@ describe("sync triggers", () => {
       { table_name: "exercise_notes", row_key: "leg-press", op: "put" },
     ]);
   });
+
+  it("keys batches by their phone id and logs usual orders", async () => {
+    await env.DB.prepare("INSERT INTO batches (client_id, meal_slug, portions, cooked_weight_g, portion_g, created_on, portions_left, factor) VALUES ('b-t', 'chicken-and-rice-bowl', 2, 400, 200, '2026-10-27', 2, 1)").run();
+    await env.DB.prepare("INSERT INTO usual_orders (client_id, name, category, kcal, protein_g, relaxed, uses, created_at) VALUES ('u-t', 'Quest bar', 'snack', 190, 21, 0, 0, '2026-10-27T00:00:00Z')").run();
+    expect((await changes()).slice(-2)).toEqual([
+      { table_name: "batches", row_key: "b-t", op: "put" },
+      { table_name: "usual_orders", row_key: "u-t", op: "put" },
+    ]);
+  });
 });

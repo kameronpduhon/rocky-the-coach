@@ -43,7 +43,7 @@ export interface StuckCard {
 
 export interface NextWeekView {
   deload: boolean;
-  movedUp: { name: string; change: string }[];
+  movedUp: { name: string; from: number; to: number }[];
   movedUpNote: string;
   stuck: StuckCard[];
   repeats: { slug: string; name: string; rest: boolean; sub: string }[];
@@ -255,7 +255,7 @@ export function buildCheckIn(rows: Rows, now: Date, choices: PageChoices | null,
     call: { view, changes, choice: pick },
     next: {
       deload: l.nextWeekDeload,
-      movedUp: l.movedUp.map((m) => ({ name: m.name, change: `${m.from} → ${m.to} lb` })),
+      movedUp: l.movedUp.map((m) => ({ name: m.name, from: m.from, to: m.to })),
       movedUpNote: `${l.movedUp.length} ${l.movedUp.length === 1 ? "lift" : "lifts"} this week`,
       stuck: l.stuck.map((s) => ({
         exercise: s.exercise,

@@ -10,6 +10,7 @@ import { isISODate, localDate } from "~/domain/dates";
 import { deleteWeighIn, setWeighIn } from "~/server/body.server";
 import { serverNow } from "~/server/clock.server";
 import { progressData } from "~/server/progress.server";
+import { Arrow } from "~/ui/Arrow";
 
 export function meta() {
   return [{ title: pageTitle("Progress") }];
@@ -94,8 +95,7 @@ export default function Progress({ loaderData }: Route.ComponentProps) {
                 <div className="tabular flex-none text-[16px] font-semibold">
                   <span className="font-medium text-label-3">
                     <span className="sr-only">from </span>
-                    {s.from} <span aria-hidden="true">→</span>
-                    <span className="sr-only"> to</span>
+                    {s.from} <Arrow />
                   </span>{" "}
                   {s.to} lb
                 </div>

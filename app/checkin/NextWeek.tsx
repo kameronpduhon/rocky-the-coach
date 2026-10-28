@@ -1,5 +1,6 @@
 import { COACH_NAME } from "~/brand";
 import { Toggle } from "~/components/Toggle";
+import { Arrow } from "~/ui/Arrow";
 import { ChoicePair } from "~/ui/ChoicePair";
 import { LinkCard } from "~/ui/LinkCard";
 import type { LiftPlan, NextWeekView } from "./model";
@@ -30,7 +31,9 @@ export function NextWeek({ n, onRest, onLift }: { n: NextWeekView; onRest: (slug
                   {n.movedUp.map((m, i) => (
                     <li key={m.name} className={`flex min-h-10 items-center justify-between gap-2.5 ${i < n.movedUp.length - 1 ? "border-b border-brass-rule" : ""}`}>
                       <span className="text-[16px]">{m.name}</span>
-                      <span className="tabular whitespace-nowrap font-num text-[18px] font-bold">{m.change}</span>
+                      <span className="tabular whitespace-nowrap font-num text-[18px] font-bold">
+                        {m.from} <Arrow /> {m.to} lb
+                      </span>
                     </li>
                   ))}
                 </ul>

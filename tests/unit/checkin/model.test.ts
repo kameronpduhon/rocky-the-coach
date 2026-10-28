@@ -60,8 +60,8 @@ describe("buildCheckIn: the window is open", () => {
     expect(m.next).toEqual({
       deload: false,
       movedUp: [
-        { name: "Incline dumbbell press", change: "50 → 55 lb" },
-        { name: "Pec deck", change: "130 → 135 lb" },
+        { name: "Incline dumbbell press", from: 50, to: 55 },
+        { name: "Pec deck", from: 130, to: 135 },
       ],
       movedUpNote: "2 lifts this week",
       stuck: [{ exercise: SHOULDER, title: "Seated dumbbell shoulder press is stuck", line: "45 × 8, 7 three sessions running.", hold: "Hold 45, chase 8, 8", drop: "Drop to 40, build back", plan: "hold" }],

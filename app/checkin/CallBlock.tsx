@@ -1,3 +1,4 @@
+import { Arrow } from "~/ui/Arrow";
 import { SectionHead } from "~/ui/SectionHead";
 import type { CallPick, CallView, ScaleList } from "./call";
 
@@ -79,8 +80,7 @@ export function CallBlock({ view, choice, onChoice, changes }: { view: CallView;
                   <span className="text-[13px] text-muted">{c.meals}</span>
                 </span>
                 <span className="tabular flex-none whitespace-nowrap font-num text-[20px] font-bold">
-                  {c.from} <span aria-hidden="true">→</span>
-                  <span className="sr-only">to</span> {c.to} g
+                  {c.from} <Arrow /> {c.to} g
                 </span>
               </li>
             ))}

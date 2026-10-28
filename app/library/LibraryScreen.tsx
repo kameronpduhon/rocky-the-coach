@@ -10,6 +10,7 @@ import { SectionHead } from "~/ui/SectionHead";
 import type { ExerciseRow, ExerciseSection, LibraryModel, MealRow, MealSection } from "./model";
 
 export type LibraryTab = "meals" | "exercises";
+type Lead = "first" | "after" | null;
 
 const toggled = (set: Set<string>, key: string) => {
   const next = new Set(set);
@@ -18,11 +19,36 @@ const toggled = (set: Set<string>, key: string) => {
   return next;
 };
 
-/** A body part or meal section that opens in place: Anton 24 and a count with a chevron. */
-function Fold({ label, sub, count, open, onToggle, children }: { label: string; sub?: string; count: string; open: boolean; onToggle: () => void; children: ReactNode }) {
+/**
+ * A body part or meal section that opens in place: Anton 24 and a count with a chevron. Open, its head carries the
+ * 2 px ink rule as a section head does. `lead` starts a run of folded sections with the 2 px rule above it, as the
+ * mocks draw the folded list under an open section.
+ */
+function Fold({
+  label,
+  sub,
+  count,
+  open,
+  lead,
+  onToggle,
+  children,
+}: {
+  label: string;
+  sub?: string;
+  count: string;
+  open: boolean;
+  lead: Lead;
+  onToggle: () => void;
+  children: ReactNode;
+}) {
   return (
-    <div className="flex flex-col border-b border-rule">
-      <button type="button" aria-expanded={open} onClick={onToggle} className="flex min-h-14 items-center justify-between gap-3 text-left">
+    <div className={`flex flex-col ${open ? "" : "border-b border-rule"} ${lead ? "border-t-2 border-t-ink" : ""} ${lead === "after" ? "mt-[22px]" : ""}`}>
+      <button
+        type="button"
+        aria-expanded={open}
+        onClick={onToggle}
+        className={`flex items-center justify-between gap-3 text-left ${open ? "mb-1 min-h-11 border-b-2 border-ink pb-1.5" : "min-h-14"}`}
+      >
         <span className="flex flex-col">
           <span className="font-display text-[24px] uppercase">{label}</span>
           {sub && <span className="text-[13px] text-ink-3">{sub}</span>}
@@ -39,6 +65,9 @@ function Fold({ label, sub, count, open, onToggle, children }: { label: string; 
   );
 }
 
+/** A folded section that starts the list, or follows an open one, leads its run. After an open one it also leaves room. */
+const leads = (open: boolean[], i: number): Lead => (open[i] ? null : i === 0 ? "first" : open[i - 1] ? "after" : null);
+
 function MealLine({ r }: { r: MealRow }) {
   const body = (
     <>
@@ -46,7 +75,7 @@ function MealLine({ r }: { r: MealRow }) {
         <span className={`text-[16px] font-semibold ${r.resting ? "text-ink-3" : ""}`}>{r.name}</span>
         <span className="text-[13px] text-ink-3">{r.sub}</span>
       </span>
-      {r.resting && <span className="flex-none whitespace-nowrap rounded-[3px] border-[1.5px] border-ink px-1.5 py-0.5 font-num text-[13px] font-bold">{r.resting}</span>}
+      {r.resting && <span className="flex-none whitespace-nowrap rounded-[4px] border-[1.5px] border-border px-1.5 py-0.5 font-num text-[13px] font-bold text-ink-3">{r.resting}</span>}
     </>
   );
   const cls = "flex min-h-[58px] items-center gap-3 border-b border-rule py-2";
@@ -105,9 +134,16 @@ function Meals({ m, date, searching }: { m: LibraryModel; date: ISODate; searchi
           <OpenMeals key={s.id} s={s} />
         ))}
       {(folded.length > 0 || m.usuals.length > 0) && (
-        <section aria-label="More meals" className="flex flex-col border-t-2 border-ink">
-          {folded.map((s) => (
-            <Fold key={s.id} label={s.label} count={String(s.rows.length)} open={opened.has(s.id)} onToggle={() => setOpened(toggled(opened, s.id))}>
+        <section aria-label="More meals" className="flex flex-col">
+          {folded.map((s, i) => (
+            <Fold
+              key={s.id}
+              label={s.label}
+              count={String(s.rows.length)}
+              open={opened.has(s.id)}
+              lead={leads(folded.map((f) => opened.has(f.id)), i)}
+              onToggle={() => setOpened(toggled(opened, s.id))}
+            >
               {s.rows.map((r) => (
                 <MealLine key={r.slug} r={r} />
               ))}
@@ -119,6 +155,7 @@ function Meals({ m, date, searching }: { m: LibraryModel; date: ISODate; searchi
               sub="Your usual orders, one tap to log"
               count={String(m.usuals.length)}
               open={searching || opened.has("usuals")}
+              lead={leads([...folded.map((f) => opened.has(f.id)), searching || opened.has("usuals")], folded.length)}
               onToggle={() => setOpened(toggled(opened, "usuals"))}
             >
               {m.usuals.map((u) => (
@@ -152,10 +189,10 @@ function ExerciseLine({ r }: { r: ExerciseRow }) {
   );
 }
 
-function BodyPart({ s, open, onToggle }: { s: ExerciseSection; open: boolean; onToggle: () => void }) {
+function BodyPart({ s, open, lead, onToggle }: { s: ExerciseSection; open: boolean; lead: Lead; onToggle: () => void }) {
   const [swaps, setSwaps] = useState(false);
   return (
-    <Fold label={s.label} count={s.note} open={open} onToggle={onToggle}>
+    <Fold label={s.label} count={s.note} open={open} lead={lead} onToggle={onToggle}>
       {s.rows.map((r) => (
         <ExerciseLine key={r.id} r={r} />
       ))}
@@ -173,10 +210,11 @@ function BodyPart({ s, open, onToggle }: { s: ExerciseSection; open: boolean; on
 
 function Exercises({ m, searching }: { m: LibraryModel; searching: boolean }) {
   const [opened, setOpened] = useState<Set<string>>(() => new Set(m.exercises.filter((s) => s.open).map((s) => s.part)));
+  const open = m.exercises.map((s) => searching || opened.has(s.part));
   return (
-    <section aria-label="Exercises" className="flex flex-col border-t-2 border-ink">
-      {m.exercises.map((s) => (
-        <BodyPart key={s.part} s={s} open={searching || opened.has(s.part)} onToggle={() => setOpened(toggled(opened, s.part))} />
+    <section aria-label="Exercises" className="flex flex-col">
+      {m.exercises.map((s, i) => (
+        <BodyPart key={s.part} s={s} open={open[i]} lead={leads(open, i)} onToggle={() => setOpened(toggled(opened, s.part))} />
       ))}
     </section>
   );

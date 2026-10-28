@@ -16,7 +16,7 @@ async function gate(path: string) {
 
 describe("without a plan", () => {
   it("sends plan-only screens back to Today", async () => {
-    for (const path of ["/plan", "/progress", "/workout", "/meal/chicken-and-rice-bowl", "/check-in", "/groceries", "/plan.data"]) {
+    for (const path of ["/plan", "/progress", "/workout", "/meal/chicken-and-rice-bowl", "/check-in", "/groceries", "/plan.data", "/progress/lifts"]) {
       const res = (await gate(path)) as Response;
       expect(res.status, path).toBe(302);
       expect(res.headers.get("Location"), path).toBe("/");
@@ -24,6 +24,6 @@ describe("without a plan", () => {
   });
 
   it("lets Today, Library and Settings open", async () => {
-    for (const path of ["/", "/library", "/settings"]) expect(((await gate(path)) as Response).status, path).toBe(200);
+    for (const path of ["/", "/library", "/settings", "/lift/pec-deck"]) expect(((await gate(path)) as Response).status, path).toBe(200);
   });
 });

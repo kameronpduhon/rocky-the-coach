@@ -6,7 +6,7 @@ import { useNow } from "~/lib/use-now";
 import { useStoreVersion, useSyncClient, useSyncStatus } from "~/sync/react";
 import { dateLabel } from "~/today/model";
 import { DoneScreen } from "~/workout/DoneScreen";
-import { buildWorkout } from "~/workout/model";
+import { buildWorkout, workoutBack } from "~/workout/model";
 import { PlanScreen } from "~/workout/PlanScreen";
 import { SetScreen } from "~/workout/SetScreen";
 
@@ -15,8 +15,6 @@ export const handle = { hideTabBar: true };
 export function meta() {
   return [{ title: pageTitle("Workout") }];
 }
-
-const BACK: Record<string, string> = { today: "/", plan: "/plan", progress: "/progress" };
 
 /** All four workout screens. The workout's state picks one, so a change on the phone moves the screen on by itself. */
 export default function Workout() {
@@ -32,7 +30,7 @@ export default function Workout() {
     () => (client && ready ? buildWorkout((t) => client.store.rows(t), new Date(minute * 60_000), { date, template }) : null),
     [client, ready, version, minute, date, template],
   );
-  const back = BACK[params.get("from") ?? ""] ?? "/";
+  const back = workoutBack(params.get("from"), params.get("back"));
   // The server and the first paint have no store yet. It loads from the phone in a few milliseconds.
   if (!model) return <main aria-busy="true" className="min-h-dvh" />;
   if (model.screen === "plan") return <PlanScreen m={model} back={back} dateLabel={dateLabel(model.date)} />;

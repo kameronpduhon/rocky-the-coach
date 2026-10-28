@@ -2,7 +2,7 @@ import { describe, expect, it } from "vitest";
 import { meals, plan } from "~/content";
 import { parseTime } from "~/domain/dates";
 import type { Row } from "~/sync/tables";
-import { buildWorkout, lastLine, nextOpen, nextTarget, restLeft, setsText, standingLine } from "~/workout/model";
+import { buildWorkout, lastLine, nextOpen, nextTarget, restLeft, setsText, standingLine, workoutBack } from "~/workout/model";
 
 const WED = "2026-10-28";
 const LAST_WED = "2026-10-21";
@@ -158,5 +158,14 @@ describe("buildWorkout", () => {
     const m = buildWorkout(rowsOf(rows), at(WED, "08:00"));
     expect(m.lifts[0]).toMatchObject({ suggestion: { weight: 240, goUp: false }, drop: null });
     expect(lastLine(m.lifts[0], m.date).text).toBe("Last Monday: 240 × 10. Beat it today.");
+  });
+});
+
+describe("workoutBack", () => {
+  it("goes back to the lift page that opened the workout, or to the screen named by from", () => {
+    expect(workoutBack(null, "/lift/pec-deck?from=progress")).toBe("/lift/pec-deck?from=progress");
+    expect(workoutBack("plan", null)).toBe("/plan");
+    expect(workoutBack("progress", "https://example.com/")).toBe("/progress");
+    expect(workoutBack(null, "/lift/pec-deck?from=elsewhere")).toBe("/");
   });
 });

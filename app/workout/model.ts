@@ -296,3 +296,11 @@ export function standingLine(lift: LiftView, setsPerLift: number): string {
   if (more) return `Set ${lift.sets.length} hit ${lift.repMax}. Hit it again and ${top + lift.increment} is next week's weight.`;
   return `Every set hit ${lift.repMax}, so ${top + lift.increment} is next week's weight.`;
 }
+
+const BACK: Record<string, string> = { today: "/", plan: "/plan", progress: "/progress" };
+
+/** Where the workout's back button goes: the lift page that opened it, else the screen named by `from`. */
+export function workoutBack(from: string | null, back: string | null): string {
+  if (back && /^\/lift\/[a-z0-9-]+\?from=(library|progress)$/.test(back)) return back;
+  return BACK[from ?? ""] ?? "/";
+}

@@ -14,6 +14,8 @@ export default [
     index("routes/today.tsx"),
     route("plan", "routes/plan.tsx"),
     route("progress", "routes/progress.tsx"),
+    route("progress/lifts", "routes/progress.lifts.tsx"),
+    route("lift/:id", "routes/lift.tsx"),
     route("library", "routes/library.tsx"),
     route("settings", "routes/settings.tsx"),
     route("meal/:slug", "routes/meal.tsx"),

@@ -2,11 +2,15 @@ import { useEffect, useState, type ReactNode } from "react";
 import { Link } from "react-router";
 import { APP_NAME, COACH_NAME, pageTitle } from "~/brand";
 import type { Route } from "./+types/settings";
+import { useAi } from "~/ai/use-ai";
+import { FactsList } from "~/settings/FactsList";
+import type { Row } from "~/sync/tables";
+import { TellSheet } from "~/tell/TellSheet";
 import { Toggle } from "~/components/Toggle";
 import { Icon } from "~/components/ui";
 import { useMe } from "~/me";
 import { loadSettings } from "~/settings/load";
-import { lastReceived, reminderRows, voiceOf, type ReminderRow } from "~/settings/model";
+import { AI_SWITCH_COPY, lastReceived, reminderRows, rockySection, voiceOf, type ReminderRow } from "~/settings/model";
 import { useMutate, useStoreVersion, useSyncClient, useSyncStatus } from "~/sync/react";
 import { btn } from "~/ui/button";
 import { SectionHead } from "~/ui/SectionHead";
@@ -61,7 +65,7 @@ export default function Settings({ loaderData }: Route.ComponentProps) {
 
       <section aria-labelledby="rocky" className="flex flex-col gap-3.5">
         <SectionHead id="rocky">{COACH_NAME}</SectionHead>
-        {ready && <VoicePicker voice={voiceOf(rows("profile"))} />}
+        {ready && <RockySettings profile={rows("profile")} facts={rows("facts")} />}
       </section>
 
       <section aria-labelledby="reminders" className="flex flex-col">
@@ -122,6 +126,29 @@ const VOICES = [
   { value: "corner", name: "In your corner", note: "Straight shooter, a little fight" },
   { value: "plain", name: "Plain", note: "Same advice, no boxing talk" },
 ] as const;
+
+/** The ROCKY section (spec section 5, option 6A): the voice, the AI switch, What Rocky knows, and Tell Rocky. */
+function RockySettings({ profile, facts }: { profile: Row[]; facts: Row[] }) {
+  const ai = useAi();
+  const mutate = useMutate();
+  const [telling, setTelling] = useState(false);
+  const s = rockySection(profile, facts, ai.available);
+  return (
+    <>
+      <VoicePicker voice={voiceOf(profile)} />
+      <div className="flex items-start gap-3 pt-1">
+        <span className="flex flex-1 flex-col gap-0.5">
+          <span className="text-[16px] font-bold">{COACH_NAME}'s AI</span>
+          <span className="text-[14px] leading-[1.4] text-ink-3">{AI_SWITCH_COPY}</span>
+          {s.setupNote && <span className="pt-1.5 text-[14px] leading-[1.4] text-ink-3">{s.setupNote}</span>}
+        </span>
+        <Toggle on={s.aiOn} label={`${COACH_NAME}'s AI`} onChange={(on) => void mutate("setAi", { on })} />
+      </div>
+      <FactsList facts={s.facts} empty={s.empty} onTell={() => setTelling(true)} />
+      {telling && <TellSheet onClose={() => setTelling(false)} />}
+    </>
+  );
+}
 
 function VoicePicker({ voice }: { voice: "corner" | "plain" }) {
   const mutate = useMutate();

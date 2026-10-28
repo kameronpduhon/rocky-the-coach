@@ -8,12 +8,12 @@ import { addDays, formatClock, localDate, localMinutes, mealDate, weekStart, wee
 import { countedDay, dessertAllowance, fullDay, habitStreak, overAllowanceDates, type DayActivity } from "~/domain/habits";
 import { pickSituation, renderMessage } from "~/domain/messages";
 import { nextUp, type NextUp } from "~/domain/next-up";
-import { nextSuggestion } from "~/domain/progression";
+import { nextSuggestion, withDrop } from "~/domain/progression";
 import type { ISODate } from "~/domain/types";
 import { trendReading } from "~/domain/trend";
 import { keyOf, type Row } from "~/sync/tables";
 import { resolveLifts, titleLines, workoutMinutes, workoutTitle } from "~/workout/lifts";
-import { doneDates, lastSession, loggedDates, sessionKey, type Rows } from "~/workout/sessions";
+import { doneDates, dropFor, lastSession, loggedDates, sessionKey, type Rows } from "~/workout/sessions";
 import { closeOutDays, type CloseOutModel } from "./closeout";
 import { DAY_NAME, daySlots, targetsOn, type DaySlot } from "./slots";
 import { usualOrders, type UsualModel } from "./usuals";
@@ -120,7 +120,7 @@ function trainingModel(rows: Rows, date: ISODate, templateId: string, open: Row 
   for (const l of list) {
     const ex = exercises.get(l.exercise)!;
     const last = lastSession(rows, l.exercise, date);
-    const next = nextSuggestion(last?.sets ?? null, { repMax: l.repMax, increment: ex.increment, deload }, last?.feel ?? null);
+    const next = withDrop(nextSuggestion(last?.sets ?? null, { repMax: l.repMax, increment: ex.increment, deload }, last?.feel ?? null), dropFor(rows, l.exercise), last?.date ?? null, date);
     if (last && next.goUp && next.weight !== null) {
       const top = Math.max(...last.sets.map((x) => x.weight));
       goUp = `${ex.name}: ${setsWord(last.sets.length)} hit ${l.repMax} last time${last.feel === "easy" ? " and it felt easy" : ""}. Add ${next.weight - top} lb today.`;

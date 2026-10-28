@@ -68,6 +68,24 @@ describe("buildToday", () => {
     expect(m.training?.goUp).toBe(`${firstLift.name}: both sets hit ${legs.exercises[0].repMax} last time. Add ${firstLift.increment} lb today.`);
   });
 
+  it("says nothing goes up for a lift dropped back at the check-in", () => {
+    const lastWed = "2026-10-21";
+    const sets: Row[] = [1, 2].map((n) => ({ id: n, session_id: 9, session_key: "id:9", exercise_id: firstLift.id, position: 0, set_number: n, weight_lb: 270, reps: legs.exercises[0].repMax, logged_at: `${lastWed}T17:00:00Z`, client_id: null }));
+    const m = asPlan(
+      buildToday(
+        rowsOf({
+          planned_meals: planned(WED),
+          workout_sessions: [{ id: 9, date: lastWed, template_id: "wed-legs-shoulders", started_at: `${lastWed}T17:00:00Z`, ended_at: `${lastWed}T18:00:00Z`, exercises: null }],
+          set_logs: sets,
+          lift_drops: [{ exercise_id: firstLift.id, weight_lb: 240, from_date: "2026-10-26", created_at: "2026-10-25T23:00:00Z" }],
+        }),
+        at(WED, "09:00"),
+        true,
+      ),
+    );
+    expect(m.training?.goUp).toBeNull();
+  });
+
   it("shows the next meal with its scale grams when breakfast is due", () => {
     const m = asPlan(buildToday(rowsOf({ planned_meals: planned(WED) }), at(WED, "08:00"), true));
     expect(m.next).toEqual({ kind: "meal", slot: "breakfast" });

@@ -3,11 +3,11 @@ import { exercises, meals, plan } from "~/content";
 import { weekSchedule, type ScheduleDay } from "~/content/schedule";
 import { optionalTemplateFor, setsFor, templateFor, weekType, type Moves } from "~/domain/calendar";
 import { addDays, daysBetween, formatClock, isISODate, localMinutes, mealDate, parseTime, weekStart, weekday } from "~/domain/dates";
-import { nextSuggestion, restSeconds, type Feel, type LoggedSet, type Suggestion } from "~/domain/progression";
+import { dropApplies, nextSuggestion, restSeconds, withDrop, type Feel, type LiftDrop, type LoggedSet, type Suggestion } from "~/domain/progression";
 import { CUSTOM_WORKOUT, SLOTS, type ISODate } from "~/domain/types";
 import { keyOf, type Row } from "~/sync/tables";
 import { choiceLabel, resolveLifts, titleLines, workoutMinutes, workoutTitle, type Lift } from "./lifts";
-import { doneDates, finishedAt, lastSession, sessionKey, setsBySession, type LastSession, type Rows } from "./sessions";
+import { doneDates, dropFor, finishedAt, lastSession, sessionKey, setsBySession, type LastSession, type Rows } from "./sessions";
 
 const s = (r: Row, c: string) => r[c] as string;
 const n = (r: Row, c: string) => Number(r[c] ?? 0);
@@ -38,6 +38,8 @@ export interface LiftView extends Lift {
   done: boolean;
   last: LastSession | null;
   suggestion: Suggestion;
+  /** The check-in's drop, while it still applies to this day's session. */
+  drop: LiftDrop | null;
   note: string | null;
 }
 
@@ -139,6 +141,8 @@ export function buildWorkout(rows: Rows, now: Date, ask: WorkoutAsk = {}): Worko
       .map((r) => ({ key: keyOf("set_logs", r), setNumber: n(r, "set_number"), weight: n(r, "weight_lb"), reps: n(r, "reps"), loggedAt: s(r, "logged_at") }));
     const checked = checks.has(l.exercise);
     const last = lastSession(rows, l.exercise, date);
+    const drop = dropFor(rows, l.exercise);
+    const lastDate = last?.date ?? null;
     return {
       ...l,
       name: ex.name,
@@ -149,7 +153,8 @@ export function buildWorkout(rows: Rows, now: Date, ask: WorkoutAsk = {}): Worko
       checked,
       done: checked || sets.length >= setsPerLift,
       last,
-      suggestion: nextSuggestion(last?.sets ?? null, { repMax: l.repMax, increment: ex.increment, deload }, last?.feel ?? null),
+      suggestion: withDrop(nextSuggestion(last?.sets ?? null, { repMax: l.repMax, increment: ex.increment, deload }, last?.feel ?? null), drop, lastDate, date),
+      drop: dropApplies(drop, lastDate, date) ? drop : null,
       note: notes.get(l.exercise) ?? null,
     };
   });
@@ -273,6 +278,8 @@ export function lastLine(lift: LiftView, today: ISODate): { goUp: boolean; text:
     };
   }
   const head = `${whenLast(last.date, today)}: ${setsText(last.sets)}.`;
+  // A drop is not progression, so it reads in plain ink, never the brass callout.
+  if (lift.drop) return { goUp: false, text: `${head} Dropped to ${lift.drop.weight} at Sunday's check-in. Build back from here.` };
   const all = last.sets.length === 1 ? "Your set" : last.sets.length === 2 ? "Both sets" : "Every set";
   const weight = lift.suggestion.weight;
   if (lift.suggestion.goUp) return { goUp: true, text: `${head} ${all} hit the top${last.feel === "easy" ? " and it felt easy" : ""}, so ${weight} today.` };

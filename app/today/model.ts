@@ -14,7 +14,9 @@ import { sevenDayAverage } from "~/domain/weight";
 import { keyOf, type Row } from "~/sync/tables";
 import { resolveLifts, titleLines, workoutMinutes, workoutTitle } from "~/workout/lifts";
 import { doneDates, lastSession, loggedDates, sessionKey, type Rows } from "~/workout/sessions";
+import { closeOutDays, type CloseOutModel } from "./closeout";
 import { DAY_NAME, daySlots, targetsOn, type DaySlot } from "./slots";
+import { usualOrders, type UsualModel } from "./usuals";
 
 export type { Rows };
 export { SLOT_LABEL, shortClock } from "./slots";
@@ -91,6 +93,9 @@ export interface PlanToday extends Common {
   daysSoFar: number;
   countedLine: string;
   trendLine: string | null;
+  /** Today's and yesterday's unmarked meals, and whether the quiet "Close out today" link shows. */
+  closeOut: { today: CloseOutModel | null; yesterday: CloseOutModel | null; link: boolean };
+  usuals: UsualModel[];
 }
 
 export type TodayModel = NoPlanToday | PlanToday;
@@ -297,6 +302,9 @@ export function buildToday(rows: Rows, now: Date, hasPlan: boolean): TodayModel 
     daysSoFar: week.filter((d) => d.date < date).length + (todayCounted ? 1 : 0),
     countedLine: countedLine(activity(date), weighIn?.time ?? null, firstMealName(todayLogs), relaxed),
     trendLine: trendLine(weighInRows.map((r) => ({ date: s(r, "date"), weight: n(r, "weight_lb") })), date),
+    // The link shows from dessert's time while any slot is unmarked.
+    closeOut: { ...closeOutDays(rows, date, base), link: minutes >= base[base.length - 1].minutes && base.some((x) => !answered(x)) },
+    usuals: usualOrders(rows("usual_orders")),
   };
 }
 

@@ -6,10 +6,13 @@ import type { Plugin } from "vite";
 const VERSION_LINE = 'const VERSION = "dev";';
 const PRECACHE_LINE = "const PRECACHE = [];";
 
-/** Puts the build's asset list and a version into sw.js. The bytes change with every build, so phones install it. */
+/**
+ * Puts the build's asset list and a version into sw.js. The bytes change with every build, so phones install it.
+ * "/" is the app shell: every path serves the same index.html, and "/index.html" itself redirects to "/".
+ */
 export function stampServiceWorker(src: string, files: string[]): string {
   if (!src.includes(VERSION_LINE) || !src.includes(PRECACHE_LINE)) throw new Error("sw.js is missing its VERSION or PRECACHE line");
-  const list = [...files].sort();
+  const list = ["/", ...[...files].sort()];
   const version = createHash("sha256").update(list.join("\n")).digest("hex").slice(0, 12);
   return src.replace(VERSION_LINE, `const VERSION = "${version}";`).replace(PRECACHE_LINE, `const PRECACHE = ${JSON.stringify(list)};`);
 }

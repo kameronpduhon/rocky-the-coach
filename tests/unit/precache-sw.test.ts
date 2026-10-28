@@ -6,7 +6,7 @@ const SRC = 'const VERSION = "dev";\nconst PRECACHE = [];\nself.addEventListener
 describe("stampServiceWorker", () => {
   it("writes the build's assets and a version into the worker", () => {
     const out = stampServiceWorker(SRC, ["/assets/b.js", "/assets/a.css"]);
-    expect(out).toContain('const PRECACHE = ["/assets/a.css","/assets/b.js"];');
+    expect(out).toContain('const PRECACHE = ["/","/assets/a.css","/assets/b.js"];');
     expect(out).toMatch(/const VERSION = "[0-9a-f]{12}";/);
   });
 

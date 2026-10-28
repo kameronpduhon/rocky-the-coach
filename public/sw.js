@@ -1,10 +1,11 @@
 // The build stamps VERSION and PRECACHE (scripts/precache-sw.ts). In dev both stay empty, and assets cache as they load.
 const VERSION = "dev";
 const PRECACHE = [];
-const PAGES = "rocky-pages-v1";
 const ASSETS = `rocky-assets-${VERSION}`;
 // Exercise photos outlive builds, so they keep their own cache.
 const MEDIA = "rocky-media-v1";
+// Server-rendered pages from before SPA mode. Their scripts are gone, so they must never be served again.
+const OLD_PAGES = "rocky-pages-v1";
 
 self.addEventListener("install", (event) => {
   event.waitUntil(
@@ -19,7 +20,7 @@ self.addEventListener("activate", (event) => {
   event.waitUntil(
     caches
       .keys()
-      .then((keys) => Promise.all(keys.filter((k) => k.startsWith("rocky-assets-") && k !== ASSETS).map((k) => caches.delete(k))))
+      .then((keys) => Promise.all(keys.filter((k) => k === OLD_PAGES || (k.startsWith("rocky-assets-") && k !== ASSETS)).map((k) => caches.delete(k))))
       .then(() => self.clients.claim()),
   );
 });
@@ -79,16 +80,8 @@ self.addEventListener("fetch", (event) => {
   if (url.pathname.startsWith("/media/exercises/")) return cacheFirst(MEDIA);
 
   if (req.mode === "navigate") {
-    event.respondWith(
-      fetch(req)
-        .then((res) => {
-          if (res.ok) {
-            const copy = res.clone();
-            caches.open(PAGES).then((cache) => cache.put(req, copy));
-          }
-          return res;
-        })
-        .catch(async () => (await caches.match(req)) || (await caches.match("/")) || Response.error()),
-    );
+    // Every path is the same shell, precached with this build's assets. With a signal the network's copy wins, so a
+    // new deploy shows on the next open.
+    event.respondWith(fetch(req).catch(async () => (await (await caches.open(ASSETS)).match("/")) || Response.error()));
   }
 });

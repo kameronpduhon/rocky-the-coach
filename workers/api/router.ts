@@ -1,5 +1,6 @@
 import { login, logout, me } from "./account";
 import { withUser } from "./auth";
+import { pull, push } from "./sync";
 
 type Run = (request: Request, params: string[]) => Promise<Response>;
 type ApiRoute = { method: string; path: RegExp; run: Run; open?: true };
@@ -8,6 +9,8 @@ const ROUTES: ApiRoute[] = [
   { method: "GET", path: /^\/api\/me$/, run: me },
   { method: "POST", path: /^\/api\/login$/, run: login, open: true },
   { method: "POST", path: /^\/api\/logout$/, run: logout, open: true },
+  { method: "GET", path: /^\/api\/sync\/pull$/, run: pull },
+  { method: "POST", path: /^\/api\/sync\/push$/, run: push },
 ];
 
 function decode(part: string): string {

@@ -1,10 +1,17 @@
 import { env } from "cloudflare:test";
 import { describe, expect, it } from "vitest";
 import { meals, plan } from "~/content";
+import { addDays } from "~/domain/dates";
 import { processPush } from "~/sync/push.server";
 import { StorageError } from "~/sync/server-tx.server";
 
 const now = new Date("2026-10-27T16:00:00Z");
+const plannedWeek = async (monday: string) =>
+  (
+    await env.DB.prepare("SELECT date, slot, meal_slug, swapped FROM planned_meals WHERE date BETWEEN ? AND ? ORDER BY date, slot")
+      .bind(monday, addDays(monday, 6))
+      .all<{ date: string; slot: string; meal_slug: string; swapped: number }>()
+  ).results;
 
 describe("push", () => {
   it("applies mutations in order and records the last one", async () => {
@@ -141,6 +148,39 @@ describe("push", () => {
     expect((await env.DB.prepare("SELECT slot, category, kcal FROM meal_logs WHERE client_id LIKE 'c-push-%' ORDER BY slot").all()).results).toEqual([
       { slot: "dessert", category: "skipped", kcal: 0 },
       { slot: "dinner", category: "planned", kcal: meals.get("honey-glazed-chicken-thighs")!.kcal },
+    ]);
+  });
+
+  // Weeks no other test here generates. Nov 16 and Nov 23 are Mondays, and each push lands on that Monday at noon.
+  it("generates the week before an offline swap lands in it, so the other days keep their plan", async () => {
+    const monday = "2026-11-16";
+    const res = await processPush(
+      env.DB,
+      { clientId: "phone-week-swap", mutations: [{ id: 1, name: "swapMeal", args: { date: monday, slot: "dinner", mealSlug: "steak-and-baked-potato", always: false } }] },
+      new Date("2026-11-16T18:00:00Z"),
+    );
+    expect(res.rejected).toEqual([]);
+    const week = await plannedWeek(monday);
+    expect(week).toHaveLength(35);
+    expect(week.filter((r) => r.swapped === 1)).toEqual([{ date: monday, slot: "dinner", meal_slug: "steak-and-baked-potato", swapped: 1 }]);
+  });
+
+  it("generates the week before an offline batch plans its later days", async () => {
+    const monday = "2026-11-23";
+    const res = await processPush(
+      env.DB,
+      {
+        clientId: "phone-week-batch",
+        mutations: [{ id: 1, name: "startBatch", args: { clientId: "b-week", date: monday, slot: "lunch", mealSlug: "chicken-and-rice-bowl", portions: 3, cookedWeightG: 495 } }],
+      },
+      new Date("2026-11-23T18:00:00Z"),
+    );
+    expect(res.rejected).toEqual([]);
+    const week = await plannedWeek(monday);
+    expect(week).toHaveLength(35);
+    expect(week.filter((r) => r.swapped === 1).map((r) => [r.date, r.slot, r.meal_slug])).toEqual([
+      ["2026-11-24", "lunch", "chicken-and-rice-bowl"],
+      ["2026-11-25", "lunch", "chicken-and-rice-bowl"],
     ]);
   });
 });

@@ -1,4 +1,6 @@
 import { z } from "zod";
+import { FACT_LIMIT, FACT_MAX } from "~/ai/facts";
+import { COACH_NAME } from "~/brand";
 import { buildDigest } from "~/checkin/digest";
 import { lastEatenBefore, restUntil } from "~/checkin/meals";
 import { exercises, foods, meals, plan } from "~/content";
@@ -216,6 +218,12 @@ type FinishArgs = {
   rest: string[];
   lifts: { exercise: string; plan: "hold" | "drop" }[];
 };
+
+function factText(raw: string): string {
+  const text = raw.trim();
+  if (!text || text.length > FACT_MAX) throw new MutationRejected(`A fact is 1 to ${FACT_MAX} characters.`);
+  return text;
+}
 
 const defs = {
   logWeighIn: {
@@ -486,7 +494,40 @@ const defs = {
   setVoice: {
     args: z.object({ voice: z.enum(["corner", "plain"]) }),
     async run(tx: Tx, a: { voice: string }) {
-      tx.put("profile", { id: "me", voice: a.voice });
+      // The phone's copy replaces the whole row on put, so the switch is carried over, not dropped.
+      const row = await tx.get("profile", "me");
+      tx.put("profile", { ...(row ?? {}), id: "me", voice: a.voice });
+    },
+  },
+  setAi: {
+    args: z.object({ on: z.boolean() }),
+    async run(tx: Tx, a: { on: boolean }) {
+      const row = await tx.get("profile", "me");
+      tx.put("profile", { voice: "corner", ...(row ?? {}), id: "me", ai: a.on ? 1 : 0 });
+    },
+  },
+  rememberFact: {
+    args: z.object({ clientId, text: z.string().max(1000), dated: z.boolean() }),
+    async run(tx: Tx, a: { clientId: string; text: string; dated: boolean }, ctx: MutationContext) {
+      if (await tx.get("facts", a.clientId)) return;
+      const text = factText(a.text);
+      if ((await tx.scan("facts")).length >= FACT_LIMIT) throw new MutationRejected(`${COACH_NAME} knows ${FACT_LIMIT} things. Forget one first.`);
+      tx.put("facts", { client_id: a.clientId, text, dated: a.dated ? 1 : 0, created_at: ctx.now, updated_at: ctx.now });
+    },
+  },
+  editFact: {
+    args: z.object({ key, text: z.string().max(1000) }),
+    async run(tx: Tx, a: { key: string; text: string }, ctx: MutationContext) {
+      const row = await tx.get("facts", a.key);
+      if (!row) throw new MutationRejected("That fact isn't saved.");
+      if (!a.text.trim()) return tx.delete("facts", a.key);
+      tx.put("facts", { ...row, text: factText(a.text), updated_at: ctx.now });
+    },
+  },
+  forgetFact: {
+    args: z.object({ key }),
+    async run(tx: Tx, a: { key: string }) {
+      tx.delete("facts", a.key);
     },
   },
   planWorkout: {
@@ -681,6 +722,10 @@ export const MUTATION_LABELS: Record<MutationName, string> = {
   removeUsual: "Usual order removal",
   setReminder: "Reminder",
   setVoice: "Voice setting",
+  setAi: "AI setting",
+  rememberFact: "Fact",
+  editFact: "Fact change",
+  forgetFact: "Fact removal",
   planWorkout: "Workout plan",
   setLifts: "Lift change",
   startWorkout: "Workout start",

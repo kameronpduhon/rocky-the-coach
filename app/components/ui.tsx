@@ -124,6 +124,8 @@ const PATHS: Record<string, ReactNode> = {
       <circle cx="12" cy="13" r="3.5" />
     </>
   ),
+  pencil: <path d="M4 20h4L19 9l-4-4L4 16z" />,
+  barcode: <path d="M4 5v14M7.5 5v14M10 5v14M13.5 5v14M17 5v14M20 5v14" />,
   cart: (
     <>
       <path d="M3 4h2l2.4 11h11l2-8H6.3" />

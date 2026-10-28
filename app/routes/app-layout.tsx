@@ -19,10 +19,6 @@ export function shouldRevalidate() {
   return false;
 }
 
-export function HydrateFallback() {
-  return <main aria-busy="true" className="min-h-dvh" />;
-}
-
 export default function AppLayout({ loaderData }: Route.ComponentProps) {
   const { pathname } = useLocation();
   const hideTabBar = useMatches().some((m) => (m.handle as { hideTabBar?: boolean } | undefined)?.hideTabBar);

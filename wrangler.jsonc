@@ -5,6 +5,9 @@
 	"compatibility_flags": ["nodejs_als"],
 	"main": "./workers/app.ts",
 	"routes": [{ "pattern": "kampduh.com", "custom_domain": true }],
+	// SPA mode. The Worker runs first for every request (the https redirect, /api/*, /media/*), then hands the rest
+	// to the built client, where a path with no file gets index.html. The Vite plugin fills in the directory at build.
+	"assets": { "binding": "ASSETS", "not_found_handling": "single-page-application", "run_worker_first": true },
 	// D1's primary runs in Atlanta, and Today makes several queries per tap. Running the Worker beside it turns each
 	// query into a local hop instead of a trip from whichever colo the phone hit. Smart placement would need more
 	// traffic than one user sends, so the region is pinned (GCP us-east1, South Carolina, is the nearest to ATL).

@@ -60,6 +60,11 @@ export default function App() {
   return <Outlet />;
 }
 
+/** What index.html shows until the scripts start: blank paper, like every screen's first paint. */
+export function HydrateFallback() {
+  return <main aria-busy="true" className="min-h-dvh" />;
+}
+
 export function ErrorBoundary({ error }: Route.ErrorBoundaryProps) {
   let message = "Something went wrong";
   let details = "Try again in a moment.";

@@ -21,10 +21,6 @@ export async function clientLoader() {
   return { server: await loadSettings() };
 }
 
-export function HydrateFallback() {
-  return <main aria-busy="true" className="min-h-dvh" />;
-}
-
 /** POSTs to a Worker endpoint. Null with no signal or a refusal. */
 async function post<T>(url: string): Promise<T | null> {
   try {
@@ -41,8 +37,8 @@ export default function Settings({ loaderData }: Route.ComponentProps) {
   const name = me?.name ?? "";
   const hasPlan = me?.hasPlan ?? false;
   const otherName = server?.otherName ?? null;
-  // The address is this site's, so it shows offline. The component only renders in the browser: the
-  // clientLoader has no server twin, so the server renders HydrateFallback.
+  // The address is this site's, so it shows offline. The component only renders in the browser: SPA mode never
+  // renders a screen on the server.
   const ingestUrl = `${window.location.origin}/api/ingest/steps`;
   const client = useSyncClient();
   const ready = useSyncStatus()?.ready ?? false;

@@ -2,7 +2,9 @@
 	"$schema": "node_modules/wrangler/config-schema.json",
 	"name": "rocky",
 	"compatibility_date": "2026-10-01",
-	"compatibility_flags": ["nodejs_als"],
+	// nodejs_compat includes AsyncLocalStorage (all nodejs_als gave), and lets the bundler resolve the node:fs and
+	// node:os imports in @anthropic-ai/sdk's credential loader. The Worker never runs that loader: the key is passed in.
+	"compatibility_flags": ["nodejs_compat"],
 	"main": "./workers/app.ts",
 	"routes": [{ "pattern": "kampduh.com", "custom_domain": true }],
 	// SPA mode. The Worker runs first for every request (the https redirect, /api/*, /media/*), then hands the rest

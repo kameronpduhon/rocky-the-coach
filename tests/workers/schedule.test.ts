@@ -1,11 +1,10 @@
 import { describe, expect, it } from "vitest";
-import { action } from "~/routes/plan";
 import { loadDay } from "~/server/day.server";
 import { runReminders } from "~/server/reminders.server";
 import type { PushMessage } from "~/server/push.server";
 import { moveWorkout, movesBetween } from "~/server/schedule.server";
 import { logSet } from "~/server/workouts.server";
-import { chicago, db, post, routeArgs } from "./helpers";
+import { chicago, db } from "./helpers";
 
 // The database persists across tests in this file, so each test works in its own week.
 describe("moving a workout", () => {
@@ -36,12 +35,6 @@ describe("moving a workout", () => {
     expect(await moveWorkout(db(), "2026-11-10", "2026-11-12")).toBe("Neither day has a workout.");
     await logSet(db(), { date: "2026-11-09", templateId: "mon-chest-back-arms", position: 0, exerciseId: "incline-dumbbell-press", setNumber: 1, weightLb: 50, reps: 8, clientId: "m1" }, new Date());
     expect(await moveWorkout(db(), "2026-11-09", "2026-11-10")).toBe("That workout is already logged.");
-  });
-
-  it("moves through the Plan action", async () => {
-    const res = await action(routeArgs(post("http://localhost/plan", { intent: "move", a: "2026-11-17", b: "2026-11-18" })));
-    expect(res).toEqual({ ok: true });
-    expect(await action(routeArgs(post("http://localhost/plan", { intent: "move", a: "nope", b: "2026-10-14" })))).toEqual({ error: "Pick a day this week." });
   });
 
   it("sends the lift reminder on the day a workout moved to, not the day it left", async () => {

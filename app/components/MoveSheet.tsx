@@ -1,7 +1,6 @@
 import { useState } from "react";
-import { useRevalidator } from "react-router";
 import type { ScheduleDay } from "~/content/schedule";
-import { useMutate, useSyncClient } from "~/sync/react";
+import { useMutate } from "~/sync/react";
 import { Sheet } from "./Sheet";
 import { Icon } from "./ui";
 
@@ -15,8 +14,6 @@ const dayLabel = (date: string) => DAY_FMT.format(new Date(`${date}T12:00:00Z`))
  */
 export function MoveSheet({ open, onClose, anchor, week, today }: { open: boolean; onClose: () => void; anchor: ScheduleDay; week: ScheduleDay[]; today?: string }) {
   const mutate = useMutate();
-  const client = useSyncClient();
-  const revalidator = useRevalidator();
   const [busy, setBusy] = useState(false);
   const pushing = anchor.templateId !== null;
   const options = week.filter((d) => d.date !== anchor.date && (pushing || d.templateId !== null));
@@ -26,11 +23,7 @@ export function MoveSheet({ open, onClose, anchor, week, today }: { open: boolea
     setBusy(true);
     const ok = await mutate("moveWorkout", { a: anchor.date, b: to });
     setBusy(false);
-    if (!ok) return;
-    onClose();
-    // The v1 Plan screen reads the server, so it reloads once the move has been sent.
-    await client?.sync();
-    revalidator.revalidate();
+    if (ok) onClose();
   }
 
   return (

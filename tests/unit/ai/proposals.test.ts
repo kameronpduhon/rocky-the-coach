@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { checkProposals, proposalCards, resultLine, runAccept, tellContext, TELL_FAILED, type Proposal, type RawProposal } from "~/ai/proposals";
+import { checkProposals, proposalCards, resultLine, runAccept, sendButton, tellContext, TELL_FAILED, type Proposal, type RawProposal } from "~/ai/proposals";
 import { COACH_NAME } from "~/brand";
 import { plan } from "~/content";
 import type { Row } from "~/sync/tables";
@@ -222,5 +222,20 @@ describe("runAccept", () => {
       ["moveWorkout", { a: "2026-10-28", b: "2026-10-29" }],
       ["rememberFact", { clientId: "f-new", text: "Left shoulder sore", dated: true }],
     ]);
+  });
+});
+
+describe("sendButton", () => {
+  it("reads Send, disabled, while the AI status check is out", () => {
+    expect(sendButton({ ready: false, checking: true }, false)).toEqual({ label: "Send", disabled: true });
+  });
+
+  it("needs a signal only once the check has failed or the phone is offline", () => {
+    expect(sendButton({ ready: false, checking: false }, false)).toEqual({ label: "Needs a signal", disabled: true });
+  });
+
+  it("sends when ready, and reads Reading while the note is out", () => {
+    expect(sendButton({ ready: true, checking: false }, false)).toEqual({ label: "Send", disabled: false });
+    expect(sendButton({ ready: true, checking: false }, true)).toEqual({ label: "Reading", disabled: true });
   });
 });

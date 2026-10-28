@@ -1,7 +1,7 @@
 import { useState } from "react";
 import { postAi } from "~/ai/client";
 import { FACT_LIMIT, FACT_MAX } from "~/ai/facts";
-import { proposalCards, resultLine, runAccept, tellContext, TELL_FAILED, type Proposal, type ProposalCard } from "~/ai/proposals";
+import { proposalCards, resultLine, runAccept, sendButton, tellContext, TELL_FAILED, type Proposal, type ProposalCard } from "~/ai/proposals";
 import { useAi, type AiState } from "~/ai/use-ai";
 import { COACH_NAME } from "~/brand";
 import { Sheet } from "~/components/Sheet";
@@ -104,12 +104,13 @@ function AskRocky({ ai, onClose }: { ai: AiState; onClose: () => void }) {
   }
 
   const reading = phase.kind === "reading";
+  const sendAs = sendButton(ai, reading);
   return (
     <div className="flex flex-col gap-4">
       <div className="flex flex-col gap-3">
         <NoteBox value={text} max={NOTE_MAX} onChange={setText} />
-        <button type="button" onClick={send} disabled={!ai.ready || reading || !text.trim()} className={`${OUTLINE} self-end`}>
-          {!ai.ready ? "Needs a signal" : reading ? "Reading" : "Send"}
+        <button type="button" onClick={send} disabled={sendAs.disabled || !text.trim()} className={`${OUTLINE} self-end`}>
+          {sendAs.label}
         </button>
       </div>
       {phase.kind === "failed" && <KeepIt line={TELL_FAILED} text={text} onRemember={remember} />}

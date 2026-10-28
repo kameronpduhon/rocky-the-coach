@@ -223,6 +223,15 @@ export function resultLine(count: number): string {
   return count === 1 ? `${COACH_NAME} suggests 1 change. Nothing changes until you accept it.` : `${COACH_NAME} suggests ${count} changes. Nothing changes until you accept one.`;
 }
 
+/**
+ * Send's label and whether the AI lets it go. While the status check is out it reads Send, disabled; "Needs a signal"
+ * waits for the check to fail or the phone to go offline, so it doesn't flash on every open.
+ */
+export function sendButton(ai: { ready: boolean; checking: boolean }, reading: boolean): { label: string; disabled: boolean } {
+  if (ai.ready) return { label: reading ? "Reading" : "Send", disabled: reading };
+  return { label: ai.checking ? "Send" : "Needs a signal", disabled: true };
+}
+
 export const TELL_FAILED = `${COACH_NAME} couldn't read that just now. Keep it as written?`;
 
 /** Runs an accepted proposal as named changes. False at the first one the rules refuse; the sync notice says why. */

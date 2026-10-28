@@ -28,3 +28,30 @@ export function weeklyTrendChange(series: Map<ISODate, number>, sunday: ISODate)
   const before = series.get(addDays(sunday, -7));
   return now === undefined || before === undefined ? null : now - before;
 }
+
+/** Fewer weigh-ins than this in all reads as "Not enough weigh-ins", as v1 did. */
+export const MIN_TREND_WEIGH_INS = 3;
+
+/** Pounds to one decimal, for display. */
+export const roundLb = (n: number) => Math.round(n * 10) / 10;
+
+export interface TrendReading {
+  /** The trend on the date, to 0.1 lb. */
+  weight: number;
+  /** The change since `from`, to 0.1 lb. Null without `from`, or on or before it. */
+  sinceFrom: number | null;
+}
+
+/**
+ * The trend as Today, Progress and the check-in show it. The change since `from` starts at the trend that day, or at
+ * the first weigh-in when that came later.
+ */
+export function trendReading(weighIns: { date: ISODate; weight: number }[], date: ISODate, from?: ISODate): TrendReading | null {
+  if (weighIns.filter((w) => w.date <= date).length < MIN_TREND_WEIGH_INS) return null;
+  const series = trendSeries(weighIns, date);
+  const now = series.get(date)!;
+  if (from === undefined || date <= from) return { weight: roundLb(now), sinceFrom: null };
+  const first = series.keys().next().value!;
+  const base = series.get(from < first ? first : from)!;
+  return { weight: roundLb(now), sinceFrom: roundLb(now - base) };
+}

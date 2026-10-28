@@ -1,5 +1,8 @@
 // The phone's side of the AI routes. Every failure (no key, switch off, cap, lost signal, slow model) comes back as
 // null, and each screen shows its rule-written or typed path for null. No AI request is ever queued or retried.
+import { z } from "zod";
+import type { Product } from "./barcode";
+import { LabelSchema, type LabelRead } from "./label";
 
 const STATUS_WAIT_MS = 5_000;
 let known: boolean | null = null;
@@ -46,4 +49,46 @@ export async function postAi<T>(path: string, body: unknown, timeoutMs: number, 
   } finally {
     clearTimeout(timer);
   }
+}
+
+const BARCODE_MS = 10_000;
+const LABEL_MS = 20_000;
+
+/** JSON from a GET, or null for no signal, a timeout, a non-200 answer or a body that isn't JSON. */
+async function getWithin(path: string, timeoutMs: number, send: typeof fetch): Promise<unknown> {
+  const ctrl = new AbortController();
+  const timer = setTimeout(() => ctrl.abort(), timeoutMs);
+  try {
+    const res = await send(path, { signal: ctrl.signal });
+    return res.ok ? await res.json() : null;
+  } catch {
+    return null;
+  } finally {
+    clearTimeout(timer);
+  }
+}
+
+const ProductSchema = z.object({
+  code: z.string(),
+  name: z.string(),
+  servingText: z.string().nullable(),
+  kcal: z.number(),
+  proteinG: z.number(),
+  drink: z.boolean(),
+});
+const BarcodeSchema = z.union([z.object({ found: z.literal(true), product: ProductSchema }), z.object({ found: z.literal(false), down: z.boolean().optional() })]);
+
+export type BarcodeLookup = { found: true; product: Product } | { found: false; down: boolean };
+
+/** A scanned code looked up through the Worker. No signal and a slow Open Food Facts both read as down. */
+export async function findBarcode(code: string, timeoutMs = BARCODE_MS, send: typeof fetch = fetch): Promise<BarcodeLookup> {
+  const parsed = BarcodeSchema.safeParse(await getWithin(`/api/food/barcode/${code}`, timeoutMs, send));
+  if (!parsed.success) return { found: false, down: true };
+  return parsed.data.found ? parsed.data : { found: false, down: parsed.data.down === true };
+}
+
+/** What the label photo says, or null for any fallback: the caller shows "Couldn't read that label." */
+export async function readLabel(image: string, timeoutMs = LABEL_MS, send: typeof fetch = fetch): Promise<LabelRead | null> {
+  const parsed = LabelSchema.safeParse(await postAi<unknown>("/api/ai/label", { image }, timeoutMs, send));
+  return parsed.success ? parsed.data : null;
 }

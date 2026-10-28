@@ -8,6 +8,8 @@ import type { Voice } from "./take";
 import type { ISODate } from "~/domain/types";
 import { libraryBlock, tellRules, tellUser } from "./prompts.server";
 import { TellReply, type TellContext } from "./proposals";
+import { LabelSchema, type LabelRead } from "./label";
+import { labelSystem } from "./prompts.server";
 
 /** One constant, so a model change is one line. */
 export const AI_MODEL = "claude-sonnet-5-5";
@@ -47,6 +49,8 @@ export interface AiClient {
   take(input: TakeInput): Promise<AiResult<string>>;
   /** Tell Rocky: proposals in TellReply's shape, checked by the route before they reach the phone. */
   tell(input: TellInput): Promise<AiResult<TellReply>>;
+  /** A nutrition label from a base64 JPEG. The photo goes in this one request and is kept nowhere. */
+  label(image: string): Promise<AiResult<LabelRead>>;
 }
 
 export interface ClientOptions {
@@ -155,6 +159,18 @@ export function anthropicClient(key: string, opts: ClientOptions = {}): AiClient
         effort: "low",
         maxTokens: 3000,
         schema: TellReply,
+      }),
+    // Too small and too rare to cache. The image block comes before the text, as the vision docs advise.
+    label: (image) =>
+      structuredCall(client, {
+        system: [{ type: "text", text: labelSystem() }],
+        content: [
+          { type: "image", source: { type: "base64", media_type: "image/jpeg", data: image } },
+          { type: "text", text: "Read this label." },
+        ],
+        effort: "low",
+        maxTokens: 2000,
+        schema: LabelSchema,
       }),
   };
 }

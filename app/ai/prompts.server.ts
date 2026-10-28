@@ -67,3 +67,17 @@ export function tellUser(i: TellInput): string {
   out.push("", "What you know about the person:", ...(i.facts.length ? i.facts.map((f) => `- ${f}`) : ["- Nothing yet."]), "", "The note:", i.note);
   return out.join("\n");
 }
+
+/** Label reading (spec section 3, "Read the label"). What is printed, nothing worked out. Too small to cache. */
+export function labelSystem(): string {
+  return [
+    `You read Nutrition Facts panels from photos for ${APP_NAME}, a fitness app. Report only what is printed. Never estimate.`,
+    "- readable: true only when the photo shows a Nutrition Facts or nutrition information panel whose calories you can read.",
+    "- name: the product's name if it is printed in the photo, else null.",
+    '- servingText: the serving size as printed, for example "1 bar (55 g)", else null.',
+    "- servingGrams: the serving's weight in grams if printed, else null.",
+    "- kcal: calories per serving. proteinG: protein in grams per serving, else null.",
+    "- When the panel has a per serving and a per container column, use the per serving column.",
+    "- When readable is false, every other field is null.",
+  ].join("\n");
+}

@@ -11,7 +11,8 @@ export interface Stat {
 
 /**
  * The ruled grid of label, big number and subline: the check-in's 2 × 2, Plan's targets, Progress's pairs and row.
- * `ruled` draws the 2 px ink rule on top, for a grid with no section head over it.
+ * `ruled` draws the 2 px ink rule on top, for a grid with no section head over it. Under a section head (`ruled`
+ * false) the cells sit straight under the head with 28 px values and no rule below, as Progress's SHOWING UP.
  */
 export function StatGrid({ label, cells, columns, ruled = true }: { label: string; cells: Stat[]; columns: 2 | 3; ruled?: boolean }) {
   return (
@@ -19,10 +20,12 @@ export function StatGrid({ label, cells, columns, ruled = true }: { label: strin
       {cells.map((c, i) => {
         const col = i % columns;
         const last = col === columns - 1;
-        // Three across is tighter in the mocks (Plan's targets, Progress's showing-up row), so its sublines fit one line.
-        const pad = columns === 3 ? (col === 0 ? "pr-2" : last ? "pl-2.5" : "px-2") : col === 0 ? "pr-3" : last ? "pl-3.5" : "px-3";
+        // Three across, or under a section head, is tighter in the mocks (Plan's targets, Progress's showing-up row), so
+        // its sublines fit one line.
+        const tight = columns === 3 || !ruled;
+        const pad = tight ? (col === 0 ? "pr-2" : last ? "pl-2.5" : "px-2") : col === 0 ? "pr-3" : last ? "pl-3.5" : "px-3";
         return (
-          <div key={i} className={`flex min-w-0 flex-col gap-0.5 border-b border-b-rule pb-3.5 pt-3 ${pad} ${last ? "" : "border-r border-r-rule"}`}>
+          <div key={i} className={`flex min-w-0 flex-col gap-0.5 ${ruled ? "border-b border-b-rule pb-3.5 pt-3" : ""} ${pad} ${last ? "" : "border-r border-r-rule"}`}>
             {c.label &&
               (c.labelFor ? (
                 <label htmlFor={c.labelFor} className="text-[14px] font-semibold text-ink-3">
@@ -31,8 +34,8 @@ export function StatGrid({ label, cells, columns, ruled = true }: { label: strin
               ) : (
                 <span className="text-[14px] font-semibold text-ink-3">{c.label}</span>
               ))}
-            <div className={`tabular font-num font-bold leading-[1.05] ${columns === 3 ? "text-[28px]" : "text-[32px]"}`}>{c.value}</div>
-            {c.sub && <span className={`text-ink-3 ${columns === 3 ? "text-[13px]" : "text-[14px]"}`}>{c.sub}</span>}
+            <div className={`tabular font-num font-bold leading-[1.05] ${tight ? "text-[28px]" : "text-[32px]"}`}>{c.value}</div>
+            {c.sub && <span className={`text-ink-3 ${ruled && columns === 3 ? "text-[13px]" : "text-[14px]"}`}>{c.sub}</span>}
           </div>
         );
       })}

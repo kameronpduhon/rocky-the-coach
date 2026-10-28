@@ -29,7 +29,7 @@ export function ProgressScreen({ m, range, onRange }: { m: ProgressModel; range:
           <h2 id="weight" className="font-display text-[28px] uppercase">
             Weight
           </h2>
-          <div className="w-[200px]">
+          <div className="w-[168px]">
             <JoinedChoice label="Range" choices={RANGES} value={range} onPick={onRange} height="h-11" />
           </div>
         </div>

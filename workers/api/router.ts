@@ -2,8 +2,9 @@ import { login, logout, me } from "./account";
 import { withUser } from "./auth";
 import { ingestSteps } from "./ingest";
 import { mealPhoto, media } from "./media";
-import { subscribe } from "./push";
+import { subscribe, testPush } from "./push";
 import { cancelRest, scheduleRest } from "./rest";
+import { backup, settings } from "./settings";
 import { pull, push } from "./sync";
 import { vitals } from "./vitals";
 
@@ -23,6 +24,9 @@ const ROUTES: ApiRoute[] = [
   { method: "POST", path: /^\/api\/ingest\/steps$/, run: ingestSteps, open: true },
   { method: "GET", path: /^\/media\/(.+)$/, run: media },
   { method: "POST", path: /^\/api\/meals\/([^/]+)\/photo$/, run: mealPhoto },
+  { method: "GET", path: /^\/api\/settings$/, run: settings },
+  { method: "POST", path: /^\/api\/push\/test$/, run: testPush },
+  { method: "POST", path: /^\/api\/backup$/, run: backup },
 ];
 
 function decode(part: string): string {

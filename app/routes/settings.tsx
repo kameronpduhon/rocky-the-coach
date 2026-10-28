@@ -1,15 +1,11 @@
-import { env } from "cloudflare:workers";
 import { useEffect, useState, type ReactNode } from "react";
-import { Form, Link, useFetcher } from "react-router";
+import { Form, Link } from "react-router";
 import { APP_NAME, COACH_NAME, pageTitle } from "~/brand";
 import type { Route } from "./+types/settings";
 import { Toggle } from "~/components/Toggle";
 import { Icon } from "~/components/ui";
-import { runBackup } from "~/server/backup.server";
-import { serverNow } from "~/server/clock.server";
-import { currentUser, userDb } from "~/server/current-user.server";
-import { sendToAll } from "~/server/push.server";
-import { allUsers } from "~/server/users.server";
+import { useMe } from "~/me";
+import { loadSettings } from "~/settings/load";
 import { lastReceived, reminderRows, voiceOf, type ReminderRow } from "~/settings/model";
 import { useMutate, useStoreVersion, useSyncClient, useSyncStatus } from "~/sync/react";
 import { btn } from "~/ui/button";
@@ -21,36 +17,33 @@ export function meta() {
   return [{ title: pageTitle("Settings") }];
 }
 
-export async function loader({ request }: Route.LoaderArgs) {
-  const user = currentUser();
-  const other = (await allUsers()).find((u) => u.id !== user.id) ?? null;
-  return {
-    name: user.name,
-    otherName: other?.name ?? null,
-    hasPlan: Boolean(user.planKey),
-    ingestUrl: `${new URL(request.url).origin}/api/ingest/steps`,
-    // Kameron's Shortcut still sends the v1 INGEST_TOKEN until he switches it to his own token.
-    ingestToken: user.ingestToken ?? (user.dbBinding === "DB" ? env.INGEST_TOKEN : null),
-    vapidPublicKey: env.VAPID_PUBLIC_KEY,
-  };
+export async function clientLoader() {
+  return { server: await loadSettings() };
 }
 
-export async function action({ request }: Route.ActionArgs) {
-  const form = await request.formData();
-  const intent = form.get("intent");
-  if (intent === "test-push") {
-    const pushed = await sendToAll(userDb(), { title: APP_NAME, body: "Notifications are working.", url: "/settings", tag: "test" });
-    return { pushed };
+export function HydrateFallback() {
+  return <main aria-busy="true" className="min-h-dvh" />;
+}
+
+/** POSTs to a Worker endpoint. Null with no signal or a refusal. */
+async function post<T>(url: string): Promise<T | null> {
+  try {
+    const res = await fetch(url, { method: "POST" });
+    return res.ok ? ((await res.json()) as T) : null;
+  } catch {
+    return null;
   }
-  if (intent === "backup") {
-    const user = currentUser();
-    return { backup: await runBackup(env[user.dbBinding], env.MEDIA, serverNow(), user.name.toLowerCase()) };
-  }
-  return { error: "Unknown action" };
 }
 
 export default function Settings({ loaderData }: Route.ComponentProps) {
-  const { name, otherName, hasPlan, ingestUrl, ingestToken, vapidPublicKey } = loaderData;
+  const { server } = loaderData;
+  const me = useMe();
+  const name = me?.name ?? "";
+  const hasPlan = me?.hasPlan ?? false;
+  const otherName = server?.otherName ?? null;
+  // The address is this site's, so it shows offline. The component only renders in the browser: the
+  // clientLoader has no server twin, so the server renders HydrateFallback.
+  const ingestUrl = `${window.location.origin}/api/ingest/steps`;
   const client = useSyncClient();
   const ready = useSyncStatus()?.ready ?? false;
   useStoreVersion();
@@ -93,7 +86,7 @@ export default function Settings({ loaderData }: Route.ComponentProps) {
         )}
       </section>
 
-      <NotificationsSection vapidPublicKey={vapidPublicKey} />
+      <NotificationsSection vapidPublicKey={server?.vapidPublicKey ?? null} />
 
       <section aria-labelledby="steps" className="flex flex-col gap-2.5">
         <SectionHead id="steps">Steps from your iPhone</SectionHead>
@@ -101,8 +94,10 @@ export default function Settings({ loaderData }: Route.ComponentProps) {
           An iPhone Shortcut sends your steps four times a day. {(ready && lastReceived(rows("steps_daily"), new Date())) || "Nothing received yet."}
         </p>
         <CopyField shown={ingestUrl.replace(/^https?:\/\//, "")} copy={ingestUrl} label="Copy the steps address" />
-        {ingestToken ? (
-          <CopyField shown={`Token ••••••••••••${ingestToken.slice(-4)}`} copy={`Bearer ${ingestToken}`} label="Copy the Authorization header" />
+        {!server ? (
+          <p className="text-[15px] text-ink-3">Needs a signal to show your token.</p>
+        ) : server.ingestToken ? (
+          <CopyField shown={`Token ••••••••••••${server.ingestToken.slice(-4)}`} copy={`Bearer ${server.ingestToken}`} label="Copy the Authorization header" />
         ) : (
           <p className="text-[15px] text-ink-3">No token yet.</p>
         )}
@@ -246,23 +241,28 @@ function SyncLine() {
 }
 
 function BackupSection() {
-  const backup = useFetcher<typeof action>();
-  const saved = backup.data && "backup" in backup.data ? backup.data.backup : null;
+  const [busy, setBusy] = useState(false);
+  const [saved, setSaved] = useState<string | null>(null);
+  async function backUp() {
+    setBusy(true);
+    const reply = await post<{ backup: string }>("/api/backup");
+    setBusy(false);
+    setSaved(reply?.backup ?? null);
+  }
   return (
     <section aria-labelledby="backups" className="flex flex-col gap-2.5">
       <SectionHead id="backups">Backups</SectionHead>
       <p className="text-[15px] leading-[1.4] text-ink-2">Early every Sunday {APP_NAME} saves a copy of all your logs and keeps the last 12.</p>
-      <backup.Form method="post" className="flex flex-wrap items-center gap-3">
-        <input type="hidden" name="intent" value="backup" />
-        <button type="submit" disabled={backup.state !== "idle"} className={`${btn.outlinePlain} h-11 px-4`}>
-          {backup.state !== "idle" ? "Backing up" : "Back up now"}
+      <div className="flex flex-wrap items-center gap-3">
+        <button type="button" onClick={backUp} disabled={busy} className={`${btn.outlinePlain} h-11 px-4`}>
+          {busy ? "Backing up" : "Back up now"}
         </button>
         {saved && (
           <span aria-live="polite" className="text-[15px] text-ink-3">
             Saved <span className="tabular font-mono text-[14px]">{saved.replace(/^backups\//, "")}</span>
           </span>
         )}
-      </backup.Form>
+      </div>
     </section>
   );
 }
@@ -287,11 +287,21 @@ async function saveSubscription(sub: PushSubscription): Promise<boolean> {
   return res.ok;
 }
 
-function NotificationsSection({ vapidPublicKey }: { vapidPublicKey: string }) {
+function NotificationsSection({ vapidPublicKey }: { vapidPublicKey: string | null }) {
   const [state, setState] = useState<PushState>("checking");
   const [busy, setBusy] = useState(false);
   const [note, setNote] = useState("");
-  const test = useFetcher<typeof action>();
+  const [sending, setSending] = useState(false);
+  const [pushed, setPushed] = useState<number | null>(null);
+
+  async function sendTest() {
+    setNote("");
+    setSending(true);
+    const reply = await post<{ pushed: number }>("/api/push/test");
+    setSending(false);
+    if (reply) setPushed(reply.pushed);
+    else setNote("Could not send a test. Try again.");
+  }
 
   // Browser capability and permission only exist on the client, so the server renders the neutral state.
   useEffect(() => {
@@ -315,6 +325,11 @@ function NotificationsSection({ vapidPublicKey }: { vapidPublicKey: string }) {
   }, []);
 
   async function enable() {
+    // Checked before any await: iOS only shows the permission prompt straight from the tap.
+    if (!vapidPublicKey) {
+      setNote("Notifications need a signal to turn on.");
+      return;
+    }
     setNote("");
     setBusy(true);
     try {
@@ -334,8 +349,6 @@ function NotificationsSection({ vapidPublicKey }: { vapidPublicKey: string }) {
       setBusy(false);
     }
   }
-
-  const pushed = test.data && "pushed" in test.data ? test.data.pushed : null;
 
   return (
     <section aria-labelledby="notifications" className="flex flex-col gap-2.5">
@@ -367,12 +380,9 @@ function NotificationsSection({ vapidPublicKey }: { vapidPublicKey: string }) {
             </button>
           )}
           {state === "on" && (
-            <test.Form method="post" className="flex-none">
-              <input type="hidden" name="intent" value="test-push" />
-              <button type="submit" disabled={test.state !== "idle"} className={`${btn.outlinePlain} h-11 px-4`}>
-                {test.state !== "idle" ? "Sending" : "Send a test"}
-              </button>
-            </test.Form>
+            <button type="button" onClick={sendTest} disabled={sending} className={`${btn.outlinePlain} h-11 flex-none px-4`}>
+              {sending ? "Sending" : "Send a test"}
+            </button>
           )}
         </div>
       )}

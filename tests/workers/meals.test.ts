@@ -1,7 +1,9 @@
 import { describe, expect, it } from "vitest";
 import { meals } from "~/content";
+import { factorFor, scaledMeal } from "~/content/scaled";
 import { latestWeighIn, logWaist, logWeighIn, stepsFor, upsertSteps, weighInFor } from "~/server/body.server";
 import { createBatch, logPlannedMeal, logOffPlan, logsForDate, mainProtein, openBatch, unlog } from "~/server/meals.server";
+import { setTargetsFrom } from "~/server/targets.server";
 import { db } from "./helpers";
 
 describe("meal logs", () => {
@@ -44,6 +46,21 @@ describe("batches", () => {
     await logPlannedMeal(db(), "2026-10-13", "dinner", meal, new Date());
     expect(await openBatch(db(), meal.slug, "2026-10-13")).toBeNull();
     expect(batch.portions).toBe(2);
+  });
+
+  it("logs at the day's grams, and a batch keeps the grams it was cooked at", async () => {
+    const meal = meals.get("chicken-and-rice-bowl")!;
+    const trimmed = scaledMeal(meal, factorFor(2300));
+    await setTargetsFrom(db(), "2026-11-02", { kcal: 2300, proteinG: 180, stepGoal: 7000 });
+    await logPlannedMeal(db(), "2026-11-02", "lunch", meal, new Date());
+    expect((await logsForDate(db(), "2026-11-02"))[0]).toMatchObject({ kcal: trimmed.kcal, proteinG: trimmed.protein });
+
+    const batch = await createBatch(db(), meal.slug, 3, 495, "2026-11-03");
+    expect(batch.clientId).toMatch(/.+/);
+    expect(batch.factor).toBeCloseTo(factorFor(2300));
+    await setTargetsFrom(db(), "2026-11-04", { kcal: 2400, proteinG: 180, stepGoal: 7000 });
+    await logPlannedMeal(db(), "2026-11-04", "lunch", meal, new Date());
+    expect((await logsForDate(db(), "2026-11-04"))[0]).toMatchObject({ kcal: trimmed.kcal });
   });
 });
 

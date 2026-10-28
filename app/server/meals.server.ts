@@ -1,10 +1,12 @@
 import { and, asc, desc, eq, gt, gte } from "drizzle-orm";
-import { foods, type MealWithMacros } from "~/content";
+import { foods, meals, type MealWithMacros } from "~/content";
+import { factorFor, scaledMeal } from "~/content/scaled";
 import type { Db } from "~/db/client";
 import { batches, mealLogs } from "~/db/schema";
 import { addDays } from "~/domain/dates";
 import { batchPortion } from "~/domain/macros";
 import type { ISODate, Slot } from "~/domain/types";
+import { targetsFor } from "./targets.server";
 
 export type MealLog = typeof mealLogs.$inferSelect;
 export type OffPlanCategory = "meal" | "snack" | "dessert" | "drink";
@@ -14,13 +16,16 @@ export function logsForDate(db: Db, date: ISODate): Promise<MealLog[]> {
 }
 
 export async function logPlannedMeal(db: Db, date: ISODate, slot: Slot, meal: MealWithMacros, now: Date, clientId?: string): Promise<number | null> {
+  // Same snapshot as the logMeal change: the day's grams, or the grams its batch was cooked at.
+  const batch = await openBatch(db, meal.slug, date);
+  const factor = batch ? batch.factor : factorFor((await targetsFor(db, date)).kcal);
+  const scaled = scaledMeal(meals.get(meal.slug) ?? meal, factor);
   const rows = await db
     .insert(mealLogs)
-    .values({ date, slot, mealSlug: meal.slug, name: meal.name, category: "planned", kcal: meal.kcal, proteinG: meal.protein, loggedAt: now.toISOString(), clientId: clientId ?? null })
+    .values({ date, slot, mealSlug: scaled.slug, name: scaled.name, category: "planned", kcal: scaled.kcal, proteinG: scaled.protein, loggedAt: now.toISOString(), clientId: clientId ?? null })
     .onConflictDoNothing()
     .returning({ id: mealLogs.id });
   if (rows.length === 0) return null;
-  const batch = await openBatch(db, meal.slug, date);
   if (batch) await db.update(batches).set({ portionsLeft: batch.portionsLeft - 1 }).where(eq(batches.id, batch.id));
   return rows[0].id;
 }
@@ -56,7 +61,16 @@ export type Batch = typeof batches.$inferSelect;
 export async function createBatch(db: Db, mealSlug: string, portions: number, cookedWeightG: number, date: ISODate): Promise<Batch> {
   const [row] = await db
     .insert(batches)
-    .values({ mealSlug, portions, cookedWeightG, portionG: batchPortion(cookedWeightG, portions), createdOn: date, portionsLeft: portions })
+    .values({
+      mealSlug,
+      portions,
+      cookedWeightG,
+      portionG: batchPortion(cookedWeightG, portions),
+      createdOn: date,
+      portionsLeft: portions,
+      clientId: crypto.randomUUID(),
+      factor: factorFor((await targetsFor(db, date)).kcal),
+    })
     .returning();
   return row;
 }

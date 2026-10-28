@@ -77,6 +77,8 @@ export interface CheckInModel {
   /** The choices in effect: what the page holds, else the saved ones, else the defaults. `pick` is only the person's own; Rocky's is in `call.choice`. */
   choices: PageChoices;
   take: Take | null;
+  /** The digest `take` was written from, so project 5's AI take narrates the same week. Null before the window. */
+  digest: CheckInDigest | null;
   call: { view: CallView; changes: ScaleList; choice: CallPick } | null;
   next: NextWeekView | null;
   dock: { note: string; action: "finish" | "today" | null; change: boolean };
@@ -229,7 +231,7 @@ export function buildCheckIn(rows: Rows, now: Date, choices: PageChoices | null,
   };
 
   if (early) {
-    return { ...shared, choices: { ...base, rest, lifts }, take: null, call: null, next: null, dock: { note: "Opens Sunday at 5pm.", action: null, change: false }, finish: null };
+    return { ...shared, choices: { ...base, rest, lifts }, take: null, digest: null, call: null, next: null, dock: { note: "Opens Sunday at 5pm.", action: null, change: false }, finish: null };
   }
 
   const wc = weekCall(rows, monday, { hungry: digest.feel.hungryTwice });
@@ -242,7 +244,8 @@ export function buildCheckIn(rows: Rows, now: Date, choices: PageChoices | null,
   const nowFactor = factorFor(wc.thisWeekKcal);
   const view = callView({ ...wc, call }, pick, changedFoods(scaleChanges(slugs, nowFactor, factorFor(call.calories.kcal))));
   const changes = scaleChanges(slugs, nowFactor, factorFor(view.kcal));
-  const take = ruleTake(readOnly && kept?.call ? { ...digest, call: { ...digest.call, ...kept.call } } : digest);
+  const takeDigest = readOnly && kept?.call ? { ...digest, call: { ...digest.call, ...kept.call } } : digest;
+  const take = ruleTake(takeDigest);
 
   const query = new URLSearchParams({ week: next, from: "check-in", kcal: String(view.kcal) });
   if (rest.length === 0) query.append("rest", "");
@@ -253,6 +256,7 @@ export function buildCheckIn(rows: Rows, now: Date, choices: PageChoices | null,
     // The pick stays the person's own: null until a radio is tapped, so Rocky's pick keeps following the taps.
     choices: { ...base, rest, lifts },
     take,
+    digest: takeDigest,
     call: { view, changes, choice: pick },
     next: {
       deload: l.nextWeekDeload,

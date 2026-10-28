@@ -2,6 +2,7 @@ import { describe, expect, it } from "vitest";
 import { COACH_NAME } from "~/brand";
 import { groceryCount, previewNextWeek } from "~/checkin/meals";
 import { buildCheckIn, type PageChoices } from "~/checkin/model";
+import { ruleTake } from "~/checkin/take";
 import { runMutation } from "~/sync/mutators";
 import { MemoryTx } from "~/sync/tx";
 import { BOWL, checkInRow, rowsOf, SHOULDER, THIGHS, weekThree } from "./fixture";
@@ -11,6 +12,13 @@ const SUNDAY_9PM = new Date("2026-10-25T21:00:00-05:00");
 const rows = rowsOf(weekThree());
 
 describe("buildCheckIn: the window is open", () => {
+  it("hands the card the digest its rule take was written from", () => {
+    const m = buildCheckIn(rows, SUNDAY_6PM, null);
+    expect(m.digest!.week.monday).toBe("2026-10-19");
+    expect(ruleTake(m.digest!)).toEqual(m.take);
+    expect(buildCheckIn(rows, new Date("2026-10-28T10:00:00-05:00"), null).digest).toBeNull();
+  });
+
   it("shows week three's poster, chart and numbers", () => {
     const m = buildCheckIn(rows, SUNDAY_6PM, null);
     expect(m).toMatchObject({

@@ -2,7 +2,6 @@ import { Link } from "react-router";
 import { COACH_NAME } from "~/brand";
 import { btn } from "~/ui/button";
 import { Dock, GymFrame, HeaderIcon } from "~/ui/GymFrame";
-import { RockyCard } from "~/ui/RockyCard";
 import { SectionHead } from "~/ui/SectionHead";
 import { StatGrid } from "~/ui/StatGrid";
 import { TapGrid } from "~/ui/TapGrid";
@@ -11,6 +10,7 @@ import { CallBlock } from "./CallBlock";
 import type { Level, SleepLevel } from "./digest";
 import type { CheckInModel, PageChoices } from "./model";
 import { NextWeek } from "./NextWeek";
+import { TakeCard } from "./TakeCard";
 import { WaistField } from "./WaistField";
 
 const LEVELS = [
@@ -103,16 +103,7 @@ export function CheckInScreen({
         ]}
       />
 
-      {m.take && (
-        <RockyCard
-          label={`${COACH_NAME}'s take`}
-          rows={[
-            { label: "Win", text: m.take.win },
-            { label: "Fix", text: m.take.fix },
-            { label: "Call", text: m.take.call },
-          ]}
-        />
-      )}
+      {m.take && m.digest && <TakeCard week={m.monday} digest={m.digest} rule={m.take} writable={m.phase === "open"} />}
 
       {m.call && (
         // Disabled once finished: every choice below shows as saved until "Change my answers".

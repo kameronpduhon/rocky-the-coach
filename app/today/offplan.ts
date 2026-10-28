@@ -11,6 +11,12 @@ export interface Choice {
   disabled: boolean;
 }
 
+/**
+ * The sheet's title for each view but the plate, which shows the meal's name. Behind a back button the title is the
+ * view's own short name: the scan, its product card and its not-found all read "Scan", as the options board draws it.
+ */
+export const SHEET_TITLE = { usuals: "Ate something else", form: "Something new", scan: "Scan", card: "Scan", describe: "Describe it" } as const;
+
 /** The rows under "Not in your usuals?". `aiReady`: the person's switch is on and the server has a key. */
 export function offPlanChoices({ aiReady, online }: { aiReady: boolean; online: boolean }): Choice[] {
   const scanLabel = aiReady ? "Scan" : "Scan a barcode";

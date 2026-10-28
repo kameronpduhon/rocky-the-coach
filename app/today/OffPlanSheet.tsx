@@ -7,7 +7,7 @@ import { Icon } from "~/components/ui";
 import { useMutate } from "~/sync/react";
 import { btn } from "~/ui/button";
 import { DescribeView } from "./DescribeView";
-import { offPlanChoices, type CardSource, type FormValues } from "./offplan";
+import { offPlanChoices, SHEET_TITLE, type CardSource, type FormValues } from "./offplan";
 import { PlateTitle, PlateView } from "./PlateView";
 import { ProductCard } from "./ProductCard";
 import { ScanView } from "./ScanView";
@@ -24,8 +24,6 @@ type View =
   | { kind: "describe"; text: string }
   | { kind: "plate"; text: string; title: string; category: FormValues["category"]; rows: PlateRow[] };
 
-const TITLE: Record<Exclude<View["kind"], "plate">, string> = { usuals: "Ate something else", form: "Something new", scan: "Scan", card: "Ate something else", describe: "Describe it" };
-
 /** "Ate something else": usual orders first, then Scan and typing (option 1C). Every later view has a back button. */
 export function OffPlanSheet({ date, usuals, onClose }: { date: string; usuals: UsualModel[]; onClose: () => void }) {
   const [view, setView] = useState<View>({ kind: "usuals" });
@@ -39,7 +37,7 @@ export function OffPlanSheet({ date, usuals, onClose }: { date: string; usuals: 
     <Sheet
       open
       onClose={onClose}
-      title={view.kind === "plate" ? view.title : TITLE[view.kind]}
+      title={view.kind === "plate" ? view.title : SHEET_TITLE[view.kind]}
       heading={view.kind === "plate" ? <PlateTitle title={view.title} onRename={(title) => setView({ ...view, title })} /> : undefined}
       onBack={view.kind === "usuals" ? undefined : () => setView({ kind: "usuals" })}
     >

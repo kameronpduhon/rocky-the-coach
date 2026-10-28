@@ -44,7 +44,7 @@ export function Sheet({
             {heading ?? <h2 className="truncate font-display text-[28px] uppercase">{title}</h2>}
           </div>
           {dismiss === "done" && (
-            <button type="button" onClick={onClose} className="glass h-11 rounded-full px-[18px] text-[15px] font-semibold">
+            <button type="button" onClick={onClose} className="glass h-11 flex-none rounded-full px-[18px] text-[15px] font-semibold">
               Done
             </button>
           )}

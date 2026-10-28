@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { cardEdit, cardFromProduct, cardLog, describeProblem, labelOutcome, offPlanChoices, sourceLine, stepperFor, type CardSource } from "~/today/offplan";
+import { cardEdit, cardFromProduct, cardLog, describeProblem, labelOutcome, offPlanChoices, SHEET_TITLE, sourceLine, stepperFor, type CardSource } from "~/today/offplan";
 
 const SHAKE: CardSource = { name: "fa!rlife CORE POWER HIGH PROTEIN MILK SHAKE", servingText: "1 bottle (414 g)", kcal: 170, proteinG: 26, from: "barcode", drink: true };
 const NUTELLA: CardSource = { name: "Nutella", servingText: null, kcal: 539, proteinG: 6.3, from: "barcode", drink: false };
@@ -30,6 +30,14 @@ describe("describeProblem", () => {
     expect(describeProblem(null)).toBe("Rocky couldn't build that plate just now. Try again, or type the numbers.");
     expect(describeProblem({ name: "Lunch", category: "meal", items: [] })).toBe("Rocky couldn't find any foods in that. Try naming each one.");
     expect(describeProblem({ name: "Lunch", category: "meal", items: [{ label: "Rice", foodId: "white-rice-cooked", grams: 150 }] })).toBeNull();
+  });
+});
+
+describe("SHEET_TITLE", () => {
+  it("names the scan, the product card and not-found Scan, so it fits beside the back button", () => {
+    expect(SHEET_TITLE.scan).toBe("Scan");
+    expect(SHEET_TITLE.card).toBe("Scan");
+    expect(SHEET_TITLE.usuals).toBe("Ate something else");
   });
 });
 

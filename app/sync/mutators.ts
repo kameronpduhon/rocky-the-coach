@@ -1,9 +1,9 @@
 import { z } from "zod";
-import { exercises, meals, plan } from "~/content";
+import { exercises, foods, meals, plan } from "~/content";
 import { factorFor, scaledMeal } from "~/content/scaled";
 import { burnEntries, resolveTargets } from "~/content/targets";
 import { swapWorkouts, templateFor } from "~/domain/calendar";
-import { addDays, daysBetween, weekStart } from "~/domain/dates";
+import { addDays, daysBetween, weekStart, weekday } from "~/domain/dates";
 import { batchPortion } from "~/domain/macros";
 import { swapFits } from "~/domain/next-week";
 import { DEFAULT_REMINDERS } from "~/domain/reminders";
@@ -321,6 +321,22 @@ const defs = {
       tx.delete("meal_logs", a.key);
     },
   },
+  logWaist: {
+    args: z.object({ date, inches: z.number().min(20).max(60) }),
+    async run(tx: Tx, a: { date: string; inches: number }, ctx: MutationContext) {
+      // A waist is measured, never planned, so unlike meals it can't be logged for tomorrow.
+      if (a.date > ctx.today) throw new MutationRejected("That date is in the future.");
+      tx.put("waist_logs", { date: a.date, inches: Math.round(a.inches * 100) / 100 });
+    },
+  },
+  checkGrocery: {
+    args: z.object({ week: date, food: z.string().refine((id) => foods.has(id), "That food isn't in the list."), checked: z.boolean() }),
+    async run(tx: Tx, a: { week: string; food: string; checked: boolean }) {
+      if (weekday(a.week) !== 1) throw new MutationRejected("That week doesn't start on a Monday.");
+      if (a.checked) tx.put("grocery_checks", { week_start: a.week, food_id: a.food });
+      else tx.delete("grocery_checks", `${a.week}|${a.food}`);
+    },
+  },
   setReminder: {
     args: z.object({
       kind: z.enum(DEFAULT_REMINDERS.map((r) => r.kind) as [string, ...string[]]),
@@ -522,6 +538,8 @@ export const MUTATION_LABELS: Record<MutationName, string> = {
   startBatch: "Batch",
   logOffPlan: "Off-plan item",
   deleteOffPlan: "Off-plan removal",
+  logWaist: "Waist",
+  checkGrocery: "Grocery check",
   logUsual: "Usual order",
   removeUsual: "Usual order removal",
   setReminder: "Reminder",

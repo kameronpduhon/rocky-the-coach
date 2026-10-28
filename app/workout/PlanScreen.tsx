@@ -9,7 +9,7 @@ import { btn } from "~/ui/button";
 import { ChoiceRow } from "~/ui/ChoiceRow";
 import { Dock, GymFrame, HeaderIcon } from "~/ui/GymFrame";
 import { AddLiftSheet } from "./AddLiftSheet";
-import { addLifts, dropLift, swapToday, undoSwap } from "./lifts";
+import { addLifts, dropLift, swapScope, swapToday, undoSwap } from "./lifts";
 import { count, type LiftView, type WorkoutModel } from "./model";
 import { SwapSheet } from "./SwapSheet";
 import { useWorkoutActions } from "./use-actions";
@@ -96,6 +96,7 @@ export function PlanScreen({ m, back, dateLabel }: { m: WorkoutModel; back: stri
               key={l.position}
               l={l}
               first={i === 0}
+              scope={swapScope(m.date, m.live)}
               setsPerLift={m.setsPerLift}
               onSwap={() => setSwapping(l)}
               onUndo={() => void act.editLifts((list) => undoSwap(list, l.position))}
@@ -141,7 +142,7 @@ export function PlanScreen({ m, back, dateLabel }: { m: WorkoutModel; back: stri
   );
 }
 
-function LiftRow({ l, first, setsPerLift, onSwap, onUndo, onRemove }: { l: LiftView; first: boolean; setsPerLift: number; onSwap: () => void; onUndo: () => void; onRemove: () => void }) {
+function LiftRow({ l, first, setsPerLift, scope, onSwap, onUndo, onRemove }: { l: LiftView; first: boolean; setsPerLift: number; scope: string; onSwap: () => void; onUndo: () => void; onRemove: () => void }) {
   const changed = l.from !== "plan";
   const up = l.suggestion.goUp && l.suggestion.weight !== null && l.last ? l.suggestion.weight - Math.max(...l.last.sets.map((x) => x.weight)) : null;
   const replaced = l.replaces ? exercises.get(l.replaces)?.name.toLowerCase() : null;
@@ -152,7 +153,7 @@ function LiftRow({ l, first, setsPerLift, onSwap, onUndo, onRemove }: { l: LiftV
         <span className="text-[16px] font-semibold">{l.name}</span>
         <span className={`tabular text-[13px] ${changed ? "text-ink-3" : "text-muted"}`}>
           {setsPerLift} × {l.repMin} to {l.repMax}
-          {l.from === "swap" && <span className="font-bold"> · swapped for {replaced}, today only</span>}
+          {l.from === "swap" && <span className="font-bold"> · swapped for {replaced}, {scope}</span>}
           {l.from === "added" && <span className="font-bold"> · added today</span>}
           {up !== null && (
             <span className="font-bold text-brass-tag">

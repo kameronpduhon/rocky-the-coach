@@ -2,7 +2,7 @@ import { describe, expect, it } from "vitest";
 import { plan } from "~/content";
 import { CUSTOM_WORKOUT } from "~/domain/types";
 import type { Row } from "~/sync/tables";
-import { addLifts, choiceLabel, dropLift, resolveLifts, swapForGood, swapOptions, swapToday, titleLines, undoSwap, workoutMinutes, workoutTitle } from "~/workout/lifts";
+import { addLifts, choiceLabel, dropLift, resolveLifts, swapForGood, swapOptions, swapScope, swapToday, titleLines, undoSwap, workoutMinutes, workoutTitle } from "~/workout/lifts";
 
 const rowsOf = (t: Record<string, Row[]>) => (name: string) => t[name] ?? [];
 const LEGS = "wed-legs-shoulders";
@@ -48,5 +48,13 @@ describe("lift lists", () => {
     expect([LEGS, "mon-chest-back-arms", plan.planB, CUSTOM_WORKOUT].map(choiceLabel)).toEqual(["Legs, shoulders", "Chest, back, arms", "Short, home", "Your own"]);
     expect(workoutMinutes(12)).toBe(45);
     expect(workoutMinutes(14)).toBe(55);
+  });
+});
+
+describe("swapScope", () => {
+  it("says today only on the day itself, and names the day otherwise", () => {
+    expect(swapScope(WED, true)).toBe("today only");
+    expect(swapScope("2026-10-30", false)).toBe("Friday only");
+    expect(swapScope("2026-10-26", false)).toBe("Monday only");
   });
 });

@@ -25,9 +25,13 @@ export function mealMacros(ingredients: IngredientAmount[], foods: Map<string, F
   return { kcal: Math.round(kcal / 5) * 5, protein: Math.round(protein) };
 }
 
+/** Portion rounding: to the nearest gram under 20 g, else to the nearest 5 g. */
+export function roundGrams(g: number): number {
+  return g < 20 ? Math.round(g) : Math.round(g / 5) * 5;
+}
+
 export function scaleGrams(gramsPerPortion: number, portions: number): number {
-  const total = gramsPerPortion * portions;
-  return total < 20 ? Math.round(total) : Math.round(total / 5) * 5;
+  return roundGrams(gramsPerPortion * portions);
 }
 
 export function batchPortion(cookedWeightG: number, portions: number): number {

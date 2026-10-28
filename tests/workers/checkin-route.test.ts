@@ -9,6 +9,7 @@ describe("check-in route", () => {
   it("loads a given week", async () => {
     const data = await checkInLoader(routeArgs(new Request("http://localhost/check-in?week=2026-10-12")));
     expect(data.data.weekStart).toBe("2026-10-12");
+    expect(data.data.call).toMatchObject({ kind: "hold", pick: "calories" });
   });
 
   it("completes and redirects to groceries for next week", async () => {

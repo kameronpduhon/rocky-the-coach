@@ -31,22 +31,28 @@ describe("check-in window", () => {
 });
 
 describe("check-in", () => {
-  it("is too early with only one week of weigh-ins", async () => {
+  it("holds before the phase starts, with the trend from a week of weigh-ins", async () => {
     await seedWeek("2026-09-28", 208.0, 0.15, 7);
     const data = await checkInData(db(), "2026-09-28");
-    expect(data.outcome).toEqual({ kind: "too-early" });
+    expect(data.trendWeight).toBe(207.7);
+    expect(data.change).toBeNull();
+    expect(data.energy).toMatchObject({ state: "holding", burn: 2800, updates: 0 });
+    expect(data.call).toMatchObject({ kind: "hold", ideal: null, calories: { kcal: 2400 }, steps: null });
   });
 
-  it("summarizes the week and holds on pace", async () => {
-    // Three weeks of weigh-ins give two weekly changes of about -1.0 lb, both weeks on plan.
+  it("summarizes the week on the trend, and holds in the phase's first two weeks", async () => {
     await seedWeek("2026-10-05", 207.0, 0.15, 7);
     await seedWeek("2026-10-12", 206.0, 0.15, 6);
     const chicken = meals.get("chicken-and-rice-bowl")!;
     for (const d of ["2026-10-12", "2026-10-13", "2026-10-14", "2026-10-15"]) await logPlannedMeal(db(), d, "lunch", chicken, new Date());
     const data = await checkInData(db(), "2026-10-12");
     expect(data.adherence).toBe(6);
-    expect(data.change).toBeCloseTo(-1.0, 1);
-    expect(data.outcome).toEqual({ kind: "on-pace" });
+    // The trend from Sep 28: 207.099 on Oct 11, 206.269 on Oct 18.
+    expect(data.trendWeight).toBe(206.3);
+    expect(data.change).toBe(-0.8);
+    // Off-plan entries with no slots leave every day partial, so nothing is tracked.
+    expect(data.energy).toMatchObject({ state: "holding", updates: 0, trackedDays: 0 });
+    expect(data.call.kind).toBe("hold");
     expect(data.avgSteps).toBe(6600);
     expect(data.mealCounts[0]).toEqual({ slug: "chicken-and-rice-bowl", name: chicken.name, count: 4, defaultRest: true });
   });
@@ -58,7 +64,10 @@ describe("check-in", () => {
     const next = await db().select().from(plannedMeals).where(between(plannedMeals.date, "2026-10-19", "2026-10-25")).all();
     expect(next).toHaveLength(35);
     expect(next.map((r) => r.mealSlug)).not.toContain("chicken-and-rice-bowl");
-    expect(await db().select().from(checkIns).all()).toHaveLength(1);
+    const rows = await db().select().from(checkIns).all();
+    expect(rows).toHaveLength(1);
+    expect(rows[0]).toMatchObject({ avgWeight: 206.3, change: -0.8, burn: 2800, burnState: "holding", trackedDays: 0 });
+    expect(JSON.parse(rows[0].outcome)).toEqual({ kind: "hold", newKcal: 2400, newStepGoal: 7000, pick: "calories", guardrail: null });
     expect((await checkInData(db(), "2026-10-12")).done).toBe(true);
   });
 

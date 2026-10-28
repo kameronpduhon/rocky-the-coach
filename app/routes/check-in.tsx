@@ -3,12 +3,14 @@ import { useMemo, useState } from "react";
 import { Form, Link, redirect } from "react-router";
 import { COACH_NAME, pageTitle } from "~/brand";
 import type { Route } from "./+types/check-in";
+import { CallBlock } from "~/checkin/CallBlock";
+import { callView, changedFoods, scaleChanges, type CallPick } from "~/checkin/call";
 import { MealPhoto } from "~/components/MealPhoto";
-import { Segmented } from "~/components/Segmented";
 import { Sheet } from "~/components/Sheet";
 import { Toggle } from "~/components/Toggle";
 import { BackButton, Card, FloatingBar, Icon, Screen, SectionTitle, Tile } from "~/components/ui";
 import { meals } from "~/content";
+import { factorFor } from "~/content/scaled";
 import { userDb } from "~/server/current-user.server";
 import { mealState, plannedMeals } from "~/db/schema";
 import { addDays, localDate, weekStart, weekday } from "~/domain/dates";
@@ -96,28 +98,9 @@ function weekRange(monday: string, sunday: string) {
   return `${short(monday)} to ${monday.slice(5, 7) === sunday.slice(5, 7) ? Number(sunday.slice(8)) : short(sunday)}`;
 }
 
-function callText(d: Data, choice: "calories" | "steps") {
-  const record = d.change !== null ? `${d.change <= 0 ? "Down" : "Up"} ${Math.abs(d.change)} lb with ${d.adherence} of 7 days on plan.` : `${d.adherence} of 7 days on plan.`;
-  const steps = d.rampedStepGoal > d.stepGoal ? ` Steps go to ${d.rampedStepGoal.toLocaleString()} next week.` : "";
-  switch (d.outcome.kind) {
-    case "too-early":
-      return `Too early to adjust. Keep going, the call needs two weeks of weigh-ins.${steps}`;
-    case "tighten-up":
-      return `${record} Numbers stay put. Tighten up the plan first: 6 of 7 days is the bar.`;
-    case "slow":
-      return choice === "steps" && d.outcome.newStepGoal
-        ? `${record} Two slow weeks in a row. Steps go to ${d.outcome.newStepGoal.toLocaleString()}, calories stay at ${d.kcal.toLocaleString()}.`
-        : `${record} Two slow weeks in a row. Calories go to ${d.outcome.newKcal.toLocaleString()}.${steps}`;
-    case "fast":
-      return `${record} That's faster than 2 lb a week. Calories go up to ${d.outcome.newKcal.toLocaleString()} to protect muscle.${steps}`;
-    case "on-pace":
-      return `On pace. ${record} Numbers stay put: ${d.kcal.toLocaleString()} cal and ${d.proteinG} g protein.${steps}`;
-  }
-}
-
 export default function CheckIn({ loaderData }: Route.ComponentProps) {
   const { data: d, open, catalog, savedSwaps, savedPlan } = loaderData;
-  const [choice, setChoice] = useState<"calories" | "steps">("calories");
+  const [choice, setChoice] = useState<CallPick>(d.savedPick ?? d.call.pick);
   const [rest, setRest] = useState<string[]>(d.mealCounts.filter((m) => m.defaultRest).map((m) => m.slug));
   const [swaps, setSwaps] = useState<MealSwap[]>(savedSwaps);
   const [dayOpen, setDayOpen] = useState<string | null>(null);
@@ -140,6 +123,12 @@ export default function CheckIn({ loaderData }: Route.ComponentProps) {
     d.nextWeek.eatenThisWeek,
     (slug) => bySlug.get(slug)?.pool,
   ).map((slug) => bySlug.get(slug)!.name);
+  // The grams start from this week's target as eaten and end at what the pick brings on Monday.
+  const slugs = week.map((p) => p.slug);
+  const nowFactor = factorFor(d.thisWeekKcal);
+  const facts = { call: d.call, energy: d.energy, lastBurn: d.lastBurn, kcal: d.kcal, stepGoal: d.stepGoal, proteinG: d.proteinG, weekNumber: d.weekNumber };
+  const view = callView(facts, choice, changedFoods(scaleChanges(slugs, nowFactor, factorFor(d.call.calories.kcal))));
+  const changes = scaleChanges(slugs, nowFactor, factorFor(view.kcal));
   const groceryCount = new Set(week.flatMap((p) => bySlug.get(p.slug)?.foods ?? [])).size;
   const liveSwaps = swaps.filter((s) => swapFits(s, rotation, rested));
   const groceryParams = new URLSearchParams([["week", d.nextWeek.weekStart], ["from", "check-in"]]);
@@ -183,7 +172,7 @@ export default function CheckIn({ loaderData }: Route.ComponentProps) {
         <section aria-label="How the week went" className="flex flex-col gap-2">
           <SectionTitle>How the week went</SectionTitle>
           <div className="grid grid-cols-2 gap-2.5">
-            <Tile label="7-day average" value={d.avgWeight !== null ? `${d.avgWeight} lb` : "--"} sub={d.change !== null ? `${signed(d.change)} vs last week` : "Not enough weigh-ins"} subGood={(d.change ?? 0) < 0} />
+            <Tile label="Trend" value={d.trendWeight !== null ? `${d.trendWeight} lb` : "--"} sub={d.change !== null ? `${signed(d.change)} vs last week` : "Not enough weigh-ins"} subGood={(d.change ?? 0) < 0} />
             <Tile label="Days on plan" value={`${d.adherence} of 7`} sub={d.relaxedMeals > 0 ? `${d.relaxedMeals} relaxed meal${d.relaxedMeals === 1 ? "" : "s"}` : d.onPlan ? "On plan" : "Below 6 of 7"} />
             <Tile label="Workouts" value={`${d.workoutsDone} of ${d.workoutsPlanned}`} sub={d.optionalDone ? `+${d.optionalDone} optional` : "Mon, Wed, Fri"} />
             <Tile label="Avg steps" value={d.avgSteps.toLocaleString()} sub={`goal ${d.stepGoal.toLocaleString()}`} valueGood={d.avgSteps >= d.stepGoal} />
@@ -199,28 +188,7 @@ export default function CheckIn({ loaderData }: Route.ComponentProps) {
           </div>
         </section>
 
-        <Card className="flex items-start gap-3 px-[18px] py-4" aria-label={`${COACH_NAME}'s call`}>
-          <div aria-hidden="true" className="flex size-[34px] flex-none items-center justify-center rounded-full bg-fill text-[15px] font-bold">
-            R
-          </div>
-          <div className="min-w-0 flex-1">
-            <div className="text-[13px] font-semibold text-label-2">{COACH_NAME}'s call</div>
-            <p className="mt-[3px] text-[16px] leading-[1.4]">{callText(d, choice)}</p>
-            {d.outcome.kind === "slow" && d.outcome.newStepGoal !== null && (
-              <div className="mt-3">
-                <Segmented
-                  label="Adjustment"
-                  options={[
-                    { value: "calories", label: "Cut 150 cal" },
-                    { value: "steps", label: "Add 1,000 steps" },
-                  ]}
-                  value={choice}
-                  onChange={setChoice}
-                />
-              </div>
-            )}
-          </div>
-        </Card>
+        <CallBlock view={view} choice={choice} onChoice={setChoice} changes={changes} />
 
         <section aria-label="Next week's meals" className="flex flex-col gap-2">
           <SectionTitle>Next week's meals</SectionTitle>

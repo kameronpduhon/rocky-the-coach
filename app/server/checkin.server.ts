@@ -1,22 +1,24 @@
 import { and, between, eq, sql } from "drizzle-orm";
+import type { CallPick } from "~/checkin/call";
 import { meals, plan } from "~/content";
+import { HALF_PORTION_KCAL } from "~/content/scaled";
 import type { Db } from "~/db/client";
 import { checkIns, mealLogs, plannedMeals } from "~/db/schema";
 import { weekAdherence, weekIsOnPlan } from "~/domain/adherence";
-import { decideAdjustment, type Adjustment } from "~/domain/adjustments";
-import { isTrainingDay, weekNumber } from "~/domain/calendar";
-import { checkInWindow } from "~/domain/checkin";
+import { isTrainingDay, weekNumber, weekType } from "~/domain/calendar";
+import { dayIntake, type LogFacts } from "~/domain/completeness";
 import { addDays } from "~/domain/dates";
+import { energyHistory, nextTarget, type Call, type EnergyWeek } from "~/domain/energy";
 import { freshMeals, previewWeek, swapFits, type MealSwap } from "~/domain/next-week";
 import type { RotationMeal } from "~/domain/rotation";
 import { rampStepGoal } from "~/domain/steps";
+import { roundLb, trendReading, trendSeries, weeklyTrendChange } from "~/domain/trend";
 import type { ISODate } from "~/domain/types";
-import { sevenDayAverage, weeklyChange } from "~/domain/weight";
-import { logWaist, waistLogsAll, weighInsBetween } from "./body.server";
+import { logWaist, waistLogsAll, weighInsThrough } from "./body.server";
 import { datesWithWorkouts, dayResults } from "./history.server";
 import { ensureWeekPlan, lastEaten, restMeal, restedSlugs } from "./meal-plan.server";
 import { movesBetween } from "./schedule.server";
-import { baseTargetsFor, setTargetsFrom } from "./targets.server";
+import { baseTargetsFor, setTargetsFrom, targetsFor } from "./targets.server";
 
 export { checkInWindow } from "~/domain/checkin";
 
@@ -46,11 +48,22 @@ export async function mealRepeats(db: Db, monday: ISODate) {
   return { counts, mealCounts };
 }
 
+/** What a finished check-in stores in `outcome`: the call, and what was picked. */
+export interface CallOutcome {
+  kind: Call["kind"];
+  newKcal: number;
+  newStepGoal: number;
+  pick: CallPick;
+  guardrail: Call["guardrail"];
+}
+
 export interface CheckInData {
   weekStart: ISODate;
   weekEnd: ISODate;
   weekNumber: number;
-  avgWeight: number | null;
+  /** The trend on Sunday, to 0.1 lb. Null before 3 weigh-ins. */
+  trendWeight: number | null;
+  /** Sunday's trend minus last Sunday's, to 0.1 lb. */
   change: number | null;
   adherence: number;
   onPlan: boolean;
@@ -64,7 +77,15 @@ export interface CheckInData {
   kcal: number;
   proteinG: number;
   waist: number | null;
-  outcome: Adjustment;
+  /** This week's burn entry. */
+  energy: EnergyWeek;
+  /** Last week's burn: the plan's 2,800 until a week has updated. */
+  lastBurn: number;
+  call: Call;
+  /** This week's calorie target as eaten, a maintenance week included. "On your scale from Monday" starts from it. */
+  thisWeekKcal: number;
+  /** The pick a finished check-in saved, so "Update check-in" opens on it. */
+  savedPick: CallPick | null;
   mealCounts: { slug: string; name: string; count: number; defaultRest: boolean }[];
   /** Meals in next week's default plan that were not eaten this week. */
   preview: string[];
@@ -73,25 +94,84 @@ export interface CheckInData {
   done: boolean;
 }
 
+/** A week before the phase began: nothing to read, so the burn holds at the plan's estimate. */
+const beforePhase = (monday: ISODate): EnergyWeek => ({
+  weekStart: monday,
+  burn: plan.maintenanceKcal,
+  state: "holding",
+  updates: 0,
+  observed: null,
+  intakeAvg: null,
+  trackedDays: 0,
+  windowTrackedDays: 0,
+  weighIns: 0,
+  trendStart: null,
+  trendEnd: null,
+});
+
+/** The burn week by week from the phase start, read from the weigh-ins and each day's meals. Nothing is stored between weeks. */
+async function burnWeeks(db: Db, monday: ISODate, weighIns: { date: ISODate; weight: number }[]): Promise<EnergyWeek[]> {
+  const sunday = addDays(monday, 6);
+  const logs = await db
+    .select({ date: mealLogs.date, slot: mealLogs.slot, category: mealLogs.category, kcal: mealLogs.kcal })
+    .from(mealLogs)
+    .where(between(mealLogs.date, plan.phaseStart, sunday))
+    .all();
+  const byDate = new Map<ISODate, (LogFacts & { kcal: number })[]>();
+  for (const l of logs) byDate.set(l.date, [...(byDate.get(l.date) ?? []), l]);
+  const series = trendSeries(weighIns, sunday);
+  const weighed = new Set(weighIns.map((w) => w.date));
+  return energyHistory({
+    phaseStart: plan.phaseStart,
+    through: monday,
+    priorBurn: plan.maintenanceKcal,
+    intake: (d) => {
+      const day = byDate.get(d);
+      return day ? dayIntake(day) : null;
+    },
+    trend: (d) => series.get(d) ?? null,
+    weighedIn: (d) => weighed.has(d),
+  });
+}
+
+function savedPickOf(outcome: string | undefined): CallPick | null {
+  if (!outcome) return null;
+  try {
+    const pick = (JSON.parse(outcome) as { pick?: unknown }).pick;
+    return pick === "calories" || pick === "steps" ? pick : null;
+  } catch {
+    return null;
+  }
+}
+
 export async function checkInData(db: Db, monday: ISODate): Promise<CheckInData> {
   const sunday = addDays(monday, 6);
-  const prevMonday = addDays(monday, -7);
-  const weighIns = (await weighInsBetween(db, addDays(sunday, -20), sunday)).map((w) => ({ date: w.date, weight: w.weightLb }));
-  const avgNow = sevenDayAverage(weighIns, sunday);
-  const avgPrev = sevenDayAverage(weighIns, addDays(sunday, -7));
-  const avgPrev2 = sevenDayAverage(weighIns, addDays(sunday, -14));
+  const weighIns = (await weighInsThrough(db, sunday)).map((w) => ({ date: w.date, weight: w.weightLb }));
+  const series = trendSeries(weighIns, sunday);
+  const trendWeight = trendReading(weighIns, sunday)?.weight ?? null;
+  const thisChange = weeklyTrendChange(series, sunday);
 
   const thisWeek = await dayResults(db, monday, sunday);
-  const lastWeek = await dayResults(db, prevMonday, addDays(prevMonday, 6));
   const adherence = weekAdherence(thisWeek.map((d) => d.onPlan));
-  const base = await baseTargetsFor(db, sunday);
-  const outcome = decideAdjustment(
-    [
-      { change: weeklyChange(avgPrev, avgPrev2), onPlan: weekIsOnPlan(weekAdherence(lastWeek.map((d) => d.onPlan))) },
-      { change: weeklyChange(avgNow, avgPrev), onPlan: weekIsOnPlan(adherence) },
-    ],
-    { kcal: base.kcal, stepGoal: base.stepGoal },
-  );
+  const avgSteps = Math.round(thisWeek.reduce((s, d) => s + d.steps, 0) / 7);
+  const [base, thisWeekTargets, weeks, saved] = await Promise.all([
+    baseTargetsFor(db, sunday),
+    targetsFor(db, sunday),
+    burnWeeks(db, monday, weighIns),
+    db.select().from(checkIns).where(eq(checkIns.weekStart, monday)).get(),
+  ]);
+  const rampedStepGoal = rampStepGoal(base.stepGoal, avgSteps);
+  const energy = weeks.at(-1) ?? beforePhase(monday);
+  const call = nextTarget({
+    week: energy,
+    trendWeight: series.get(sunday) ?? 0,
+    currentKcal: base.kcal,
+    stepGoal: rampedStepGoal,
+    baseStepGoal: base.stepGoal,
+    changes: [thisChange, weeklyTrendChange(series, addDays(sunday, -7))],
+    maintenanceNext: weekType(plan, addDays(monday, 7)) === "maintenance",
+    halfPortionKcal: HALF_PORTION_KCAL,
+  });
 
   const [setDates, moves] = await Promise.all([datesWithWorkouts(db, monday, sunday), movesBetween(db, monday, sunday)]);
   let workoutsDone = 0;
@@ -104,7 +184,6 @@ export async function checkInData(db: Db, monday: ISODate): Promise<CheckInData>
       if (setDates.has(d)) workoutsDone++;
     } else if (setDates.has(d)) optionalDone++;
   }
-  const avgSteps = Math.round(thisWeek.reduce((s, d) => s + d.steps, 0) / 7);
 
   const { counts, mealCounts } = await mealRepeats(db, monday);
   const relaxed = await db
@@ -131,8 +210,8 @@ export async function checkInData(db: Db, monday: ISODate): Promise<CheckInData>
     weekStart: monday,
     weekEnd: sunday,
     weekNumber: weekNumber(plan, monday),
-    avgWeight: avgNow,
-    change: weeklyChange(avgNow, avgPrev),
+    trendWeight,
+    change: trendWeight !== null && thisChange !== null ? roundLb(thisChange) : null,
     adherence,
     onPlan: weekIsOnPlan(adherence),
     relaxedMeals: relaxed?.n ?? 0,
@@ -141,21 +220,25 @@ export async function checkInData(db: Db, monday: ISODate): Promise<CheckInData>
     optionalDone,
     avgSteps,
     stepGoal: base.stepGoal,
-    rampedStepGoal: rampStepGoal(base.stepGoal, avgSteps),
+    rampedStepGoal,
     kcal: base.kcal,
     proteinG: base.proteinG,
     waist: waists.at(-1)?.inches ?? null,
-    outcome,
+    energy,
+    lastBurn: weeks.at(-2)?.burn ?? plan.maintenanceKcal,
+    call,
+    thisWeekKcal: thisWeekTargets.kcal,
+    savedPick: savedPickOf(saved?.outcome),
     mealCounts,
     preview,
     nextWeek: { weekStart: nextMonday, lastEaten: nextLastEaten, restedBefore, eatenThisWeek },
-    done: await checkInDone(db, monday),
+    done: saved !== undefined,
   };
 }
 
 export interface CheckInInput {
   waist: number | null;
-  choice: "calories" | "steps";
+  choice: CallPick;
   rest: string[];
   swaps?: MealSwap[];
 }
@@ -163,17 +246,11 @@ export interface CheckInInput {
 export async function completeCheckIn(db: Db, monday: ISODate, input: CheckInInput, now: Date): Promise<void> {
   const data = await checkInData(db, monday);
   const nextMonday = addDays(monday, 7);
-  const base = await baseTargetsFor(db, data.weekEnd);
-
-  let kcal = base.kcal;
-  let stepGoal = data.rampedStepGoal;
-  if (data.outcome.kind === "slow") {
-    if (input.choice === "steps" && data.outcome.newStepGoal !== null) stepGoal = data.outcome.newStepGoal;
-    else kcal = data.outcome.newKcal;
-  } else if (data.outcome.kind === "fast") {
-    kcal = data.outcome.newKcal;
-  }
-  await setTargetsFrom(db, nextMonday, { kcal, proteinG: base.proteinG, stepGoal });
+  const { call } = data;
+  // Only a call with a walking option can take it. A maintenance week's calories pick keeps the base as it is.
+  const pick: CallPick = input.choice === "steps" && call.steps ? "steps" : "calories";
+  const chosen = pick === "steps" && call.steps ? call.steps : call.calories;
+  await setTargetsFrom(db, nextMonday, { kcal: chosen.kcal, proteinG: data.proteinG, stepGoal: chosen.stepGoal });
 
   if (input.waist !== null) await logWaist(db, data.weekEnd, input.waist);
   for (const slug of input.rest) if (meals.has(slug)) await restMeal(db, slug, addDays(nextMonday, 13));
@@ -189,15 +266,20 @@ export async function completeCheckIn(db: Db, monday: ISODate, input: CheckInInp
       .onConflictDoUpdate({ target: [plannedMeals.date, plannedMeals.slot], set: { mealSlug: swap.slug, swapped: true } });
   }
 
+  const outcome: CallOutcome = { kind: call.kind, newKcal: chosen.kcal, newStepGoal: chosen.stepGoal, pick, guardrail: call.guardrail };
+  const fields = {
+    avgWeight: data.trendWeight,
+    change: data.change,
+    adherence: data.adherence,
+    outcome: JSON.stringify(outcome),
+    burn: data.energy.burn,
+    burnState: data.energy.state,
+    intakeAvg: data.energy.intakeAvg,
+    trackedDays: data.energy.trackedDays,
+  };
+  // "Update check-in" saves the new pick over the old one. completed_at keeps the first finish.
   await db
     .insert(checkIns)
-    .values({
-      weekStart: monday,
-      avgWeight: data.avgWeight,
-      change: data.change,
-      adherence: data.adherence,
-      outcome: JSON.stringify({ ...data.outcome, choice: input.choice, kcal, stepGoal }),
-      completedAt: now.toISOString(),
-    })
-    .onConflictDoNothing();
+    .values({ weekStart: monday, ...fields, completedAt: now.toISOString() })
+    .onConflictDoUpdate({ target: checkIns.weekStart, set: fields });
 }

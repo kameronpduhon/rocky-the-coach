@@ -82,10 +82,13 @@ const HIT_SECONDS = 30 * 24 * 60 * 60;
 const MISS_SECONDS = 24 * 60 * 60;
 const TIMEOUT_MS = 6_000;
 
+// The Workers runtime's own cache. The app's types include the DOM, whose CacheStorage has no `default`.
+const workerCache = (): Cache => (caches as unknown as { default: Cache }).default;
+
 export type BarcodeAnswer = { found: true; product: Product } | { found: false; down?: true };
 
 /** One barcode, from the cache or from Open Food Facts. A down or slow OFF is never cached, so the next scan asks again. */
-export async function lookupBarcode(code: string, cache: Cache = caches.default): Promise<BarcodeAnswer> {
+export async function lookupBarcode(code: string, cache: Cache = workerCache()): Promise<BarcodeAnswer> {
   const key = offCode(code);
   const cacheKey = new Request(`${CACHE_PREFIX}${key}`);
   const hit = await cache.match(cacheKey);

@@ -1,5 +1,5 @@
 import { useEffect, useState, type ReactNode } from "react";
-import { Form, Link } from "react-router";
+import { Link } from "react-router";
 import { APP_NAME, COACH_NAME, pageTitle } from "~/brand";
 import type { Route } from "./+types/settings";
 import { Toggle } from "~/components/Toggle";
@@ -108,11 +108,16 @@ export default function Settings({ loaderData }: Route.ComponentProps) {
 
       <SyncLine />
 
-      <Form method="post" action="/logout">
-        <button type="submit" className={btn.quiet}>
-          Sign out
-        </button>
-      </Form>
+      <button
+        type="button"
+        onClick={async () => {
+          await fetch("/api/logout", { method: "POST" }).catch(() => undefined);
+          window.location.assign("/login");
+        }}
+        className={btn.quiet}
+      >
+        Sign out
+      </button>
     </main>
   );
 }

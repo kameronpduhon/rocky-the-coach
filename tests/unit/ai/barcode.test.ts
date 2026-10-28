@@ -40,6 +40,11 @@ describe("scannedCode", () => {
     expect(scannedCode("01234565", "upc_e")).toBe("012345000065");
   });
 
+  it("reads an EAN-13 with a leading 0 as the UPC-A printed on the package", () => {
+    expect(scannedCode("0811620021982", "ean_13")).toBe("811620021982");
+    expect(scannedCode("0089876543217", "ean_13")).toBe("089876543217");
+  });
+
   it("drops a read with a bad check digit, so scanning goes on", () => {
     expect(scannedCode("036000291453", "upc_a")).toBeNull();
     expect(scannedCode("01234564", "upc_e")).toBeNull();

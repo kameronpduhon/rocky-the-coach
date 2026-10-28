@@ -38,7 +38,9 @@ export function expandUpcE(code: string): string | null {
 /** The code to look up from one detector result, or null when the read is wrong and scanning should go on. */
 export function scannedCode(rawValue: string, format: string): string | null {
   const code = format === "upc_e" ? expandUpcE(rawValue) : rawValue;
-  return code !== null && gtinValid(code) ? code : null;
+  if (code === null || !gtinValid(code)) return null;
+  // zxing reports a US UPC-A as the EAN-13 with a leading 0. The 12 digits are what the package prints and groups.
+  return format === "ean_13" && code.startsWith("0") ? code.slice(1) : code;
 }
 
 /** "0 85239 00417 2" for UPC-A, "3 017620 422003" for EAN-13, one run of digits otherwise. */

@@ -168,6 +168,10 @@ export const checkIns = sqliteTable("check_ins", {
   burnState: text("burn_state"),
   intakeAvg: integer("intake_avg"),
   trackedDays: integer("tracked_days"),
+  /** The Sunday taps: hunger and energy are low, fine or high; sleep is poor, fine or great. Null when skipped, and on older rows. */
+  hunger: text("hunger"),
+  energy: text("energy"),
+  sleep: text("sleep"),
 });
 
 export const pushSubscriptions = sqliteTable("push_subscriptions", {
@@ -256,5 +260,14 @@ export const usualOrders = sqliteTable("usual_orders", {
   relaxed: bool("relaxed").notNull().default(false),
   uses: integer("uses").notNull().default(0),
   lastUsedAt: text("last_used_at"),
+  createdAt: text("created_at").notNull(),
+});
+
+/** A stuck lift dropped back at the check-in: the weight for its next session on or after `from_date`. One per lift. */
+export const liftDrops = sqliteTable("lift_drops", {
+  exerciseId: text("exercise_id").primaryKey(),
+  weightLb: real("weight_lb").notNull(),
+  /** The Monday after the check-in that set it. */
+  fromDate: text("from_date").notNull(),
   createdAt: text("created_at").notNull(),
 });

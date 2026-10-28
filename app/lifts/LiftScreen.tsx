@@ -39,7 +39,7 @@ function SessionChart({ points, unit }: { points: LiftPage["chart"]; unit: strin
 export function LiftScreen({ p }: { p: LiftPage }) {
   return (
     <main className="mx-auto flex w-full max-w-[560px] flex-col gap-6 px-5 pb-12 pt-[max(20px,env(safe-area-inset-top))]">
-      <header className="flex items-center gap-3">
+      <header className="flex items-center justify-between gap-3">
         <HeaderIcon to={p.back.to} label={p.back.label} icon="back" />
         <span className="truncate font-num text-[16px] font-bold tracking-[0.02em]">{p.header}</span>
       </header>

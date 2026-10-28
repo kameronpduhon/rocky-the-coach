@@ -1,12 +1,14 @@
-import { useMemo, useRef, useState } from "react";
-import { Link, useNavigate, useRouteLoaderData } from "react-router";
+import { useEffect, useMemo, useRef, useState } from "react";
+import { Link, useNavigate, useRouteLoaderData, useSearchParams } from "react-router";
 import { COACH_NAME, pageTitle } from "~/brand";
-import { Sheet } from "~/components/Sheet";
 import { Icon } from "~/components/ui";
 import { plan } from "~/content";
 import { useNow } from "~/lib/use-now";
 import { useMutate, useStoreVersion, useSyncClient, useSyncStatus } from "~/sync/react";
+import type { CloseOutModel } from "~/today/closeout";
+import { CloseOutSheet } from "~/today/CloseOutSheet";
 import { buildToday, mealHeadline, scaleList, SLOT_LABEL, type NoPlanToday, type PlanToday, type SlotModel, type TrainingModel } from "~/today/model";
+import { OffPlanSheet } from "~/today/OffPlanSheet";
 import { btn } from "~/ui/button";
 import { Poster } from "~/ui/Poster";
 import { ProgressionCallout } from "~/ui/ProgressionCallout";
@@ -114,11 +116,45 @@ function PlanOnTheWay({ m, name }: { m: NoPlanToday; name: string }) {
   );
 }
 
+const ASKED_KEY = "rocky-closeout-asked";
+let askedInMemory: string | null = null;
+
+/** True the first time Today opens on `date` on this phone, so yesterday's sheet asks once a day and no more. */
+function firstOpenOn(date: string): boolean {
+  let asked = askedInMemory;
+  try {
+    asked = localStorage.getItem(ASKED_KEY) ?? asked;
+    localStorage.setItem(ASKED_KEY, date);
+  } catch {
+    // Private mode can refuse storage. This page's memory still stops a second ask.
+  }
+  askedInMemory = date;
+  return asked !== date;
+}
+
 function TodayWithPlan({ m }: { m: PlanToday }) {
   const [offPlanOpen, setOffPlanOpen] = useState(false);
+  const [closing, setClosing] = useState<CloseOutModel | null>(null);
+  const [params, setParams] = useSearchParams();
   // Checks that were already there when the screen opened do not animate. Nothing moves on load.
   const eatenAtOpen = useRef<Set<string> | null>(null);
   eatenAtOpen.current ??= new Set(m.slots.filter((s) => s.logKey).map((s) => s.slot));
+
+  // Once, as the screen opens: the 9:15pm push asks about today, and a day's first open about a half-answered yesterday.
+  useEffect(() => {
+    if (params.get("closeout") === "today") {
+      setParams(
+        (p) => {
+          p.delete("closeout");
+          return p;
+        },
+        { replace: true },
+      );
+      setClosing(m.closeOut.today);
+    } else if (m.closeOut.yesterday && firstOpenOn(m.date)) {
+      setClosing(m.closeOut.yesterday);
+    }
+  }, []);
 
   return (
     <Page>
@@ -140,7 +176,7 @@ function TodayWithPlan({ m }: { m: PlanToday }) {
 
       <RockyCard label={m.voice === "plain" ? COACH_NAME : `${COACH_NAME}, in your corner`}>{m.message}</RockyCard>
 
-      <Fuel m={m} eatenAtOpen={eatenAtOpen.current} onAteElse={() => setOffPlanOpen(true)} />
+      <Fuel m={m} eatenAtOpen={eatenAtOpen.current} onAteElse={() => setOffPlanOpen(true)} onCloseOut={() => setClosing(m.closeOut.today)} />
 
       <section aria-labelledby="week" className="flex flex-col gap-3">
         <SectionHead id="week" note={`${m.countedSoFar} of ${m.daysSoFar} so far`}>
@@ -153,7 +189,8 @@ function TodayWithPlan({ m }: { m: PlanToday }) {
         </p>
       </section>
 
-      <OffPlanSheet open={offPlanOpen} date={m.date} onClose={() => setOffPlanOpen(false)} />
+      {offPlanOpen && <OffPlanSheet date={m.date} usuals={m.usuals} onClose={() => setOffPlanOpen(false)} />}
+      {closing && <CloseOutSheet key={closing.date} day={closing} onClose={() => setClosing(null)} />}
     </Page>
   );
 }
@@ -234,12 +271,12 @@ function WorkoutPoster({ m, t }: { m: PlanToday; t: TrainingModel }) {
   );
 }
 
-function Fuel({ m, eatenAtOpen, onAteElse }: { m: PlanToday; eatenAtOpen: Set<string>; onAteElse: () => void }) {
+function Fuel({ m, eatenAtOpen, onAteElse, onCloseOut }: { m: PlanToday; eatenAtOpen: Set<string>; onAteElse: () => void; onCloseOut: () => void }) {
   const mutate = useMutate();
   const left = m.targets.proteinG - m.totals.proteinG;
   const offPlanProtein = m.offPlan.reduce((a, o) => a + o.proteinG, 0);
   const segments = [
-    ...m.slots.map((s) => ({ label: SLOT_LABEL[s.slot].toLowerCase(), grams: s.meal.protein, state: s.logKey ? ("eaten" as const) : s.next ? ("next" as const) : ("later" as const) })),
+    ...m.slots.filter((s) => !s.skipKey).map((s) => ({ label: SLOT_LABEL[s.slot].toLowerCase(), grams: s.meal.protein, state: s.logKey ? ("eaten" as const) : s.next ? ("next" as const) : ("later" as const) })),
     ...(offPlanProtein > 0 ? [{ label: "off-plan", grams: offPlanProtein, state: "eaten" as const }] : []),
   ];
   return (
@@ -282,6 +319,11 @@ function Fuel({ m, eatenAtOpen, onAteElse }: { m: PlanToday; eatenAtOpen: Set<st
           <span className="font-num text-[15px] font-bold">{m.dessertLine}</span>
         </li>
       </ul>
+      {m.closeOut.link && (
+        <button type="button" onClick={onCloseOut} className={btn.quiet}>
+          Close out today
+        </button>
+      )}
       <button type="button" onClick={onAteElse} className={`${btn.outlinePlain} h-11 self-start px-4`}>
         + Ate something else
       </button>
@@ -305,6 +347,19 @@ function MealRow({ s, date, fresh }: { s: SlotModel; date: string; fresh: boolea
             <Icon name="check" size={16} strokeWidth={2.8} />
           </span>
           Eaten
+        </button>
+      </li>
+    );
+  }
+  if (s.skipKey) {
+    return (
+      <li className="flex min-h-12 items-center gap-3 border-t border-rule">
+        <span className="tabular w-11 font-num text-[15px] font-semibold text-muted">{s.time}</span>
+        <Link to={recipe} className="flex-1 text-[16px] text-muted">
+          {s.meal.name}
+        </Link>
+        <button type="button" aria-label={`Mark ${s.meal.name} not skipped`} onClick={() => void mutate("unlogMeal", { key: s.skipKey })} className="flex h-11 items-center text-[14px] font-semibold text-ink-3">
+          Skipped
         </button>
       </li>
     );
@@ -339,73 +394,5 @@ function MealRow({ s, date, fresh }: { s: SlotModel; date: string; fresh: boolea
       </Link>
       <button type="button" aria-label={`Mark ${s.meal.name} eaten`} onClick={eat} className="size-11 flex-none rounded-full border-[1.5px] border-border" />
     </li>
-  );
-}
-
-const PRESETS = [
-  { name: "Restaurant meal", category: "meal", kcal: 900, proteinG: 50, relaxed: true },
-  { name: "Ranch Water", category: "drink", kcal: 100, proteinG: 0, relaxed: false },
-] as const;
-
-const FIELD = "h-11 rounded-[6px] border-[1.5px] border-border bg-field px-3 text-[17px] font-normal text-ink";
-
-function OffPlanSheet({ open, date, onClose }: { open: boolean; date: string; onClose: () => void }) {
-  const mutate = useMutate();
-  const log = (entry: { name: string; category: string; kcal: number; proteinG: number; relaxed: boolean }) => {
-    void mutate("logOffPlan", { clientId: crypto.randomUUID(), date, ...entry });
-    onClose();
-  };
-  return (
-    <Sheet open={open} onClose={onClose} title="Ate something else">
-      <div className="mb-4 flex flex-wrap gap-2">
-        {PRESETS.map((p) => (
-          <button key={p.name} type="button" onClick={() => log({ ...p })} className={`${btn.outlinePlain} h-11 px-4`}>
-            {p.name}
-            {p.relaxed ? " (relaxed)" : ""}
-          </button>
-        ))}
-      </div>
-      <form
-        onSubmit={(e) => {
-          e.preventDefault();
-          const f = new FormData(e.currentTarget);
-          const kcal = Number(f.get("kcal"));
-          if (!String(f.get("name") ?? "").trim() || !Number.isFinite(kcal)) return;
-          log({ name: String(f.get("name")).trim(), category: String(f.get("category")), kcal: Math.round(kcal), proteinG: Math.round(Number(f.get("protein") || 0)), relaxed: f.get("relaxed") === "on" });
-        }}
-        className="flex flex-col gap-3"
-      >
-        <label className="flex flex-col gap-1 text-[13px] font-semibold text-ink-3">
-          What was it
-          <input name="name" required maxLength={80} className={FIELD} />
-        </label>
-        <label className="flex flex-col gap-1 text-[13px] font-semibold text-ink-3">
-          Category
-          <select name="category" defaultValue="meal" className={FIELD}>
-            <option value="meal">Meal</option>
-            <option value="snack">Snack</option>
-            <option value="dessert">Dessert</option>
-            <option value="drink">Drink</option>
-          </select>
-        </label>
-        <div className="grid grid-cols-2 gap-3">
-          <label className="flex flex-col gap-1 text-[13px] font-semibold text-ink-3">
-            Calories
-            <input name="kcal" inputMode="numeric" required className={`tabular ${FIELD}`} />
-          </label>
-          <label className="flex flex-col gap-1 text-[13px] font-semibold text-ink-3">
-            Protein (g)
-            <input name="protein" inputMode="numeric" defaultValue="0" className={`tabular ${FIELD}`} />
-          </label>
-        </div>
-        <label className="flex min-h-11 items-center justify-between text-[16px]">
-          Relaxed meal (weekend restaurant)
-          <input type="checkbox" name="relaxed" className="size-6 accent-[var(--ink)]" />
-        </label>
-        <button type="submit" className={`${btn.primary} mt-1 h-14`}>
-          Log it
-        </button>
-      </form>
-    </Sheet>
   );
 }

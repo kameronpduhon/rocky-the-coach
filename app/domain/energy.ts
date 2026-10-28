@@ -40,6 +40,7 @@ export interface EnergyWeek {
   trackedDays: number;
   windowTrackedDays: number;
   weighIns: number;
+  /** The trend the day before the window starts, and on its last day (Sunday). */
   trendStart: number | null;
   trendEnd: number | null;
 }
@@ -63,7 +64,8 @@ export function energyHistory(input: EnergyInput): EnergyWeek[] {
     });
     const trackedDays = tracked.filter((t) => t.d >= monday).length;
     const weighIns = days.filter(input.weighedIn).length;
-    const trendStart = input.trend(start);
+    // The spec's slope: from the trend the day before the window to its last day, over the window's 21 days.
+    const trendStart = input.trend(addDays(start, -1));
     const trendEnd = input.trend(sunday);
     const intakeAvg = tracked.length ? tracked.reduce((sum, t) => sum + t.kcal, 0) / tracked.length : null;
 
@@ -77,7 +79,7 @@ export function energyHistory(input: EnergyInput): EnergyWeek[] {
       trendEnd !== null;
     let observed: number | null = null;
     if (enough) {
-      observed = intakeAvg - (KCAL_PER_LB * (trendEnd - trendStart)) / (WINDOW_DAYS - 1);
+      observed = intakeAvg - (KCAL_PER_LB * (trendEnd - trendStart)) / WINDOW_DAYS;
       const move = Math.max(-MAX_BURN_MOVE, Math.min(MAX_BURN_MOVE, SMOOTHING * (observed - burn)));
       burn = Math.round((burn + move) / 10) * 10;
       updates++;

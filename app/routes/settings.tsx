@@ -1,6 +1,7 @@
 import { env } from "cloudflare:workers";
 import { useEffect, useState, type ReactNode } from "react";
 import { Form, Link, useFetcher } from "react-router";
+import { APP_NAME, COACH_NAME, pageTitle } from "~/brand";
 import type { Route } from "./+types/settings";
 import { Toggle } from "~/components/Toggle";
 import { Icon } from "~/components/ui";
@@ -17,7 +18,7 @@ import { SectionHead } from "~/ui/SectionHead";
 export const handle = { hideTabBar: true };
 
 export function meta() {
-  return [{ title: "Settings · Rocky" }];
+  return [{ title: pageTitle("Settings") }];
 }
 
 export async function loader({ request }: Route.LoaderArgs) {
@@ -38,7 +39,7 @@ export async function action({ request }: Route.ActionArgs) {
   const form = await request.formData();
   const intent = form.get("intent");
   if (intent === "test-push") {
-    const pushed = await sendToAll(userDb(), { title: "Rocky", body: "Notifications are working.", url: "/settings", tag: "test" });
+    const pushed = await sendToAll(userDb(), { title: APP_NAME, body: "Notifications are working.", url: "/settings", tag: "test" });
     return { pushed };
   }
   if (intent === "backup") {
@@ -70,7 +71,7 @@ export default function Settings({ loaderData }: Route.ComponentProps) {
       </div>
 
       <section aria-labelledby="rocky" className="flex flex-col gap-3.5">
-        <SectionHead id="rocky">Rocky</SectionHead>
+        <SectionHead id="rocky">{COACH_NAME}</SectionHead>
         {ready && <VoicePicker voice={voiceOf(rows("profile"))} />}
       </section>
 
@@ -131,7 +132,7 @@ function VoicePicker({ voice }: { voice: "corner" | "plain" }) {
   return (
     <div className="flex flex-col gap-2">
       <span id="voice" className="text-[16px] font-bold">
-        How Rocky talks
+        How {COACH_NAME} talks
       </span>
       <div role="radiogroup" aria-labelledby="voice" className="grid grid-cols-2 gap-2">
         {VOICES.map((v) => {
@@ -250,7 +251,7 @@ function BackupSection() {
   return (
     <section aria-labelledby="backups" className="flex flex-col gap-2.5">
       <SectionHead id="backups">Backups</SectionHead>
-      <p className="text-[15px] leading-[1.4] text-ink-2">Early every Sunday Rocky saves a copy of all your logs and keeps the last 12.</p>
+      <p className="text-[15px] leading-[1.4] text-ink-2">Early every Sunday {APP_NAME} saves a copy of all your logs and keeps the last 12.</p>
       <backup.Form method="post" className="flex flex-wrap items-center gap-3">
         <input type="hidden" name="intent" value="backup" />
         <button type="submit" disabled={backup.state !== "idle"} className={`${btn.outlinePlain} h-11 px-4`}>
@@ -342,9 +343,9 @@ function NotificationsSection({ vapidPublicKey }: { vapidPublicKey: string }) {
       <p className="text-[14px] leading-[1.4] text-ink-2">Reminders arrive as notifications. Turn them on once on each device.</p>
       {state === "install" ? (
         <>
-          <p className="text-[15px] leading-[1.45] text-ink-2">On iPhone, reminders need Rocky on the Home Screen.</p>
+          <p className="text-[15px] leading-[1.45] text-ink-2">On iPhone, reminders need {APP_NAME} on the Home Screen.</p>
           <ol className="flex flex-col gap-2 text-[15px] leading-[1.4]">
-            {["In Safari, tap Share.", "Tap Add to Home Screen.", "Open Rocky from the Home Screen and come back here."].map((step, i) => (
+            {["In Safari, tap Share.", "Tap Add to Home Screen.", `Open ${APP_NAME} from the Home Screen and come back here.`].map((step, i) => (
               <li key={step} className="flex gap-3">
                 <span className="tabular w-4 flex-none text-ink-2">{i + 1}</span>
                 <span>{step}</span>
@@ -376,9 +377,9 @@ function NotificationsSection({ vapidPublicKey }: { vapidPublicKey: string }) {
         </div>
       )}
       {state === "blocked" && (
-        <p className="text-[15px] leading-[1.45] text-ink-2">Notifications are blocked for Rocky. Turn them on in iPhone Settings, then Notifications, then Rocky.</p>
+        <p className="text-[15px] leading-[1.45] text-ink-2">Notifications are blocked for {APP_NAME}. Turn them on in iPhone Settings, then Notifications, then {APP_NAME}.</p>
       )}
-      {state === "unsupported" && <p className="text-[15px] leading-[1.45] text-ink-2">Open Rocky from the Home Screen on your iPhone to get reminders.</p>}
+      {state === "unsupported" && <p className="text-[15px] leading-[1.45] text-ink-2">Open {APP_NAME} from the Home Screen on your iPhone to get reminders.</p>}
       {note && (
         <p role="alert" className="text-[15px] leading-[1.45] text-ink-2">
           {note}
@@ -386,7 +387,7 @@ function NotificationsSection({ vapidPublicKey }: { vapidPublicKey: string }) {
       )}
       {pushed !== null && (
         <p aria-live="polite" className="tabular text-[15px] leading-[1.45] text-ink-2">
-          {pushed === 0 ? "Nothing was sent. Check that Rocky is allowed in iPhone Settings, then Notifications, and try again." : `Sent to ${pushed} device${pushed === 1 ? "" : "s"}. It should arrive in a few seconds.`}
+          {pushed === 0 ? `Nothing was sent. Check that ${APP_NAME} is allowed in iPhone Settings, then Notifications, and try again.` : `Sent to ${pushed} device${pushed === 1 ? "" : "s"}. It should arrive in a few seconds.`}
         </p>
       )}
     </section>

@@ -1,4 +1,5 @@
 import { useEffect, useState } from "react";
+import { COACH_NAME } from "~/brand";
 import { Icon } from "~/components/ui";
 import { plan } from "~/content";
 import { btn } from "~/ui/button";
@@ -19,7 +20,7 @@ import { useWorkoutActions } from "./use-actions";
 
 type Ping = "on" | "off" | "failed";
 const PING_LINE: Record<Ping, string> = {
-  on: "Lock your phone. Rocky pings you at 0:00.",
+  on: `Lock your phone. ${COACH_NAME} pings you at 0:00.`,
   off: "Turn on notifications in Settings to get a ping.",
   failed: "No signal, so no ping. Keep an eye on the clock.",
 };

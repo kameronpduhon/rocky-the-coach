@@ -1,5 +1,6 @@
 import { createContext, useCallback, useContext, useEffect, useState, useSyncExternalStore } from "react";
 import { useLocation } from "react-router";
+import { APP_NAME } from "~/brand";
 import { localDate } from "~/domain/dates";
 import { SyncClient } from "./client";
 import { forgetOtherPeople, idbPersistence } from "./idb";
@@ -31,7 +32,7 @@ function createClient(userId: number): SyncClient {
 export function SyncProvider({ userId, children }: { userId: number; children: React.ReactNode }) {
   const [client, setClient] = useState<SyncClient | null>(null);
   const [elsewhere, setElsewhere] = useState(false);
-  // Each "Use Rocky here" tap bumps this, which re-claims the lock with steal.
+  // Each "Use … here" tap bumps this, which re-claims the lock with steal.
   const [takeovers, setTakeovers] = useState(0);
   useEffect(() => {
     let running: SyncClient | null = null;
@@ -84,9 +85,9 @@ function OpenElsewhere({ onUseHere }: { onUseHere: () => void }) {
   return (
     <main className="mx-auto flex min-h-dvh w-full max-w-[560px] flex-col justify-center gap-4 px-5">
       <h1 className="font-display text-[48px] uppercase leading-none">Open in another tab.</h1>
-      <p className="text-[17px] leading-[1.45] text-ink-2">Rocky keeps one copy in step at a time, so changes never cross. Close the other tab, or use Rocky here.</p>
+      <p className="text-[17px] leading-[1.45] text-ink-2">{APP_NAME} keeps one copy in step at a time, so changes never cross. Close the other tab, or use {APP_NAME} here.</p>
       <button type="button" onClick={onUseHere} className={`${btn.primary} h-14`}>
-        Use Rocky here
+        Use {APP_NAME} here
       </button>
     </main>
   );

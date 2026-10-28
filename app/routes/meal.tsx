@@ -1,5 +1,6 @@
 import { useState } from "react";
 import { redirect, useFetcher, useNavigate } from "react-router";
+import { APP_NAME, pageTitle } from "~/brand";
 import type { Route } from "./+types/meal";
 import { MealPhoto } from "~/components/MealPhoto";
 import { Segmented } from "~/components/Segmented";
@@ -23,7 +24,7 @@ import { serverNow } from "~/server/clock.server";
 export const handle = { hideTabBar: true };
 
 export function meta({ loaderData }: Route.MetaArgs) {
-  return [{ title: `${loaderData?.meal.name ?? "Meal"} · Rocky` }];
+  return [{ title: pageTitle(loaderData?.meal.name ?? "Meal") }];
 }
 
 const STATE_LABEL = { raw: "Raw", cooked: "Cooked", "as-is": "As is" } as const;
@@ -200,7 +201,7 @@ export default function MealScreen({ loaderData }: Route.ComponentProps) {
           <Card className="flex flex-col gap-3 p-[18px]">
             <h2 className="text-[17px] font-semibold">After cooking</h2>
             <p className="text-[15px] leading-[1.45] text-label-2">
-              Put all the cooked {mainProtein.name.toLowerCase()} on the scale and enter the number. Rocky splits it into {portions} equal portions.
+              Put all the cooked {mainProtein.name.toLowerCase()} on the scale and enter the number. {APP_NAME} splits it into {portions} equal portions.
             </p>
             <batchFetcher.Form method="post" className="flex flex-col gap-1.5">
               <label htmlFor="cooked" className="text-[13px] font-semibold text-label-2">

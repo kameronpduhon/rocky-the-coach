@@ -1,5 +1,6 @@
 import { useState } from "react";
 import { Link, useSearchParams } from "react-router";
+import { pageTitle } from "~/brand";
 import type { Route } from "./+types/library";
 import { MealPhoto } from "~/components/MealPhoto";
 import { Segmented } from "~/components/Segmented";
@@ -11,7 +12,7 @@ import { localDate } from "~/domain/dates";
 import { serverNow } from "~/server/clock.server";
 
 export function meta() {
-  return [{ title: "Library · Rocky" }];
+  return [{ title: pageTitle("Library") }];
 }
 
 const POOL_LABEL: Record<string, string> = { breakfast: "Breakfasts", main: "Lunch and dinner", snack: "Snacks", dessert: "Desserts" };

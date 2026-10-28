@@ -33,7 +33,7 @@ self.addEventListener("push", (event) => {
   }
   // iOS revokes push permission if a push does not show a notification, so always show one.
   event.waitUntil(
-    self.registration.showNotification(data.title || "Rocky", {
+    self.registration.showNotification(data.title || "The Corner", {
       body: data.body || "",
       icon: "/icons/icon-192.png",
       badge: "/icons/icon-192.png",

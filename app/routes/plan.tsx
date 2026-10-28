@@ -1,5 +1,6 @@
 import { useState } from "react";
 import { Link } from "react-router";
+import { pageTitle } from "~/brand";
 import { MoveSheet } from "~/components/MoveSheet";
 import type { Route } from "./+types/plan";
 import { Card, Icon, LargeTitle, Screen, SectionTitle } from "~/components/ui";
@@ -16,7 +17,7 @@ import { targetsFor } from "~/server/targets.server";
 import { resolveTemplate } from "~/server/workouts.server";
 
 export function meta() {
-  return [{ title: "Plan · Rocky" }];
+  return [{ title: pageTitle("Plan") }];
 }
 
 export async function loader(_args: Route.LoaderArgs) {

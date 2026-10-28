@@ -1,4 +1,5 @@
 import { isRouteErrorResponse, Links, Meta, Outlet, Scripts, ScrollRestoration } from "react-router";
+import { APP_NAME } from "~/brand";
 import type { Route } from "./+types/root";
 import "./app.css";
 // Latin subsets only. The service worker caches /assets/ on first use, so these work offline after one visit.
@@ -34,7 +35,7 @@ export const links: Route.LinksFunction = () => [
 ];
 
 export function meta() {
-  return [{ title: "Rocky" }];
+  return [{ title: APP_NAME }];
 }
 
 export function Layout({ children }: { children: React.ReactNode }) {
@@ -47,7 +48,7 @@ export function Layout({ children }: { children: React.ReactNode }) {
         <meta name="apple-mobile-web-app-capable" content="yes" />
         {/* "default" draws a dark clock. "black-translucent" drew it white, which vanishes on paper. */}
         <meta name="apple-mobile-web-app-status-bar-style" content="default" />
-        <meta name="apple-mobile-web-app-title" content="Rocky" />
+        <meta name="apple-mobile-web-app-title" content={APP_NAME} />
         <Meta />
         <Links />
       </head>

@@ -1,5 +1,6 @@
 import { useState } from "react";
 import { Link } from "react-router";
+import { pageTitle } from "~/brand";
 import type { Route } from "./+types/progress";
 import { WeighInSheet } from "~/components/WeighInSheet";
 import { WeightChart } from "~/components/WeightChart";
@@ -11,7 +12,7 @@ import { serverNow } from "~/server/clock.server";
 import { progressData } from "~/server/progress.server";
 
 export function meta() {
-  return [{ title: "Progress · Rocky" }];
+  return [{ title: pageTitle("Progress") }];
 }
 
 export async function loader(_args: Route.LoaderArgs) {

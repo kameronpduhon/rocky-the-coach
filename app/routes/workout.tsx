@@ -1,5 +1,6 @@
 import { useMemo } from "react";
 import { useSearchParams } from "react-router";
+import { pageTitle } from "~/brand";
 import { plan } from "~/content";
 import { useNow } from "~/lib/use-now";
 import { useStoreVersion, useSyncClient, useSyncStatus } from "~/sync/react";
@@ -12,7 +13,7 @@ import { SetScreen } from "~/workout/SetScreen";
 export const handle = { hideTabBar: true };
 
 export function meta() {
-  return [{ title: "Workout · Rocky" }];
+  return [{ title: pageTitle("Workout") }];
 }
 
 const BACK: Record<string, string> = { today: "/", plan: "/plan", progress: "/progress" };

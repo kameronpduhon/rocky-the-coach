@@ -1,5 +1,6 @@
 import { useMemo, useRef, useState } from "react";
 import { Link, useNavigate, useRouteLoaderData } from "react-router";
+import { COACH_NAME, pageTitle } from "~/brand";
 import { Sheet } from "~/components/Sheet";
 import { Icon } from "~/components/ui";
 import { plan } from "~/content";
@@ -16,7 +17,7 @@ import { WeekStrip } from "~/ui/WeekStrip";
 import type { loader as layoutLoader } from "./app-layout";
 
 export function meta() {
-  return [{ title: "Today · Rocky" }];
+  return [{ title: pageTitle("Today") }];
 }
 
 export default function Today() {
@@ -137,7 +138,7 @@ function TodayWithPlan({ m }: { m: PlanToday }) {
         )}
       </div>
 
-      <RockyCard label={m.voice === "plain" ? "Rocky" : "Rocky, in your corner"}>{m.message}</RockyCard>
+      <RockyCard label={m.voice === "plain" ? COACH_NAME : `${COACH_NAME}, in your corner`}>{m.message}</RockyCard>
 
       <Fuel m={m} eatenAtOpen={eatenAtOpen.current} onAteElse={() => setOffPlanOpen(true)} />
 

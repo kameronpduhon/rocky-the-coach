@@ -1,6 +1,7 @@
 import { between } from "drizzle-orm";
 import { useMemo, useState } from "react";
 import { Form, Link, redirect } from "react-router";
+import { COACH_NAME, pageTitle } from "~/brand";
 import type { Route } from "./+types/check-in";
 import { MealPhoto } from "~/components/MealPhoto";
 import { Segmented } from "~/components/Segmented";
@@ -19,7 +20,7 @@ import { serverNow } from "~/server/clock.server";
 export const handle = { hideTabBar: true };
 
 export function meta() {
-  return [{ title: "Sunday check-in · Rocky" }];
+  return [{ title: pageTitle("Sunday check-in") }];
 }
 
 const ISO = /^\d{4}-\d{2}-\d{2}$/;
@@ -198,12 +199,12 @@ export default function CheckIn({ loaderData }: Route.ComponentProps) {
           </div>
         </section>
 
-        <Card className="flex items-start gap-3 px-[18px] py-4" aria-label="Rocky's call">
+        <Card className="flex items-start gap-3 px-[18px] py-4" aria-label={`${COACH_NAME}'s call`}>
           <div aria-hidden="true" className="flex size-[34px] flex-none items-center justify-center rounded-full bg-fill text-[15px] font-bold">
             R
           </div>
           <div className="min-w-0 flex-1">
-            <div className="text-[13px] font-semibold text-label-2">Rocky's call</div>
+            <div className="text-[13px] font-semibold text-label-2">{COACH_NAME}'s call</div>
             <p className="mt-[3px] text-[16px] leading-[1.4]">{callText(d, choice)}</p>
             {d.outcome.kind === "slow" && d.outcome.newStepGoal !== null && (
               <div className="mt-3">
@@ -223,7 +224,7 @@ export default function CheckIn({ loaderData }: Route.ComponentProps) {
 
         <section aria-label="Next week's meals" className="flex flex-col gap-2">
           <SectionTitle>Next week's meals</SectionTitle>
-          <p className="px-1 text-[14px] leading-[1.4] text-label-2">Tired of something? Rest it and Rocky keeps it off the menu for a couple of weeks.</p>
+          <p className="px-1 text-[14px] leading-[1.4] text-label-2">Tired of something? Rest it and {COACH_NAME} keeps it off the menu for a couple of weeks.</p>
           {d.mealCounts.length > 0 ? (
             <Card className="overflow-hidden">
               {d.mealCounts.map((m) => (

@@ -4,7 +4,6 @@ import { COACH_NAME } from "~/brand";
 import { MIN_TRACKED_IN_WEEK } from "~/domain/energy";
 import { weekday } from "~/domain/dates";
 import type { ISODate } from "~/domain/types";
-import type { CallPick } from "./call";
 import type { CheckInDigest } from "./digest";
 
 export interface Take {
@@ -61,14 +60,13 @@ function fix(d: CheckInDigest): string {
   return "Nothing to fix. Run it back.";
 }
 
-/** The call as picked on the page, or as saved; Rocky's own pick when walking is his. */
-function callLine(d: CheckInDigest, pick: CallPick): string {
+/** Rocky's pick, not the radio the person has chosen. */
+function callLine(d: CheckInDigest): string {
   const c = d.call;
   const kcal = num(c.calories.kcal);
   if (c.kind === "maintenance") return `Maintenance week next: ${num(c.maintenanceKcal ?? c.burn)} a day, your burn.`;
-  if (pick === "steps" && c.steps) {
+  if (c.pick === "steps" && c.steps) {
     const walk = num(c.steps.stepGoal);
-    if (c.pick !== "steps") return `Burn is near ${num(c.burn)}, so calories hold at ${num(c.steps.kcal)} and steps go to ${walk}.`;
     return c.hungry ? `You were hungry two Sundays running, so ${COACH_NAME} picks ${walk} steps over less food.` : `Food is at half portions, so ${COACH_NAME} picks ${walk} steps over less food.`;
   }
   if (c.kind === "cut") return `Burn is near ${num(c.burn)}, so calories go to ${kcal} from Monday.`;
@@ -95,9 +93,8 @@ function lead(change: number | null): string | null {
   return `Trend ${change < 0 ? "down" : "up"} ${lb(change)} lb.`;
 }
 
-/** `pick` is the call's option on the page or in the saved check-in; it defaults to Rocky's. */
-export function ruleTake(d: CheckInDigest, pick: CallPick = d.call.pick): Take {
+export function ruleTake(d: CheckInDigest): Take {
   const first = lead(d.weight.change);
-  const line = callLine(d, pick);
+  const line = callLine(d);
   return { win: win(d), fix: fix(d), call: first ? `${first} ${line}` : line };
 }

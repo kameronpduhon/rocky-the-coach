@@ -242,7 +242,7 @@ export function buildCheckIn(rows: Rows, now: Date, choices: PageChoices | null,
   const nowFactor = factorFor(wc.thisWeekKcal);
   const view = callView({ ...wc, call }, pick, changedFoods(scaleChanges(slugs, nowFactor, factorFor(call.calories.kcal))));
   const changes = scaleChanges(slugs, nowFactor, factorFor(view.kcal));
-  const take = ruleTake(readOnly && kept?.call ? { ...digest, call: { ...digest.call, ...kept.call } } : digest, pick);
+  const take = ruleTake(readOnly && kept?.call ? { ...digest, call: { ...digest.call, ...kept.call } } : digest);
 
   const query = new URLSearchParams({ week: next, from: "check-in", kcal: String(view.kcal) });
   if (rest.length === 0) query.append("rest", "");

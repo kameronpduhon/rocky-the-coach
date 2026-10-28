@@ -180,6 +180,16 @@ const firstMealName = (logs: Row[]): string | null => {
   return first ? s(first, "name") : null;
 };
 
+/** What happened on each day, for the counted-day rule. Progress counts days with it too. */
+export function dayActivity(rows: Rows, hasPlan: boolean): (d: ISODate) => DayActivity {
+  const weighDates = new Set(rows("weigh_ins").map((r) => s(r, "date")));
+  // A skip answers the slot but isn't a meal, so it doesn't make a day count.
+  const mealDates = new Set(rows("meal_logs").filter((r) => r.category !== "skipped").map((r) => s(r, "date")));
+  const workoutDates = loggedDates(rows);
+  const steps = new Map(rows("steps_daily").map((r) => [s(r, "date"), n(r, "steps")]));
+  return (d) => ({ weighIn: weighDates.has(d), mealLogged: mealDates.has(d), workout: workoutDates.has(d), steps: steps.get(d) ?? 0, relaxed: hasPlan && isRelaxedDay(plan, d) });
+}
+
 export function buildToday(rows: Rows, now: Date, hasPlan: boolean): TodayModel {
   const date = mealDate(now);
   const minutes = localMinutes(now) + (localDate(now) === date ? 0 : 24 * 60);
@@ -197,13 +207,7 @@ export function buildToday(rows: Rows, now: Date, hasPlan: boolean): TodayModel 
   const weighDates = new Set(weighInRows.map((r) => s(r, "date")));
   // A skip answers the slot but isn't a meal, so it doesn't make a day count.
   const mealDates = new Set(mealLogs.filter((r) => r.category !== "skipped").map((r) => s(r, "date")));
-  const activity = (d: ISODate): DayActivity => ({
-    weighIn: weighDates.has(d),
-    mealLogged: mealDates.has(d),
-    workout: workoutDates.has(d),
-    steps: stepsByDate.get(d) ?? 0,
-    relaxed: hasPlan && isRelaxedDay(plan, d),
-  });
+  const activity = dayActivity(rows, hasPlan);
   const counted = (d: ISODate) => countedDay(activity(d));
   const firstDay = [...weighDates, ...mealDates, ...workoutDates, ...stepsByDate.keys()].reduce((a, b) => (b < a ? b : a), date);
   const streak = habitStreak(counted, date, firstDay);

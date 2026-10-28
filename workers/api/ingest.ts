@@ -1,5 +1,4 @@
 import { env } from "cloudflare:workers";
-import type { Route } from "./+types/api.ingest.steps";
 import { daysBetween, localDate } from "~/domain/dates";
 import { upsertSteps } from "~/server/body.server";
 import { serverNow } from "~/server/clock.server";
@@ -24,11 +23,8 @@ async function userForToken(header: string | null): Promise<User | null> {
   return userByIngestToken(token);
 }
 
-export async function loader() {
-  return new Response("Method not allowed", { status: 405 });
-}
-
-export async function action({ request }: Route.ActionArgs) {
+/** Public: the iPhone Shortcut sends a bearer token, not a session. */
+export async function ingestSteps(request: Request): Promise<Response> {
   const user = await userForToken(request.headers.get("Authorization"));
   if (!user) return Response.json({ error: "Unauthorized" }, { status: 401 });
   const body = (await request.json().catch(() => null)) as { date?: string; steps?: number | string } | null;

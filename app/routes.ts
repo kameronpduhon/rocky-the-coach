@@ -4,10 +4,6 @@ export default [
   route("login", "routes/login.tsx"),
   route("logout", "routes/logout.tsx"),
   route("media/*", "routes/media.tsx"),
-  route("api/push/subscribe", "routes/api.push.subscribe.ts"),
-  route("api/ingest/steps", "routes/api.ingest.steps.ts"),
-  route("api/vitals", "routes/api.vitals.ts"),
-  route("api/rest", "routes/api.rest.ts"),
   layout("routes/app-layout.tsx", [
     index("routes/today.tsx"),
     route("plan", "routes/plan.tsx"),

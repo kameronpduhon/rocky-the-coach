@@ -70,4 +70,9 @@ describe("Corner revised tokens", () => {
   ])("--%s outline on --%s is at least 3:1", (fg, bg) => {
     expect(contrast(fg, bg)).toBeGreaterThanOrEqual(3);
   });
+
+  it("has a rule for rows inside the brass card, and ink reads on brass", () => {
+    expect(hex("brass-rule")).toBe("#e3d3ae");
+    expect(contrast("ink", "brass-fill")).toBeGreaterThanOrEqual(4.5);
+  });
 });

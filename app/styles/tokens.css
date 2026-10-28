@@ -18,6 +18,8 @@
   --brass-on: #fbf6ea;
   --brass-border: #9c7a2e;
   --brass-fill: #f8f1e1;
+  /* Row dividers inside the brass MOVED UP card. Never text. */
+  --brass-rule: #e3d3ae;
   --coral: #f08a7e;
   --on-ink-2: #d9d0c0;
 

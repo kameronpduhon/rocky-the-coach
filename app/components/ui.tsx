@@ -124,6 +124,13 @@ const PATHS: Record<string, ReactNode> = {
       <circle cx="12" cy="13" r="3.5" />
     </>
   ),
+  cart: (
+    <>
+      <path d="M3 4h2l2.4 11h11l2-8H6.3" />
+      <circle cx="9" cy="19.5" r="1.5" />
+      <circle cx="17" cy="19.5" r="1.5" />
+    </>
+  ),
   gear: (
     <>
       <circle cx="12" cy="12" r="3" />

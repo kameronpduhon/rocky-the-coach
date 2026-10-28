@@ -1,9 +1,10 @@
 import { useEffect, useMemo, useRef, useState } from "react";
-import { Link, useNavigate, useRouteLoaderData, useSearchParams } from "react-router";
+import { Link, useNavigate, useSearchParams } from "react-router";
 import { COACH_NAME, pageTitle } from "~/brand";
 import { Icon } from "~/components/ui";
 import { plan } from "~/content";
 import { useNow } from "~/lib/use-now";
+import { useMe } from "~/me";
 import { useMutate, useStoreVersion, useSyncClient, useSyncStatus } from "~/sync/react";
 import type { CloseOutModel } from "~/today/closeout";
 import { CloseOutSheet } from "~/today/CloseOutSheet";
@@ -16,14 +17,13 @@ import { ProteinBar } from "~/ui/ProteinBar";
 import { RockyCard } from "~/ui/RockyCard";
 import { SectionHead } from "~/ui/SectionHead";
 import { WeekStrip } from "~/ui/WeekStrip";
-import type { loader as layoutLoader } from "./app-layout";
 
 export function meta() {
   return [{ title: pageTitle("Today") }];
 }
 
 export default function Today() {
-  const layout = useRouteLoaderData<typeof layoutLoader>("routes/app-layout");
+  const layout = useMe();
   const client = useSyncClient();
   const ready = useSyncStatus()?.ready ?? false;
   const version = useStoreVersion();

@@ -1,16 +1,16 @@
 import { useMemo } from "react";
-import { Link, useRouteLoaderData, useSearchParams } from "react-router";
+import { Link, useSearchParams } from "react-router";
 import { pageTitle } from "~/brand";
 import { exercises } from "~/content";
 import { mealDate } from "~/domain/dates";
 import { useNow } from "~/lib/use-now";
 import { LiftScreen } from "~/lifts/LiftScreen";
 import { buildLift } from "~/lifts/model";
+import { useMe } from "~/me";
 import { useStoreVersion, useSyncClient, useSyncStatus } from "~/sync/react";
 import { btn } from "~/ui/button";
 import { Poster } from "~/ui/Poster";
 import type { Route } from "./+types/lift";
-import type { loader as layoutLoader } from "./app-layout";
 
 export const handle = { hideTabBar: true };
 
@@ -20,7 +20,7 @@ export function meta({ params }: Route.MetaArgs) {
 
 /** One lift's page. It works without a plan, so the Library's exercise rows open it for everyone. */
 export default function Lift({ params }: Route.ComponentProps) {
-  const layout = useRouteLoaderData<typeof layoutLoader>("routes/app-layout");
+  const layout = useMe();
   const client = useSyncClient();
   const ready = useSyncStatus()?.ready ?? false;
   const version = useStoreVersion();

@@ -1,7 +1,7 @@
 import { useState } from "react";
 import { postAi } from "~/ai/client";
 import { FACT_LIMIT, FACT_MAX } from "~/ai/facts";
-import { NO_LONGER_FITS, proposalCards, refreshCards, resultLine, runAccept, sendButton, tellContext, TELL_FAILED, type Proposal, type ProposalCard } from "~/ai/proposals";
+import { NO_LONGER_FITS, oneAtATime, proposalCards, refreshCards, resultLine, runAccept, sendButton, tellContext, TELL_FAILED, type Proposal, type ProposalCard } from "~/ai/proposals";
 import { useAi, type AiState } from "~/ai/use-ai";
 import { PHONE_WAIT_MS } from "~/ai/waits";
 import { COACH_NAME } from "~/brand";
@@ -85,6 +85,8 @@ function AskRocky({ ai, onClose }: { ai: AiState; onClose: () => void }) {
   const [text, setText] = useState("");
   const [phase, setPhase] = useState<Phase>({ kind: "edit" });
   const [settled, setSettled] = useState<Record<string, "done" | "gone">>({});
+  const [guard] = useState(oneAtATime);
+  const [busy, setBusy] = useState<string | null>(null);
   const rows = (table: string) => client?.store.rows(table) ?? [];
 
   async function send() {
@@ -101,7 +103,15 @@ function AskRocky({ ai, onClose }: { ai: AiState; onClose: () => void }) {
   }
 
   async function accept(card: ProposalCard) {
-    if (await runAccept(card.accept, mutate)) setSettled((s) => ({ ...s, [card.id]: "done" }));
+    const ok = await guard(card.id, async () => {
+      setBusy(card.id);
+      try {
+        return await runAccept(card.accept, mutate);
+      } finally {
+        setBusy(null);
+      }
+    });
+    if (ok) setSettled((s) => ({ ...s, [card.id]: "done" }));
   }
 
   // Rebuilt from the store on every render (useStoreVersion), so a card acts on the days as an earlier Accept or a
@@ -139,7 +149,7 @@ function AskRocky({ ai, onClose }: { ai: AiState; onClose: () => void }) {
                     <span className="text-[14px] leading-[1.35] text-ink-3">{c.sub}</span>
                     <span className="flex items-center gap-[18px]">
                       {c.fits ? (
-                        <button type="button" onClick={() => void accept(c)} className={OUTLINE}>
+                        <button type="button" disabled={busy === c.id} onClick={() => void accept(c)} className={OUTLINE}>
                           Accept
                         </button>
                       ) : (

@@ -253,6 +253,25 @@ export function refreshCards(rows: Rows, cards: ProposalCard[], today: ISODate, 
 
 export const NO_LONGER_FITS = "No longer fits";
 
+/**
+ * Runs each card's Accept one at a time: a second tap while the first is still running does nothing and gives null,
+ * so a double tap can't save a fact twice. A retry after a failure rebuilds the card first (refreshCards), so a
+ * half-done swap goes on with the workout it already planned.
+ */
+export function oneAtATime() {
+  const out = new Set<string>();
+  const guard = async (id: string, run: () => Promise<boolean>): Promise<boolean | null> => {
+    if (out.has(id)) return null;
+    out.add(id);
+    try {
+      return await run();
+    } finally {
+      out.delete(id);
+    }
+  };
+  return Object.assign(guard, { running: (id: string) => out.has(id) });
+}
+
 export function resultLine(count: number): string {
   if (count === 0) return `${COACH_NAME} has nothing to change for that. Keep it in What ${COACH_NAME} knows?`;
   return count === 1 ? `${COACH_NAME} suggests 1 change. Nothing changes until you accept it.` : `${COACH_NAME} suggests ${count} changes. Nothing changes until you accept one.`;

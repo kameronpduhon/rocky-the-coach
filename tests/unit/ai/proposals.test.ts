@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { checkProposals, proposalCards, refreshCards, resultLine, runAccept, sendButton, tellContext, TELL_FAILED, type Proposal, type RawProposal } from "~/ai/proposals";
+import { checkProposals, oneAtATime, proposalCards, refreshCards, resultLine, runAccept, sendButton, tellContext, TELL_FAILED, type Proposal, type RawProposal } from "~/ai/proposals";
 import { COACH_NAME } from "~/brand";
 import { plan } from "~/content";
 import { runMutation } from "~/sync/mutators";
@@ -253,10 +253,16 @@ describe("runAccept", () => {
 describe("accepting one card after another", () => {
   const ctx = { now: "2026-10-27T21:00:00.000Z", today: TODAY };
   /** The phone's store: each Accept really runs, and the cards read the rows it leaves. */
-  function store() {
+  function store(refuseOnce?: string) {
     const tx = new MemoryTx(new Map());
     const rows = (name: string): Row[] => [...(tx.tables.get(name)?.values() ?? [])];
+    const calls: string[] = [];
     const mutate = async (name: string, args: unknown) => {
+      calls.push(name);
+      if (name === refuseOnce) {
+        refuseOnce = undefined;
+        return false;
+      }
       try {
         await runMutation(tx, name, args, ctx);
         return true;
@@ -267,7 +273,7 @@ describe("accepting one card after another", () => {
     let n = 0;
     const accept = (a: Parameters<typeof runAccept>[0]) => runAccept(a, mutate, () => `w-${++n}`, () => new Date(ctx.now));
     const sessions = () => rows("workout_sessions").map((r) => ({ date: r.date, template: r.template_id, lifts: r.lifts ? (JSON.parse(String(r.lifts)) as Lift[]).find((l) => l.position === 4)?.exercise : null }));
-    return { tx, rows, accept, sessions };
+    return { tx, rows, accept, sessions, calls };
   }
 
   it("a Move, then a this-week Swap: the swap follows the workout to its new day", async () => {
@@ -300,6 +306,16 @@ describe("accepting one card after another", () => {
     expect(s.sessions()).toEqual([{ date: "2026-10-29", template: LEGS, lifts: RAISE }]);
   });
 
+  it("retries a half-done this-week swap on the workout it already planned", async () => {
+    const s = store("setLifts");
+    const cards = proposalCards(s.rows, [swap("week")], TODAY, true);
+    expect(await s.accept(cards[0].accept)).toBe(false);
+    const [again] = refreshCards(s.rows, cards, TODAY, true);
+    expect(await s.accept(again.accept)).toBe(true);
+    expect(s.calls).toEqual(["planWorkout", "setLifts", "setLifts"]);
+    expect(s.sessions()).toEqual([{ date: "2026-10-28", template: LEGS, lifts: RAISE }]);
+  });
+
   it("marks a card that no longer fits, so it can't be accepted", async () => {
     const s = store();
     const cards = proposalCards(s.rows, [MOVE, { kind: "move", from: "2026-10-28", to: "2026-10-30" }], TODAY, true);
@@ -307,6 +323,25 @@ describe("accepting one card after another", () => {
     // Wednesday rests now, so there is nothing left there to move.
     const [, second] = refreshCards(s.rows, cards, TODAY, true);
     expect(second).toMatchObject({ fits: false, title: cards[1].title });
+  });
+});
+
+describe("oneAtATime", () => {
+  it("runs a card's Accept once while it is out, so a double tap saves one fact", async () => {
+    const guard = oneAtATime();
+    let release!: () => void;
+    let runs = 0;
+    const run = () => {
+      runs++;
+      return new Promise<boolean>((r) => (release = () => r(true)));
+    };
+    const first = guard("p0", run);
+    expect(await guard("p0", run)).toBeNull();
+    expect(guard.running("p0")).toBe(true);
+    release();
+    expect(await first).toBe(true);
+    expect(guard.running("p0")).toBe(false);
+    expect(runs).toBe(1);
   });
 });
 

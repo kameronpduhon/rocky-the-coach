@@ -8,11 +8,12 @@
 - **Finish check-in saves the pick.** It writes Monday's targets, the step goal, and the `check_ins` row with the engine's fields. The `outcome` JSON becomes `{ kind, newKcal, newStepGoal, pick, guardrail }`.
 - **A maintenance week eats the burn,** from the latest check-in, instead of a flat 2,800.
 - **`decideAdjustment` and `app/domain/adjustments.ts` go,** and so does the 7-day average. "Days on plan" stays on the check-in as a display only.
+- **Two N1 rules are corrected to the spec.** The burn reads the trend from the day before the 21-day window, over 21 days. The walking pick offers this week's step goal plus 1,000, as v1 did, not 1,000 on top of the ramp.
 
 **There are no migrations in N3.** `check_ins.burn`, `burn_state`, `intake_avg` and `tracked_days` landed in N1 (`drizzle/0008_nutrition_data.sql`). The sync triggers log only row keys and pull reads `SELECT *`, so the phone's copy of `check_ins` already carries `burn`.
 
 **Architecture:**
-- **The math is N1's.** `trendSeries`, `energyHistory` and `nextTarget` in `app/domain/` exist and are tested. N3 adds the "no surplus" guardrail, makes a maintenance week's call the burn itself, and adds `trendReading` for display.
+- **The math is N1's, corrected.** `trendSeries`, `energyHistory` and `nextTarget` in `app/domain/` exist and are tested. N3 puts the burn's slope back to the spec's, makes the walking pick v1's, adds the "no surplus" guardrail, makes a maintenance week's call the burn itself, and adds `trendReading` for display.
 - **The words are pure.** `app/checkin/call.ts` turns the engine's numbers into the block: why-lines, state note, picks, and the grams that move. The check-in page reruns it in the browser as the pick changes. Project 4 reuses it with `app/checkin/CallBlock.tsx`.
 - **The server reads the history.** `checkInData` loads every weigh-in and each day's meal logs from the phase start, runs `energyHistory` and `nextTarget`, and returns the call. Nothing is stored between weeks.
 - **One burn for the maintenance week everywhere.** `resolveTargets` takes the check-ins' burns, so Today, the meal screen, `logMeal`'s snapshot, groceries and the "Was" line all agree.
@@ -29,11 +30,12 @@
 ## Calls made in this plan (flag them in the PR)
 
 **Math:**
-- **The worked example uses N1's slope.** The spec's example gives observed 2,567 and burn 2,680, dividing the trend change by 21. N1 measures the trend from the window's first day to its last, over 20 days, so the same inputs give 2,575 and 2,690 (`tests/unit/domain/energy.test.ts`). The tests here use the code's math.
+- **N3 corrects N1's slope to the spec** (Kameron's call, Oct 28). N1 measured the trend from the window's first day to its last and divided by 20, which gave 2,575 and 2,690 for the spec's worked example. Task 1 measures from the trend the day before the window starts, over 21 days, so the example holds: intake 2,400, the trend down 1.0 lb over the 21 days, prior 2,800, gives observed 2,567 and burn 2,680.
+    - **What that costs:** a window needs a trend on the day before it starts. The first window that can update (week 3, Oct 5 to 25) needs a weigh-in on or before Sunday Oct 4. Without one, week 4 is the first to update. The first engine call after this deploys is Sunday Nov 1, week 4, whose window reads from Oct 11, so it is not affected.
 - **The ideal rounds down to 50** (N1), not to the nearest 50. It never sits above the burn.
 - **"No surplus" gets code.** N1 relied on the rounded-down ideal, but a capped move from above can still leave the target over a burn that dropped: at 2,400 with a burn of 2,250, a settling move of 100 reaches only 2,300. The target then drops to the burn rounded down to 50 (2,250), even past the weekly cap. It runs after fast loss, as the spec orders the guardrails, so it outranks the fast-loss hold.
 - **A maintenance week eats the burn to the nearest 10, as stored,** not rounded to 50 as N1's `nextTarget` did. The call and `resolveTargets` then show the same number.
-- **The walking pick stacks on the step ramp** (N1). If the week met a 7,000 goal, the ramp takes it to 7,500 and "walk 1,000 more" offers 8,500. v1 offered 8,000 in that case.
+- **The walking pick does not stack on the step ramp** (Kameron's call, Oct 28, correcting N1). "Walk 1,000 more" offers this week's goal plus 1,000, capped at 10,000, as v1 did: the new goal is `min(10,000, max(ramped goal, current goal + 1,000))`. A met 7,000 goal ramps to 7,500 on the calories pick, and the walking pick offers 8,000, not 8,500. When that is no higher than the ramped goal (steps already at 10,000), there is no walking pick. `nextTarget` gains `baseStepGoal`, the goal before the ramp.
 
 **Copy the spec doesn't give** (all in `app/checkin/call.ts`, so one file changes if Kameron rewords them):
 
@@ -53,9 +55,9 @@
 - **"You averaged <intake> a day and the trend fell <x> lb"** uses the 21-day window for both numbers, because that is what the burn is read from. The weekly change shows in the "Trend" tile above.
 - **The cap sentence** ("Early weeks are noisy, so Rocky moves 100 at a time.") shows only when the cap held the move back. A cut that reaches the ideal reads just "About 1 lb a week would mean 2,300."
 - **"Your pick" shows only when there are two picks** (a cut, or half portions with steps under 10,000). On pace, a raise, a hold and a maintenance week show no radios, as the mock's "When it holds" frame draws it.
-- **The number follows the pick.** Picking "Keep 2,400, walk 1,000 more" turns the number into "2,400 cal a day / holds" and the steps line into "Steps 8,500", and hides "On your scale from Monday", because that is what Monday brings.
+- **The number follows the pick.** Picking "Keep 2,400, walk 1,000 more" turns the number into "2,400 cal a day / holds" and the steps line into "Steps 8,000", and hides "On your scale from Monday", because that is what Monday brings.
 - **"Steady by week N"** is this week's number plus the updates left before the fourth. Week 3's first update reads "Steady by week 6". The mock's "week 5" was drawn before the math.
-- **A maintenance week's number** reads "2,690 / cal a day next week / maintenance week".
+- **A maintenance week's number** reads "2,680 / cal a day next week / maintenance week".
 - **"On your scale from Monday"** groups by food and recipe grams, so rice at 200 g and rice at 150 g are two rows. Rows with more meals come first. A row names at most three meals, then "and 2 more". The grams start from this week's target as eaten (a maintenance week included) and end at next week's.
 - **The cut's subline names at most three flex foods,** in the order of the scale list: "Smaller portions of rice, honey and butter."
 
@@ -64,7 +66,7 @@
 - **A finished check-in opens on its saved pick.** Older rows without `pick` open on Rocky's pick.
 - **A finished check-in's call is worked out again on open,** as v1's was. Closing out Sunday after finishing at 5pm can move the burn by a little on a later open.
 - **A check-in week before the phase start** has no energy entry, so it holds at 2,800 with "Two weeks of weigh-ins come first."
-- **A window whose start comes before the first weigh-in** has no trend to read, so it holds with the same first-weeks line.
+- **A window with no trend on the day before it starts** (no weigh-in yet by then) has nothing to read, so it holds with the same first-weeks line.
 - **The check-in's weight tile reads "Trend"**, and Progress's card reads "Weight · trend" with the legend "Trend".
 - **Today's change counts from the trend on the phase start,** or from the first weigh-in if that came later. v1 counted from the first week's 7-day average.
 
@@ -93,7 +95,7 @@
 
 | File | Responsibility |
 |---|---|
-| `app/domain/energy.ts` | `nextTarget`: the "no surplus" guardrail, a maintenance week at the burn; thresholds and caps exported for the copy |
+| `app/domain/energy.ts` | `energyHistory`: the spec's slope. `nextTarget`: v1's walking pick, the "no surplus" guardrail, a maintenance week at the burn; thresholds and caps exported for the copy |
 | `app/domain/trend.ts` | `trendReading` and `roundLb`: the trend as screens show it |
 | `app/content/targets.ts` | `BurnEntry`, `burnEntries`, `maintenanceKcal`; `resolveTargets` takes the burns |
 | `app/content/was.ts` | `recentTargetChange` takes the burns |
@@ -112,13 +114,106 @@
 
 ---
 
-### Task 1: The call never sets the target above the burn, and a maintenance week eats the burn
+### Task 1: The burn reads the trend from the day before the window, over 21 days
+
+N1 measured the window's trend change from its first day to its last and divided by 20. The spec (section 1, "Burn") measures from the trend the day before the window starts, over 21 days. This puts the spec's worked example back: intake 2,400, the trend down 1.0 lb over the 21 days, prior 2,800, gives observed 2,400 + 3,500 x 1.0 / 21 = 2,566.7 and burn 2,800 + (2,566.7 - 2,800) / 2 = 2,683.3, to 2,680.
+
+**Files:**
+- Modify: `app/domain/energy.ts`
+- Test: `tests/unit/domain/energy.test.ts`
+
+- [ ] **Step 1: Write the failing tests.** In `tests/unit/domain/energy.test.ts`:
+
+1. Replace the `line` fixture with one that starts the day before the phase and falls exactly 1.0 lb over each 21 days:
+
+```ts
+// The trend: 210 on Sunday Oct 4, the day before the phase, falling 1.0 lb every 21 days. 209 on Sunday Oct 25.
+const line = (d: string) => (d >= "2026-10-04" ? 210 - daysBetween("2026-10-04", d) / 21 : null);
+```
+
+2. In "holds at the starting estimate until a full 21-day window exists", change `["2026-10-19", "settling", 2690]` to `["2026-10-19", "settling", 2680]`.
+
+3. Replace the test "reads the burn from intake and the trend, moving halfway there" with:
+
+```ts
+  it("reads the burn from intake and the trend the day before the window, over 21 days (the spec's worked example)", () => {
+    const week3 = energyHistory(input()).at(-1)!;
+    // 2,400 + 3,500 x (210 - 209) / 21 = 2,566.7. Halfway from 2,800: 2,683.3, to 2,680.
+    expect(week3.observed).toBeCloseTo(2566.67);
+    expect(week3).toMatchObject({ burn: 2680, intakeAvg: 2400, trackedDays: 7, windowTrackedDays: 21, weighIns: 21, updates: 1 });
+    expect(week3.trendStart).toBeCloseTo(210);
+    expect(week3.trendEnd).toBeCloseTo(209);
+  });
+
+  it("holds when there is no trend the day before the window", () => {
+    const week3 = energyHistory(input({ trend: (d) => (d >= PHASE ? 210 : null) })).at(-1)!;
+    expect(week3).toMatchObject({ state: "holding", burn: 2800, trendStart: null });
+  });
+```
+
+The other tests stay as they are: the 250 cap still gives 3,050, and the thresholds and the settling count don't depend on the slope.
+
+- [ ] **Step 2: Run them to make sure they fail.**
+
+```bash
+npx vitest run --project unit tests/unit/domain/energy.test.ts
+```
+
+Expected: 2 FAIL. Week 3's `trendStart` is Oct 5's 209.95, not Oct 4's 210, and the no-trend window updates from Oct 5 instead of holding. On a straight line both slopes give the same burn, so the 2,680 checks already pass. They part when the trend bends, and when there is no trend before the window.
+
+- [ ] **Step 3: Implement.** In `app/domain/energy.ts`, in `energyHistory`, replace
+
+```ts
+    const trendStart = input.trend(start);
+```
+
+with
+
+```ts
+    // The spec's slope: from the trend the day before the window to its last day, over the window's 21 days.
+    const trendStart = input.trend(addDays(start, -1));
+```
+
+and replace
+
+```ts
+      observed = intakeAvg - (KCAL_PER_LB * (trendEnd - trendStart)) / (WINDOW_DAYS - 1);
+```
+
+with
+
+```ts
+      observed = intakeAvg - (KCAL_PER_LB * (trendEnd - trendStart)) / WINDOW_DAYS;
+```
+
+In `interface EnergyWeek`, add a comment above `trendStart`:
+
+```ts
+  /** The trend the day before the window starts, and on its last day (Sunday). */
+```
+
+- [ ] **Step 4: Run the tests.** Same command as Step 2. Expected: PASS, all 6.
+
+- [ ] **Step 5: Commit.**
+
+```bash
+git add app/domain/energy.ts tests/unit/domain/energy.test.ts
+git commit -m "The burn reads the trend from the day before its 21-day window, as the spec says"
+```
+
+---
+
+### Task 2: The walking pick is v1's, the call never sets the target above the burn, and a maintenance week eats the burn
 
 **Files:**
 - Modify: `app/domain/energy.ts`
 - Test: `tests/unit/domain/call.test.ts`
 
-- [ ] **Step 1: Write the failing tests.** In `tests/unit/domain/call.test.ts`, change the maintenance test's expectation from `maintenanceKcal: 2700` to `maintenanceKcal: 2690`, and add these two tests inside the `describe`, after "stops at the 2,000 floor":
+- [ ] **Step 1: Write the failing tests.** In `tests/unit/domain/call.test.ts`:
+
+1. In `input()`, change `week: week(2690, "settling")` to `week: week(2680, "settling")` (the spec's worked burn) and add `baseStepGoal: 8500` after `stepGoal: 8500`. The first test's ideal stays 2,150 (2,680 - 514 = 2,166, down to 2,150).
+2. Change the maintenance test's expectation from `maintenanceKcal: 2700` to `maintenanceKcal: 2680`.
+3. Add these three tests inside the `describe`, after "stops at the 2,000 floor":
 
 ```ts
   it("never sets the target above the burn, even past the weekly cap", () => {
@@ -131,9 +226,17 @@
     const call = nextTarget(input({ week: week(2250, "settling"), trendWeight: 200, changes: [-2.2, -2.5] }));
     expect(call).toMatchObject({ kind: "cut", guardrail: "no-surplus", calories: { kcal: 2250 } });
   });
+
+  it("offers walking as 1,000 more than this week's goal, not on top of the ramp", () => {
+    // A met 7,000 goal ramps to 7,500 on the calories pick. Walking more offers 8,000, as v1 did.
+    expect(nextTarget(input({ stepGoal: 7500, baseStepGoal: 7000 }))).toMatchObject({ calories: { kcal: 2300, stepGoal: 7500 }, steps: { kcal: 2400, stepGoal: 8000 } });
+    expect(nextTarget(input({ stepGoal: 9500, baseStepGoal: 9500 })).steps).toEqual({ kcal: 2400, stepGoal: 10000 });
+    // A met 9,500 goal ramps to 10,000: walking can't add more, so there is no walking pick.
+    expect(nextTarget(input({ stepGoal: 10000, baseStepGoal: 9500 })).steps).toBeNull();
+  });
 ```
 
-The maintenance test's name stays "eats at the burn in a maintenance week and keeps the base". Its burn is 2,690.
+The maintenance test's name stays "eats at the burn in a maintenance week and keeps the base". Its burn is now 2,680.
 
 - [ ] **Step 2: Run them to make sure they fail.**
 
@@ -141,7 +244,7 @@ The maintenance test's name stays "eats at the burn in a maintenance week and ke
 npx vitest run --project unit tests/unit/domain/call.test.ts
 ```
 
-Expected: 3 FAIL. The two new tests get `kcal: 2300` and `guardrail: null` (then `"fast-loss"` and 2,400 for the second). The maintenance test gets 2,700, not 2,690.
+Expected: 4 FAIL. The two no-surplus tests get `kcal: 2300` and `guardrail: null` (then `"fast-loss"` and 2,400 for the second). The walking test gets 8,500 (1,000 on top of the ramp). The maintenance test gets 2,700 (N1 rounded the burn to 50), not 2,680.
 
 - [ ] **Step 3: Implement.** In `app/domain/energy.ts`:
 
@@ -209,18 +312,41 @@ export type Guardrail = "fast-loss" | "no-surplus" | "floor" | "half-portions";
   }
 ```
 
-- [ ] **Step 4: Run the tests.** Same command as Step 2. Expected: PASS, all 12.
+7. In `interface CallInput`, add after `stepGoal`:
+
+```ts
+  /** The step goal now, before the ramp. Walking more adds 1,000 to it, as v1 did. */
+  baseStepGoal: number;
+```
+
+8. In `nextTarget`, replace
+
+```ts
+  const walkMore = stepGoal < STEP_CAP ? { kcal: currentKcal, stepGoal: Math.min(stepGoal + STEP_BUMP, STEP_CAP) } : null;
+```
+
+with
+
+```ts
+  // Walking more doesn't stack on the ramp: it offers this week's goal plus 1,000, and only if that beats the ramp.
+  const walkGoal = Math.min(STEP_CAP, Math.max(stepGoal, input.baseStepGoal + STEP_BUMP));
+  const walkMore = walkGoal > stepGoal ? { kcal: currentKcal, stepGoal: walkGoal } : null;
+```
+
+`nextTarget`'s only caller until Task 8 is this test file, so nothing else needs `baseStepGoal` yet.
+
+- [ ] **Step 4: Run the tests.** Same command as Step 2. Expected: PASS, all 13.
 
 - [ ] **Step 5: Commit.**
 
 ```bash
 git add app/domain/energy.ts tests/unit/domain/call.test.ts
-git commit -m "The call never sets the target above the burn, and a maintenance week eats the burn"
+git commit -m "Walking more adds 1,000 to this week's goal, the call never sets the target above the burn, and a maintenance week eats the burn"
 ```
 
 ---
 
-### Task 2: The trend as the screens show it
+### Task 3: The trend as the screens show it
 
 **Files:**
 - Modify: `app/domain/trend.ts`
@@ -312,7 +438,7 @@ git commit -m "The trend as the screens show it: 3 weigh-ins first, change since
 
 ---
 
-### Task 3: A maintenance week eats the latest check-in's burn
+### Task 4: A maintenance week eats the latest check-in's burn
 
 `resolveTargets` gains a required `burns` argument, so the compiler finds every caller: `app/today/slots.ts`, `app/meal/model.ts`, `app/content/was.ts`, `app/sync/mutators.ts`, `app/server/targets.server.ts` and `app/server/history.server.ts`.
 
@@ -331,13 +457,13 @@ import { burnEntries, maintenanceKcal, resolveTargets } from "~/content/targets"
 const cut = [{ effectiveFrom: "2026-10-26", kcal: 2300, proteinG: 180, stepGoal: 8500 }];
 const burns = [
   { weekStart: "2026-12-07", burn: 2720 },
-  { weekStart: "2026-12-14", burn: 2690 },
+  { weekStart: "2026-12-14", burn: 2680 },
 ];
 
 describe("maintenance week targets", () => {
   it("eat at the latest check-in's burn and keep the base protein and steps", () => {
-    expect(resolveTargets(cut, "2026-12-21", burns)).toEqual({ kcal: 2690, proteinG: 180, stepGoal: 8500 });
-    expect(resolveTargets(cut, "2026-12-27", burns).kcal).toBe(2690);
+    expect(resolveTargets(cut, "2026-12-21", burns)).toEqual({ kcal: 2680, proteinG: 180, stepGoal: 8500 });
+    expect(resolveTargets(cut, "2026-12-27", burns).kcal).toBe(2680);
   });
 
   it("fall back to the plan's 2,800 before any check-in has a burn", () => {
@@ -345,7 +471,7 @@ describe("maintenance week targets", () => {
   });
 
   it("ignore a burn from the maintenance week's own check-in", () => {
-    expect(maintenanceKcal([...burns, { weekStart: "2026-12-21", burn: 2900 }], "2026-12-23")).toBe(2690);
+    expect(maintenanceKcal([...burns, { weekStart: "2026-12-21", burn: 2900 }], "2026-12-23")).toBe(2680);
   });
 
   it("go back to the base the week after, and never touch other weeks", () => {
@@ -354,7 +480,7 @@ describe("maintenance week targets", () => {
   });
 
   it("read burns from check-in rows, skipping v1 rows without one", () => {
-    expect(burnEntries([{ week_start: "2026-10-12", burn: null }, { week_start: "2026-10-19", burn: 2670 }])).toEqual([{ weekStart: "2026-10-19", burn: 2670 }]);
+    expect(burnEntries([{ week_start: "2026-10-12", burn: null }, { week_start: "2026-10-19", burn: 2680 }])).toEqual([{ weekStart: "2026-10-19", burn: 2680 }]);
   });
 });
 ```
@@ -363,7 +489,7 @@ In `tests/unit/was.test.ts`, add `, []` as the third argument of all six `recent
 
 ```ts
   it("measures a maintenance week from the burn it eats", () => {
-    expect(recentTargetChange(cut, "2026-12-22", [{ weekStart: "2026-12-14", burn: 2690 }])).toEqual({ on: "2026-12-21", fromKcal: 2300, toKcal: 2690, maintenance: "start" });
+    expect(recentTargetChange(cut, "2026-12-22", [{ weekStart: "2026-12-14", burn: 2680 }])).toEqual({ on: "2026-12-21", fromKcal: 2300, toKcal: 2680, maintenance: "start" });
   });
 ```
 
@@ -372,10 +498,10 @@ In `tests/unit/sync/meal-mutators.test.ts`, add inside the `describe`, after "lo
 ```ts
   it("logs a maintenance-week meal at the grams of the last check-in's burn", async () => {
     const tx = new MemoryTx(new Map());
-    tx.put("check_ins", { week_start: "2026-12-14", avg_weight: 200.1, change: -0.6, adherence: 6, outcome: "{}", completed_at: "2026-12-20T23:00:00.000Z", burn: 2690, burn_state: "updating", intake_avg: 2310, tracked_days: 6 });
+    tx.put("check_ins", { week_start: "2026-12-14", avg_weight: 200.1, change: -0.6, adherence: 6, outcome: "{}", completed_at: "2026-12-20T23:00:00.000Z", burn: 2680, burn_state: "updating", intake_avg: 2310, tracked_days: 6 });
     await run(tx, "logMeal", { clientId: "m-1", date: "2026-12-22", slot: "lunch", mealSlug: BOWL }, { now: "2026-12-22T19:00:00.000Z", today: "2026-12-22" });
-    // 2,690 scales rice 200 g to 275 g. The plan's 2,800 would clamp at 1.5 and give 300 g.
-    const want = scaledMeal(bowl, factorFor(2690));
+    // 2,680 scales rice 200 g to 275 g. The plan's 2,800 would clamp at 1.5 and give 300 g.
+    const want = scaledMeal(bowl, factorFor(2680));
     expect(want.kcal).toBeLessThan(scaledMeal(bowl, factorFor(2800)).kcal);
     expect(await tx.get("meal_logs", "m-1")).toMatchObject({ kcal: want.kcal, protein_g: want.protein });
   });
@@ -577,7 +703,7 @@ git commit -m "A maintenance week eats the latest check-in's burn, not 2,800"
 
 ---
 
-### Task 4: Today's trend line reads the trend weight
+### Task 5: Today's trend line reads the trend weight
 
 **Files:**
 - Modify: `app/today/model.ts`
@@ -633,7 +759,7 @@ git commit -m "Today's trend line reads the trend weight"
 
 ---
 
-### Task 5: Progress draws the trend weight
+### Task 6: Progress draws the trend weight
 
 **Files:**
 - Modify: `app/server/body.server.ts`, `app/server/progress.server.ts`, `app/components/WeightChart.tsx`, `app/routes/progress.tsx`
@@ -849,9 +975,9 @@ git commit -m "Progress draws the trend weight, not the 7-day average"
 
 ---
 
-### Task 6: The call in words
+### Task 7: The call in words
 
-Every number here was worked out by hand from the engine's formulas. The goal at a trend of 205.157 lb is 0.005 x 205.157 = 1.026 lb a week, a deficit of 1.026 x 3,500 / 7 = 512.9 a day.
+Every number here was worked out by hand from the engine's formulas. The goal at a trend of 205.092 lb is 0.005 x 205.092 = 1.025 lb a week, a deficit of 1.025 x 3,500 / 7 = 512.7 a day.
 
 **Files:**
 - Create: `app/checkin/call.ts`
@@ -866,17 +992,17 @@ import { callView, changedFoods, scaleChanges, type CallFacts } from "~/checkin/
 import { factorFor } from "~/content/scaled";
 import { nextTarget, type CallInput, type EnergyWeek } from "~/domain/energy";
 
-// Kameron's week 3 (Mon Oct 19): 2,400 a day over 20 tracked days, the trend 206.0 to 205.157 over the window, so the
-// observed burn is 2,400 + 3,500 x 0.843 / 20 = 2,547 and the burn moves halfway from 2,800, to 2,670.
+// Kameron's week 3 (Mon Oct 19): 2,400 a day over 20 tracked days, the trend 206.0 the day before the window (Oct 4)
+// and 205.092 on Oct 25, so the observed burn is 2,400 + 3,500 x 0.908 / 21 = 2,551. Halfway from 2,800: 2,676, to 2,680.
 const week3: EnergyWeek = {
-  weekStart: "2026-10-19", burn: 2670, state: "settling", updates: 1, observed: 2547, intakeAvg: 2400,
-  trackedDays: 6, windowTrackedDays: 20, weighIns: 21, trendStart: 206, trendEnd: 205.157,
+  weekStart: "2026-10-19", burn: 2680, state: "settling", updates: 1, observed: 2551, intakeAvg: 2400,
+  trackedDays: 6, windowTrackedDays: 20, weighIns: 21, trendStart: 206, trendEnd: 205.092,
 };
 
 function facts(week: Partial<EnergyWeek> = {}, inp: Partial<CallInput> = {}, over: Partial<CallFacts> = {}): CallFacts {
   const energy = { ...week3, ...week };
-  const input: CallInput = { week: energy, trendWeight: 205.157, currentKcal: 2400, stepGoal: 7500, changes: [-0.4, -0.3], maintenanceNext: false, halfPortionKcal: 2050, ...inp };
-  return { call: nextTarget(input), energy, lastBurn: 2800, kcal: input.currentKcal, proteinG: 180, weekNumber: 3, ...over };
+  const input: CallInput = { week: energy, trendWeight: 205.092, currentKcal: 2400, stepGoal: 7500, baseStepGoal: 7000, changes: [-0.4, -0.3], maintenanceNext: false, halfPortionKcal: 2050, ...inp };
+  return { call: nextTarget(input), energy, lastBurn: 2800, kcal: input.currentKcal, stepGoal: input.baseStepGoal, proteinG: 180, weekNumber: 3, ...over };
 }
 
 const FOODS = ["rice", "honey", "butter", "potato"];
@@ -885,7 +1011,7 @@ const CANT = `so ${COACH_NAME} can't read your burn yet.`;
 
 describe("callView: an updating week", () => {
   it("explains a settling cut, with walking as the other pick", () => {
-    // Ideal: 2,670 - 512.9 = 2,157, down to 2,150. Settling moves 100: 2,300.
+    // Ideal: 2,680 - 512.7 = 2,167, down to 2,150. Settling moves 100: 2,300.
     expect(callView(facts(), "calories", FOODS)).toEqual({
       kcal: 2300,
       unit: "cal a day from Monday",
@@ -893,24 +1019,24 @@ describe("callView: an updating week", () => {
       protein: "Protein stays 180 g",
       steps: "Steps 7,500",
       why: [
-        "You averaged 2,400 a day and the trend fell 0.8 lb.",
-        "That puts your burn near 2,670 a day, lower than the 2,800 we started with.",
+        "You averaged 2,400 a day and the trend fell 0.9 lb.",
+        "That puts your burn near 2,680 a day, lower than the 2,800 we started with.",
         `About 1 lb a week would mean 2,150. Early weeks are noisy, so ${COACH_NAME} moves 100 at a time.`,
       ],
       note: "Burn estimate is still settling. Steady by week 6.",
       options: [
         { value: "calories", title: "Trim 100 cal a day", sub: `${PICK} Smaller portions of rice, honey and butter.` },
-        { value: "steps", title: "Keep 2,400, walk 1,000 more", sub: "Steps go to 8,500 a day instead." },
+        { value: "steps", title: "Keep 2,400, walk 1,000 more", sub: "Steps go to 8,000 a day instead." },
       ],
     });
   });
 
   it("shows the walking pick's numbers when it is picked", () => {
-    expect(callView(facts(), "steps", FOODS)).toMatchObject({ kcal: 2400, unit: "cal a day", was: "holds", steps: "Steps 8,500" });
+    expect(callView(facts(), "steps", FOODS)).toMatchObject({ kcal: 2400, unit: "cal a day", was: "holds", steps: "Steps 8,000" });
   });
 
   it("walks only up to 10,000", () => {
-    expect(callView(facts({}, { stepGoal: 9500 }), "calories", FOODS).options[1]).toEqual({ value: "steps", title: "Keep 2,400, walk 500 more", sub: "Steps go to 10,000 a day instead." });
+    expect(callView(facts({}, { stepGoal: 9500, baseStepGoal: 9500 }), "calories", FOODS).options[1]).toEqual({ value: "steps", title: "Keep 2,400, walk 500 more", sub: "Steps go to 10,000 a day instead." });
   });
 
   it("names last week's burn and the 150 cap once settled", () => {
@@ -928,9 +1054,9 @@ describe("callView: an updating week", () => {
   });
 
   it("leaves out the cap when the move reaches the ideal", () => {
-    // 2,850 - 512.9 = 2,337, down to 2,300: exactly one settling move.
+    // 2,850 - 512.7 = 2,337, down to 2,300: exactly one settling move.
     expect(callView(facts({ burn: 2850 }), "calories", FOODS).why).toEqual([
-      "You averaged 2,400 a day and the trend fell 0.8 lb.",
+      "You averaged 2,400 a day and the trend fell 0.9 lb.",
       "That puts your burn near 2,850 a day, higher than the 2,800 we started with.",
       "About 1 lb a week would mean 2,300.",
     ]);
@@ -938,7 +1064,7 @@ describe("callView: an updating week", () => {
 
   it("says when the trend rose or held level", () => {
     expect(callView(facts({ burn: 2850, trendStart: 205, trendEnd: 205.4 }), "calories", FOODS).why[0]).toBe("You averaged 2,400 a day and the trend rose 0.4 lb.");
-    expect(callView(facts({ trendStart: 205.16 }), "calories", FOODS).why[0]).toBe("You averaged 2,400 a day and the trend held level.");
+    expect(callView(facts({ trendStart: 205.1 }), "calories", FOODS).why[0]).toBe("You averaged 2,400 a day and the trend held level.");
   });
 
   it("holds on pace, with no pick", () => {
@@ -973,8 +1099,8 @@ describe("callView: guardrails", () => {
       kcal: 2400,
       was: "holds",
       why: [
-        "You averaged 2,400 a day and the trend fell 4.4 lb.",
-        "That puts your burn near 2,670 a day, lower than the 2,800 we started with.",
+        "You averaged 2,400 a day and the trend fell 4.5 lb.",
+        "That puts your burn near 2,680 a day, lower than the 2,800 we started with.",
         "About 1 lb a week would mean 2,150.",
         `You lost more than 2 lb two weeks running, so ${COACH_NAME} won't cut.`,
       ],
@@ -991,7 +1117,7 @@ describe("callView: guardrails", () => {
 
   it("stops at 2,000", () => {
     // Half portions set low here, so the floor is what stops the cut: 2,050 - 150 = 1,900, up to 2,000.
-    const f = facts({ state: "updating", updates: 5, burn: 2400 }, { trendWeight: 200, currentKcal: 2050, stepGoal: 8500, halfPortionKcal: 1500 }, { lastBurn: 2450 });
+    const f = facts({ state: "updating", updates: 5, burn: 2400 }, { trendWeight: 200, currentKcal: 2050, stepGoal: 8500, baseStepGoal: 8500, halfPortionKcal: 1500 }, { lastBurn: 2450 });
     const view = callView(f, "calories", FOODS);
     expect(view.why.slice(1)).toEqual(["That puts your burn near 2,400 a day, lower than last week's 2,450.", "About 1 lb a week would mean 1,900.", "2,000 is the floor."]);
     expect(view.options.map((o) => o.title)).toEqual(["Trim 50 cal a day", "Keep 2,050, walk 1,000 more"]);
@@ -999,7 +1125,7 @@ describe("callView: guardrails", () => {
 
   it("turns a cut past half portions into steps, with steps first", () => {
     // 2,100 - 150 = 1,950, up to the 2,000 floor, then up to half portions at 2,050.
-    const f = facts({ state: "updating", updates: 5, burn: 2400 }, { trendWeight: 200, currentKcal: 2100, stepGoal: 8500 }, { lastBurn: 2450 });
+    const f = facts({ state: "updating", updates: 5, burn: 2400 }, { trendWeight: 200, currentKcal: 2100, stepGoal: 8500, baseStepGoal: 8500 }, { lastBurn: 2450 });
     expect(f.call.pick).toBe("steps");
     const view = callView(f, "steps", FOODS);
     expect(view).toMatchObject({ kcal: 2100, unit: "cal a day", was: "holds", steps: "Steps 9,500" });
@@ -1011,7 +1137,7 @@ describe("callView: guardrails", () => {
   });
 
   it("holds at half portions when steps are already at 10,000", () => {
-    const f = facts({ state: "updating", updates: 5, burn: 2400 }, { trendWeight: 200, currentKcal: 2050, stepGoal: 10000 }, { lastBurn: 2450 });
+    const f = facts({ state: "updating", updates: 5, burn: 2400 }, { trendWeight: 200, currentKcal: 2050, stepGoal: 10000, baseStepGoal: 10000 }, { lastBurn: 2450 });
     const view = callView(f, "calories", FOODS);
     expect(view).toMatchObject({ kcal: 2050, was: "holds", steps: "Steps 10,000", options: [] });
     expect(view.why.at(-1)).toBe("Rice and potato are at half portions and your steps are at 10,000, so the number holds.");
@@ -1019,7 +1145,7 @@ describe("callView: guardrails", () => {
 });
 
 describe("callView: holding and maintenance", () => {
-  const holding = (week: Partial<EnergyWeek>) => facts({ weekStart: "2026-10-26", state: "holding", ...week }, {}, { lastBurn: 2670, weekNumber: 4 });
+  const holding = (week: Partial<EnergyWeek>) => facts({ weekStart: "2026-10-26", state: "holding", ...week }, {}, { lastBurn: 2680, weekNumber: 4 });
 
   it("holds without enough tracked days this week, and keeps last Sunday's burn", () => {
     expect(callView(holding({ trackedDays: 3, windowTrackedDays: 15 }), "calories", FOODS)).toEqual({
@@ -1028,7 +1154,7 @@ describe("callView: holding and maintenance", () => {
       was: "holds",
       protein: "Protein stays 180 g",
       steps: "Steps 7,500",
-      why: [`Only 3 days this week were tracked in full, ${CANT}`, "Burn stays at 2,670 from last Sunday."],
+      why: [`Only 3 days this week were tracked in full, ${CANT}`, "Burn stays at 2,680 from last Sunday."],
       note: "Burn estimate is holding. Close out each night and it updates next Sunday.",
       options: [],
     });
@@ -1053,12 +1179,12 @@ describe("callView: holding and maintenance", () => {
 
   it("eats at the burn before a maintenance week, with no pick", () => {
     expect(callView(facts({}, { maintenanceNext: true }), "calories", FOODS)).toEqual({
-      kcal: 2670,
+      kcal: 2680,
       unit: "cal a day next week",
       was: "maintenance week",
       protein: "Protein stays 180 g",
       steps: "Steps 7,500",
-      why: ["2,670 cal a day next week. Maintenance week: you eat at your burn."],
+      why: ["2,680 cal a day next week. Maintenance week: you eat at your burn."],
       note: "Burn estimate is still settling. Steady by week 6.",
       options: [],
     });
@@ -1083,8 +1209,8 @@ describe("scaleChanges", () => {
 
   it("is empty when the target holds, and grows the grams for a maintenance week", () => {
     expect(scaleChanges(week, factorFor(2300), factorFor(2300))).toEqual([]);
-    // factorFor(2690) is 1.387: rice 200 to 275, butter 10 to 14.
-    expect(scaleChanges(["chicken-and-rice-bowl"], 1, factorFor(2690)).map((c) => [c.name, c.from, c.to])).toEqual([
+    // factorFor(2680) is 1.374: rice 200 to 275, butter 10 to 14.
+    expect(scaleChanges(["chicken-and-rice-bowl"], 1, factorFor(2680)).map((c) => [c.name, c.from, c.to])).toEqual([
       ["Rice", 200, 275],
       ["Butter", 10, 14],
     ]);
@@ -1140,8 +1266,9 @@ export interface CallFacts {
   energy: EnergyWeek;
   /** Last week's burn: the plan's 2,800 until a week has updated. */
   lastBurn: number;
-  /** The base calorie target now, and its protein. */
+  /** The base calorie target now, its step goal before the ramp, and its protein. */
   kcal: number;
+  stepGoal: number;
   proteinG: number;
   weekNumber: number;
 }
@@ -1194,7 +1321,7 @@ function holdingLines({ energy: e }: CallFacts): string[] {
   } else if (e.weighIns < MIN_WEIGH_INS) {
     reason = `Only ${e.weighIns} ${e.weighIns === 1 ? "weigh-in" : "weigh-ins"} in the last 3 weeks, ${CANT}`;
   } else {
-    // Every count passed, so the window starts before the first weigh-in: there is no trend to read it from.
+    // Every count passed, so there was no weigh-in yet by the day before the window: no trend to read it from.
     return firstWeeks;
   }
   return [reason, e.updates === 0 ? `Burn starts at ${num(plan.maintenanceKcal)}.` : `Burn stays at ${num(e.burn)} from last Sunday.`];
@@ -1228,7 +1355,7 @@ function stateNote({ energy: e, weekNumber }: CallFacts): string | null {
   return null;
 }
 
-function options({ call, kcal }: CallFacts, flexFoods: string[]): CallOptionView[] {
+function options({ call, kcal, stepGoal }: CallFacts, flexFoods: string[]): CallOptionView[] {
   if (!call.steps) return [];
   const mark = (pick: CallPick) => (call.pick === pick ? `${COACH_NAME}'s pick. ` : "");
   const trim = kcal - call.calories.kcal;
@@ -1240,7 +1367,7 @@ function options({ call, kcal }: CallFacts, flexFoods: string[]): CallOptionView
   };
   const steps: CallOptionView = {
     value: "steps",
-    title: `Keep ${num(call.steps.kcal)}, walk ${num(call.steps.stepGoal - call.calories.stepGoal)} more`,
+    title: `Keep ${num(call.steps.kcal)}, walk ${num(call.steps.stepGoal - stepGoal)} more`,
     sub: `${mark("steps")}Steps go to ${num(call.steps.stepGoal)} a day instead.`,
   };
   return call.pick === "steps" ? [steps, calories] : [calories, steps];
@@ -1312,7 +1439,7 @@ git commit -m "The call in words: why-lines, the state note, the picks and the g
 
 ---
 
-### Task 7: The check-in's call comes from the engine
+### Task 8: The check-in's call comes from the engine
 
 `CheckInData` changes shape (`outcome` becomes `call`, `avgWeight` becomes `trendWeight`), so the server, the block and the route change in one task.
 
@@ -1337,14 +1464,15 @@ import { db } from "./helpers";
 const SLOT_KCAL = { breakfast: 500, lunch: 600, snack: 250, dinner: 600, dessert: 450 };
 
 /**
- * The phase's first three weeks, Oct 5 to Oct 25. A weigh-in every day, falling 0.07 lb a day (206.0 to 204.6). Every
- * slot eaten, 2,400 a day, except Saturday Oct 24's dessert, which leaves that day partial and out of the math.
- * 7,700 steps a day in week 3.
+ * The phase's first three weeks, Oct 5 to Oct 25. A weigh-in every day from Sunday Oct 4, the day before the first
+ * window, falling 0.07 lb a day (206.0 to 204.5). Every slot eaten from Oct 5, 2,400 a day, except Saturday Oct 24's
+ * dessert, which leaves that day partial and out of the math. 7,700 steps a day in week 3.
  */
 async function seedThreeWeeks() {
-  for (let d = 0; d < 21; d++) {
-    const date = addDays("2026-10-05", d);
+  for (let d = 0; d < 22; d++) {
+    const date = addDays("2026-10-04", d);
     await logWeighIn(db(), date, Math.round((206 - 0.07 * d) * 10) / 10, new Date());
+    if (date < "2026-10-05") continue;
     const slots = Object.entries(SLOT_KCAL).filter(([slot]) => !(date === "2026-10-24" && slot === "dessert"));
     await db()
       .insert(mealLogs)
@@ -1359,15 +1487,15 @@ describe("the engine's check-in", () => {
   it("reads the burn from three weeks of close-outs and cuts 100 while settling", async () => {
     await seedThreeWeeks();
     const data = await checkInData(db(), "2026-10-19");
-    // The trend: 206.0 on Oct 5, 205.564 on Oct 18, 205.157 on Oct 25.
-    expect(data.trendWeight).toBe(205.2);
+    // The trend: 206.0 on Oct 4, 205.508 on Oct 18, 205.092 on Oct 25.
+    expect(data.trendWeight).toBe(205.1);
     expect(data.change).toBe(-0.4);
-    // Observed: 2,400 + 3,500 x (206.0 - 205.157) / 20 = 2,547. Burn: 2,800 + (2,547 - 2,800) / 2 = 2,674, to 2,670.
-    expect(data.energy).toMatchObject({ burn: 2670, state: "settling", updates: 1, intakeAvg: 2400, trackedDays: 6, windowTrackedDays: 20, weighIns: 21 });
+    // Observed: 2,400 + 3,500 x (206.0 - 205.092) / 21 = 2,551. Burn: 2,800 + (2,551 - 2,800) / 2 = 2,676, to 2,680.
+    expect(data.energy).toMatchObject({ burn: 2680, state: "settling", updates: 1, intakeAvg: 2400, trackedDays: 6, windowTrackedDays: 20, weighIns: 21 });
     expect(data.lastBurn).toBe(2800);
     expect(data.rampedStepGoal).toBe(7500);
-    // Ideal: 2,670 - 512.9 = 2,157, down to 2,150. Settling moves 100.
-    expect(data.call).toMatchObject({ kind: "cut", ideal: 2150, guardrail: null, pick: "calories", calories: { kcal: 2300, stepGoal: 7500 }, steps: { kcal: 2400, stepGoal: 8500 } });
+    // Ideal: 2,680 - 512.7 = 2,167, down to 2,150. Settling moves 100.
+    expect(data.call).toMatchObject({ kind: "cut", ideal: 2150, guardrail: null, pick: "calories", calories: { kcal: 2300, stepGoal: 7500 }, steps: { kcal: 2400, stepGoal: 8000 } });
     expect(data.thisWeekKcal).toBe(2400);
     expect(data.savedPick).toBeNull();
   });
@@ -1376,28 +1504,28 @@ describe("the engine's check-in", () => {
     await completeCheckIn(db(), "2026-10-19", { waist: null, choice: "calories", rest: [] }, new Date("2026-10-25T23:00:00Z"));
     expect(await targetsFor(db(), "2026-10-26")).toEqual({ kcal: 2300, proteinG: 180, stepGoal: 7500 });
     const saved = await row("2026-10-19");
-    expect(saved).toMatchObject({ avgWeight: 205.2, change: -0.4, adherence: expect.any(Number), burn: 2670, burnState: "settling", intakeAvg: 2400, trackedDays: 6 });
+    expect(saved).toMatchObject({ avgWeight: 205.1, change: -0.4, adherence: expect.any(Number), burn: 2680, burnState: "settling", intakeAvg: 2400, trackedDays: 6 });
     expect(JSON.parse(saved.outcome)).toEqual({ kind: "cut", newKcal: 2300, newStepGoal: 7500, pick: "calories", guardrail: null });
   });
 
   it("updating with the walking pick keeps the calories and saves the new pick", async () => {
     await completeCheckIn(db(), "2026-10-19", { waist: null, choice: "steps", rest: [] }, new Date("2026-10-26T14:00:00Z"));
-    expect(await targetsFor(db(), "2026-10-26")).toEqual({ kcal: 2400, proteinG: 180, stepGoal: 8500 });
+    expect(await targetsFor(db(), "2026-10-26")).toEqual({ kcal: 2400, proteinG: 180, stepGoal: 8000 });
     const saved = await row("2026-10-19");
-    expect(JSON.parse(saved.outcome)).toEqual({ kind: "cut", newKcal: 2400, newStepGoal: 8500, pick: "steps", guardrail: null });
+    expect(JSON.parse(saved.outcome)).toEqual({ kind: "cut", newKcal: 2400, newStepGoal: 8000, pick: "steps", guardrail: null });
     expect(saved.completedAt).toBe("2026-10-25T23:00:00.000Z");
     expect((await checkInData(db(), "2026-10-19")).savedPick).toBe("steps");
   });
 
   it("before the maintenance week, calls the burn and leaves the base alone", async () => {
-    // Nothing logged after Oct 25, so every later week holds at 2,670.
+    // Nothing logged after Oct 25, so every later week holds at 2,680.
     const data = await checkInData(db(), "2026-12-14");
-    expect(data.energy).toMatchObject({ state: "holding", burn: 2670 });
-    expect(data.call).toMatchObject({ kind: "maintenance", maintenanceKcal: 2670, calories: { kcal: 2400, stepGoal: 8500 }, steps: null });
+    expect(data.energy).toMatchObject({ state: "holding", burn: 2680 });
+    expect(data.call).toMatchObject({ kind: "maintenance", maintenanceKcal: 2680, calories: { kcal: 2400, stepGoal: 8000 }, steps: null });
     await completeCheckIn(db(), "2026-12-14", { waist: null, choice: "steps", rest: [] }, new Date("2026-12-20T23:30:00Z"));
-    expect(JSON.parse((await row("2026-12-14")).outcome)).toEqual({ kind: "maintenance", newKcal: 2400, newStepGoal: 8500, pick: "calories", guardrail: null });
-    expect((await targetsFor(db(), "2026-12-23")).kcal).toBe(2670);
-    expect(await targetsFor(db(), "2026-12-28")).toEqual({ kcal: 2400, proteinG: 180, stepGoal: 8500 });
+    expect(JSON.parse((await row("2026-12-14")).outcome)).toEqual({ kind: "maintenance", newKcal: 2400, newStepGoal: 8000, pick: "calories", guardrail: null });
+    expect((await targetsFor(db(), "2026-12-23")).kcal).toBe(2680);
+    expect(await targetsFor(db(), "2026-12-28")).toEqual({ kcal: 2400, proteinG: 180, stepGoal: 8000 });
   });
 });
 ```
@@ -1633,6 +1761,7 @@ export async function checkInData(db: Db, monday: ISODate): Promise<CheckInData>
     trendWeight: series.get(sunday) ?? 0,
     currentKcal: base.kcal,
     stepGoal: rampedStepGoal,
+    baseStepGoal: base.stepGoal,
     changes: [thisChange, weeklyTrendChange(series, addDays(sunday, -7))],
     maintenanceNext: weekType(plan, addDays(monday, 7)) === "maintenance",
     halfPortionKcal: HALF_PORTION_KCAL,
@@ -1881,7 +2010,7 @@ import { factorFor } from "~/content/scaled";
   // The grams start from this week's target as eaten and end at what the pick brings on Monday.
   const slugs = week.map((p) => p.slug);
   const nowFactor = factorFor(d.thisWeekKcal);
-  const facts = { call: d.call, energy: d.energy, lastBurn: d.lastBurn, kcal: d.kcal, proteinG: d.proteinG, weekNumber: d.weekNumber };
+  const facts = { call: d.call, energy: d.energy, lastBurn: d.lastBurn, kcal: d.kcal, stepGoal: d.stepGoal, proteinG: d.proteinG, weekNumber: d.weekNumber };
   const view = callView(facts, choice, changedFoods(scaleChanges(slugs, nowFactor, factorFor(d.call.calories.kcal))));
   const changes = scaleChanges(slugs, nowFactor, factorFor(view.kcal));
 ```
@@ -1918,7 +2047,7 @@ git commit -m "The check-in's call comes from the engine: the 4A block, the pick
 
 ---
 
-### Task 8: decideAdjustment and the 7-day average go
+### Task 9: decideAdjustment and the 7-day average go
 
 **Files:**
 - Delete: `app/domain/adjustments.ts`, `tests/unit/domain/adjustments.test.ts`, `app/domain/weight.ts`, `tests/unit/domain/weight.test.ts`
@@ -1954,7 +2083,7 @@ git commit -m "decideAdjustment and the 7-day average go; the engine makes the c
 
 ---
 
-### Task 9: Look at the block against mock 4A
+### Task 10: Look at the block against mock 4A
 
 - [ ] **Step 1: Sign in locally** with a temporary password, as N2's Task 11 did. Save the hash, swap it, and put it back in Step 6:
 
@@ -1968,10 +2097,11 @@ npx wrangler d1 execute rocky-core --local --command "update users set password_
 
 ```bash
 SEED=$(mktemp -t n3-look).sql
-for d in {0..20}; do
-  day=$(date -j -v+${d}d -f %Y-%m-%d 2026-10-05 +%Y-%m-%d)
+for d in {0..21}; do
+  day=$(date -j -v+${d}d -f %Y-%m-%d 2026-10-04 +%Y-%m-%d)
   w=$(printf '%.1f' $(( 206 - 0.07 * d )))
   echo "insert or ignore into weigh_ins (date, weight_lb, logged_at) values ('$day', $w, 'n3-look');" >> $SEED
+  [[ $day == 2026-10-04 ]] && continue
   for pair in breakfast:500 lunch:600 snack:250 dinner:600 dessert:450; do
     slot=${pair%%:*}; kcal=${pair##*:}
     [[ $day == 2026-10-24 && $slot == dessert ]] && continue
@@ -2006,7 +2136,7 @@ npx wrangler d1 execute rocky-core --local --command "update users set password_
 
 ---
 
-### Task 10: Full suite and the PR
+### Task 11: Full suite and the PR
 
 - [ ] **Step 1: Run the whole suite once.**
 
@@ -2027,6 +2157,7 @@ Project 3, rollout step N3 (`docs/superpowers/specs/2026-10-27-nutrition-design.
 - The check-in's call block comes from the engine (option 4A): the number, why-lines written by rules, the settling or holding note, "Your pick" with Rocky's pick first, and "On your scale from Monday".
 - Finish check-in saves the pick, Monday's targets and step goal, and the check-in's burn, burn state, intake average and tracked days. `outcome` is `{ kind, newKcal, newStepGoal, pick, guardrail }`.
 - A maintenance week eats the latest check-in's burn, on the server and the phone alike.
+- Two N1 rules corrected to the spec: the burn reads the trend from the day before its 21-day window, over 21 days (the spec's worked example now holds: observed 2,567, burn 2,680), and the walking pick offers this week's step goal plus 1,000, not 1,000 on top of the ramp.
 - `nextTarget` gains the "no surplus" guardrail.
 - `decideAdjustment`, `app/domain/adjustments.ts` and the 7-day average are gone. "Days on plan" stays as a display.
 
@@ -2034,7 +2165,7 @@ No migrations. The `check_ins` columns landed in N1.
 
 The calls made and the copy the spec didn't give: see the top of the plan.
 
-Screenshots: <attach Task 9's>
+Screenshots: <attach Task 10's>
 
 🤖 Generated with [Claude Code](https://claude.com/claude-code)
 MD
@@ -2046,7 +2177,7 @@ Cloudflare does not build branches, so the PR has no build check. If the build s
 
 ---
 
-### Task 11: Verify on the wire
+### Task 12: Verify on the wire
 
 - [ ] **Step 1: The build landed.** After the merge, confirm the Workers Builds check on the merge commit is green. It can sit "queued"; a normal build takes about a minute.
 

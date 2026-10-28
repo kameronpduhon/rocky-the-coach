@@ -153,38 +153,60 @@ export interface ScaleChange {
   food: string;
   /** "Rice", "Potato", "Honey". */
   name: string;
-  /** The meals that use it at this weight, at most three named. */
+  /** The meals that use it, at most three named. */
   meals: string;
   from: number;
   to: number;
 }
 
-/** Flex foods whose grams move between two factors, one row per food and recipe weight, with the meals in `slugs` that use it. */
-export function scaleChanges(slugs: string[], fromFactor: number, toFactor: number): ScaleChange[] {
-  const rows = new Map<string, { food: string; grams: number; meals: string[] }>();
+export interface ScaleList {
+  /** One row per portion food that moves. */
+  rows: ScaleChange[];
+  /** The other flex foods that move, in one line: "Butter, cheddar and olive oil trim a little too." */
+  alsoTrim: string | null;
+}
+
+/** The carbs a cut takes portions from. The other flex foods are fats and only trim a little. */
+const PORTION_FOODS = new Set(["white-rice-cooked", "potato-russet-raw", "sweet-potato-raw", "honey"]);
+
+const capital = (s: string) => s[0].toUpperCase() + s.slice(1);
+
+/** Flex foods whose grams move between two factors, each at its most common recipe weight in the meals in `slugs`. */
+export function scaleChanges(slugs: string[], fromFactor: number, toFactor: number): ScaleList {
+  const uses = new Map<string, { meals: string[]; weights: number[] }>();
   for (const slug of new Set(slugs)) {
     const meal = meals.get(slug);
     if (!meal) continue;
     for (const i of meal.ingredients) {
       if (foods.get(i.food)?.role !== "flex") continue;
-      const key = `${i.food}:${i.grams}`;
-      const row = rows.get(key) ?? { food: i.food, grams: i.grams, meals: [] };
-      if (!row.meals.includes(meal.name)) row.meals.push(meal.name);
-      rows.set(key, row);
+      const use = uses.get(i.food) ?? { meals: [], weights: [] };
+      if (!use.meals.includes(meal.name)) {
+        use.meals.push(meal.name);
+        use.weights.push(i.grams);
+      }
+      uses.set(i.food, use);
     }
   }
-  return [...rows.values()]
-    .map((r) => ({ ...r, from: scaleIngredient(r.grams, "flex", fromFactor), to: scaleIngredient(r.grams, "flex", toFactor) }))
+  const moved = [...uses]
+    .map(([food, { meals: used, weights }]) => {
+      const count = (g: number) => weights.filter((w) => w === g).length;
+      const grams = weights.reduce((best, g) => (count(g) > count(best) || (count(g) === count(best) && g > best) ? g : best));
+      return { food, name: flexName(food), meals: used, from: scaleIngredient(grams, "flex", fromFactor), to: scaleIngredient(grams, "flex", toFactor) };
+    })
     .filter((r) => r.from !== r.to)
-    .sort((a, b) => b.meals.length - a.meals.length || Math.abs(b.to - b.from) - Math.abs(a.to - a.from) || a.food.localeCompare(b.food))
+    .sort((a, b) => b.meals.length - a.meals.length || a.name.localeCompare(b.name));
+  const rows = moved
+    .filter((r) => PORTION_FOODS.has(r.food))
     .map((r) => {
-      const name = flexName(r.food);
       const named = r.meals.length > 3 ? `${r.meals.slice(0, 3).join(", ")} and ${r.meals.length - 3} more` : r.meals.join(", ");
-      return { food: r.food, name: name[0].toUpperCase() + name.slice(1), meals: named, from: r.from, to: r.to };
+      return { food: r.food, name: capital(r.name), meals: named, from: r.from, to: r.to };
     });
+  const fats = moved.filter((r) => !PORTION_FOODS.has(r.food)).map((r) => r.name);
+  const alsoTrim = fats.length ? `${capital(list(fats))} ${fats.length === 1 ? "trims" : "trim"} a little too.` : null;
+  return { rows, alsoTrim };
 }
 
-/** The flex foods in a scale list, in its order: "rice", "honey", "butter". */
-export function changedFoods(changes: ScaleChange[]): string[] {
-  return [...new Set(changes.map((c) => flexName(c.food)))];
+/** The portion foods in a scale list, in its order: "rice", "honey", "potato". */
+export function changedFoods(changes: ScaleList): string[] {
+  return changes.rows.map((c) => flexName(c.food));
 }

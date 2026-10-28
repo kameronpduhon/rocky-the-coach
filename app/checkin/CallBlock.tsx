@@ -1,8 +1,8 @@
 import { SectionHead } from "~/ui/SectionHead";
-import type { CallPick, CallView, ScaleChange } from "./call";
+import type { CallPick, CallView, ScaleList } from "./call";
 
 /** The check-in's call (option 4A): the number, why, the pick, and what moves on the scale. Project 4's ritual reuses it. */
-export function CallBlock({ view, choice, onChoice, changes }: { view: CallView; choice: CallPick; onChoice: (pick: CallPick) => void; changes: ScaleChange[] }) {
+export function CallBlock({ view, choice, onChoice, changes }: { view: CallView; choice: CallPick; onChoice: (pick: CallPick) => void; changes: ScaleList }) {
   return (
     <section aria-labelledby="call" className="flex flex-col gap-6 text-ink">
       <div className="flex flex-col gap-2">
@@ -68,11 +68,11 @@ export function CallBlock({ view, choice, onChoice, changes }: { view: CallView;
         </fieldset>
       )}
 
-      {changes.length > 0 && (
+      {(changes.rows.length > 0 || changes.alsoTrim) && (
         <div className="flex flex-col">
           <h3 className="mb-1 text-[18px] font-bold">On your scale from Monday</h3>
           <ul className="flex flex-col border-t-2 border-ink">
-            {changes.map((c) => (
+            {changes.rows.map((c) => (
               <li key={`${c.food}-${c.from}`} className="flex min-h-[52px] items-center justify-between gap-2.5 border-b border-rule py-1.5">
                 <span className="flex min-w-0 flex-col">
                   <span className="text-[16px] font-semibold">{c.name}</span>
@@ -85,7 +85,10 @@ export function CallBlock({ view, choice, onChoice, changes }: { view: CallView;
               </li>
             ))}
           </ul>
-          <p className="mt-2.5 text-[15px] text-ink-3">Chicken, steak, fish and eggs never shrink.</p>
+          <div className="mt-2.5 flex flex-col gap-1 text-[15px] text-ink-3">
+            {changes.alsoTrim && <p>{changes.alsoTrim}</p>}
+            <p>Chicken, steak, fish and eggs never shrink.</p>
+          </div>
         </div>
       )}
     </section>

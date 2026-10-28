@@ -17,7 +17,7 @@ function facts(week: Partial<EnergyWeek> = {}, inp: Partial<CallInput> = {}, ove
   return { call: nextTarget(input), energy, lastBurn: 2800, kcal: input.currentKcal, stepGoal: input.baseStepGoal, proteinG: 180, weekNumber: 3, ...over };
 }
 
-const FOODS = ["rice", "honey", "butter", "potato"];
+const FOODS = ["rice", "honey", "potato"];
 const PICK = `${COACH_NAME}'s pick.`;
 const CANT = `so ${COACH_NAME} can't read your burn yet.`;
 
@@ -37,7 +37,7 @@ describe("callView: an updating week", () => {
       ],
       note: "Burn estimate is still settling. Steady by week 6.",
       options: [
-        { value: "calories", title: "Trim 100 cal a day", sub: `${PICK} Smaller portions of rice, honey and butter.` },
+        { value: "calories", title: "Trim 100 cal a day", sub: `${PICK} Smaller portions of rice, honey and potato.` },
         { value: "steps", title: "Keep 2,400, walk 1,000 more", sub: "Steps go to 8,000 a day instead." },
       ],
     });
@@ -144,7 +144,7 @@ describe("callView: guardrails", () => {
     expect(view.why.slice(2)).toEqual(["About 1 lb a week would mean 1,900.", "Rice and potato are at half portions, so the rest comes from steps."]);
     expect(view.options).toEqual([
       { value: "steps", title: "Keep 2,100, walk 1,000 more", sub: `${PICK} Steps go to 9,500 a day instead.` },
-      { value: "calories", title: "Trim 50 cal a day", sub: "Smaller portions of rice, honey and butter." },
+      { value: "calories", title: "Trim 50 cal a day", sub: "Smaller portions of rice, honey and potato." },
     ]);
   });
 
@@ -206,31 +206,57 @@ describe("callView: holding and maintenance", () => {
 describe("scaleChanges", () => {
   const week = ["chicken-and-rice-bowl", "honey-glazed-chicken-thighs", "garlic-butter-shrimp-and-rice", "steak-and-baked-potato", "banana-protein-pancakes", "protein-shake", "chicken-and-rice-bowl"];
 
-  it("lists each flex food and recipe weight that moves, most-used first, with the meals that use it", () => {
-    // factorFor(2300) is 0.867: rice 200 to 175, honey 15 to 13, butter 10 to 9 and 15 to 13, potato 300 to 260.
+  it("lists one row per portion food, most-used first, and folds the fats into one line", () => {
+    // factorFor(2300) is 0.867: rice 200 to 175 in three meals, honey 15 to 13 in two, potato 300 to 260 in one.
+    // Butter is in three meals, at 10 g in two of them: 10 to 9.
     const changes = scaleChanges(week, 1, factorFor(2300));
-    expect(changes).toEqual([
-      { food: "white-rice-cooked", name: "Rice", meals: "Chicken and rice bowl, Honey-glazed chicken thighs, Garlic butter shrimp and rice", from: 200, to: 175 },
-      { food: "honey", name: "Honey", meals: "Honey-glazed chicken thighs, Banana protein pancakes", from: 15, to: 13 },
-      { food: "butter", name: "Butter", meals: "Chicken and rice bowl, Steak and baked potato", from: 10, to: 9 },
-      { food: "potato-russet-raw", name: "Potato", meals: "Steak and baked potato", from: 300, to: 260 },
-      { food: "butter", name: "Butter", meals: "Garlic butter shrimp and rice", from: 15, to: 13 },
-    ]);
-    expect(changedFoods(changes)).toEqual(["rice", "honey", "butter", "potato"]);
+    expect(changes).toEqual({
+      rows: [
+        { food: "white-rice-cooked", name: "Rice", meals: "Chicken and rice bowl, Honey-glazed chicken thighs, Garlic butter shrimp and rice", from: 200, to: 175 },
+        { food: "honey", name: "Honey", meals: "Honey-glazed chicken thighs, Banana protein pancakes", from: 15, to: 13 },
+        { food: "potato-russet-raw", name: "Potato", meals: "Steak and baked potato", from: 300, to: 260 },
+      ],
+      alsoTrim: "Butter trims a little too.",
+    });
+    expect(changedFoods(changes)).toEqual(["rice", "honey", "potato"]);
+  });
+
+  it("shows a food at its most common weight, the larger on a tie, and names three meals then how many more", () => {
+    const mixed = ["chicken-fajita-bowl", "salmon-and-rice", "shrimp-stir-fry", "steak-and-egg-rice-bowl", "chicken-and-rice-bowl", "steak-and-baked-potato", "egg-and-potato-hash"];
+    // Rice is 150 g in three of its five meals: 150 to 130. Potato is 300 g once and 200 g once: 300 to 260.
+    // Butter (10, 10, 5), avocado 50, cheddar 30 and sesame oil 10 all move.
+    expect(scaleChanges(mixed, 1, factorFor(2300))).toEqual({
+      rows: [
+        { food: "white-rice-cooked", name: "Rice", meals: "Chicken fajita bowl, Salmon and rice, Shrimp stir-fry and 2 more", from: 150, to: 130 },
+        { food: "potato-russet-raw", name: "Potato", meals: "Steak and baked potato, Loaded egg and potato hash", from: 300, to: 260 },
+      ],
+      alsoTrim: "Butter, avocado, cheddar and sesame oil trim a little too.",
+    });
+  });
+
+  it("leaves out a food whose grams hold at its most common weight", () => {
+    // At 0.96 honey 10 stays 10 in all four desserts, and butter 10 stays 10 (its 15 g in the shrimp would move, but 10 is more common).
+    const desserts = ["baked-cinnamon-apple", "banana-nice-cream", "greek-yogurt-and-berries", "greek-yogurt-honey-berries"];
+    expect(scaleChanges([...desserts, "chicken-and-rice-bowl", "garlic-butter-shrimp-and-rice", "steak-and-baked-potato"], 1, 0.96)).toEqual({
+      rows: [
+        { food: "white-rice-cooked", name: "Rice", meals: "Chicken and rice bowl, Garlic butter shrimp and rice", from: 200, to: 190 },
+        { food: "potato-russet-raw", name: "Potato", meals: "Steak and baked potato", from: 300, to: 290 },
+      ],
+      alsoTrim: null,
+    });
   });
 
   it("is empty when the target holds, and grows the grams for a maintenance week", () => {
-    expect(scaleChanges(week, factorFor(2300), factorFor(2300))).toEqual([]);
+    expect(scaleChanges(week, factorFor(2300), factorFor(2300))).toEqual({ rows: [], alsoTrim: null });
     // factorFor(2680) is 1.374: rice 200 to 275, butter 10 to 14.
-    expect(scaleChanges(["chicken-and-rice-bowl"], 1, factorFor(2680)).map((c) => [c.name, c.from, c.to])).toEqual([
-      ["Rice", 200, 275],
-      ["Butter", 10, 14],
-    ]);
+    const up = scaleChanges(["chicken-and-rice-bowl"], 1, factorFor(2680));
+    expect(up.rows.map((c) => [c.name, c.from, c.to])).toEqual([["Rice", 200, 275]]);
+    expect(up.alsoTrim).toBe("Butter trims a little too.");
   });
 
   it("names three meals, then how many more", () => {
     const desserts = ["baked-cinnamon-apple", "banana-nice-cream", "greek-yogurt-and-berries", "greek-yogurt-honey-berries"];
-    expect(scaleChanges(desserts, 1, factorFor(2300))).toEqual([
+    expect(scaleChanges(desserts, 1, factorFor(2300)).rows).toEqual([
       { food: "honey", name: "Honey", meals: 'Baked cinnamon apple, Banana "nice cream", Greek yogurt and berries and 1 more', from: 10, to: 9 },
     ]);
   });

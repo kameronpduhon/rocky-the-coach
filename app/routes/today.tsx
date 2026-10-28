@@ -1,11 +1,14 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import { Link, useNavigate, useSearchParams } from "react-router";
+import { useAi } from "~/ai/use-ai";
 import { COACH_NAME, pageTitle } from "~/brand";
 import { Icon } from "~/components/ui";
 import { plan } from "~/content";
 import { useNow } from "~/lib/use-now";
 import { useMe } from "~/me";
 import { useMutate, useStoreVersion, useSyncClient, useSyncStatus } from "~/sync/react";
+import { TellLine } from "~/tell/TellLine";
+import { TellSheet } from "~/tell/TellSheet";
 import type { CloseOutModel } from "~/today/closeout";
 import { CloseOutSheet } from "~/today/CloseOutSheet";
 import { buildToday, mealHeadline, scaleList, SLOT_LABEL, type NoPlanToday, type PlanToday, type SlotModel, type TrainingModel } from "~/today/model";
@@ -135,6 +138,8 @@ function firstOpenOn(date: string): boolean {
 function TodayWithPlan({ m }: { m: PlanToday }) {
   const [offPlanOpen, setOffPlanOpen] = useState(false);
   const [closing, setClosing] = useState<CloseOutModel | null>(null);
+  const ai = useAi();
+  const [telling, setTelling] = useState(false);
   const [params, setParams] = useSearchParams();
   // Checks that were already there when the screen opened do not animate. Nothing moves on load.
   const eatenAtOpen = useRef<Set<string> | null>(null);
@@ -174,7 +179,12 @@ function TodayWithPlan({ m }: { m: PlanToday }) {
         )}
       </div>
 
-      <RockyCard label={m.voice === "plain" ? COACH_NAME : `${COACH_NAME}, in your corner`}>{m.message}</RockyCard>
+      <RockyCard
+        label={m.voice === "plain" ? COACH_NAME : `${COACH_NAME}, in your corner`}
+        action={ai.on && ai.available === true ? <TellLine onTap={() => setTelling(true)} /> : undefined}
+      >
+        {m.message}
+      </RockyCard>
 
       <Fuel m={m} eatenAtOpen={eatenAtOpen.current} onAteElse={() => setOffPlanOpen(true)} onCloseOut={() => setClosing(m.closeOut.today)} />
 
@@ -191,6 +201,7 @@ function TodayWithPlan({ m }: { m: PlanToday }) {
 
       {offPlanOpen && <OffPlanSheet date={m.date} usuals={m.usuals} onClose={() => setOffPlanOpen(false)} />}
       {closing && <CloseOutSheet key={closing.date} day={closing} onClose={() => setClosing(null)} />}
+      {telling && <TellSheet onClose={() => setTelling(false)} />}
     </Page>
   );
 }

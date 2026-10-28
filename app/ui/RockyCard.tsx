@@ -14,12 +14,15 @@ export function RockyCard({
   rows,
   prose,
   placeholder,
+  action,
 }: {
   label: string;
   children?: ReactNode;
   rows?: { label: string; text: string }[];
   prose?: string;
   placeholder?: boolean;
+  /** A row under the body, after a hairline rule: Today's "Tell Rocky something". */
+  action?: ReactNode;
 }) {
   return (
     <section aria-label={COACH_NAME} aria-busy={placeholder || undefined} className="flex flex-col gap-2 rounded-[6px] bg-ink px-[18px] pb-5 pt-[18px] text-paper">
@@ -44,6 +47,7 @@ export function RockyCard({
       ) : (
         <p className="text-[19px] font-medium leading-[1.4]">{children}</p>
       )}
+      {action && <div className="mt-1 border-t border-paper/20 pt-1">{action}</div>}
     </section>
   );
 }
